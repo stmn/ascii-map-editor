@@ -1,0 +1,19 @@
+{
+  "name": "ascii-map-editor",
+  "author": "stmn",
+  "license": "MIT",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^2.9.9"
+  },
+  "dependencies": {
+    "alpinejs": "^3.11.1",
+    "kaboom": "^3000.0.0-beta.2",
+    "lodash": "^4.17.21"
+  }
+}

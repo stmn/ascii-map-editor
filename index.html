@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>ASCII Map Editor</title>
+    <meta name="description" content="ASCII Map Editor for tile-based games."/>
+    <meta name="keywords" content="ascii map, map editor, tile-based, dungeon generator, maze generator"/>
+    <style>
+        body {
+            background: #665A4F;
+            font-family: "Press Start 2P", monospace;
+            font-size: 13px;
+            cursor: url('/assets/cursor.png'), default;
+            overflow: hidden;
+            user-select: none;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        button, label, input[type="checkbox"], a {
+            cursor: url('/assets/cursor-click.png') 14 0, pointer !important;
+        }
+
+        canvas {
+            cursor: url('/assets/cursor.png'), default !important;
+        }
+    </style>
+    <link href="//fonts.googleapis.com/css?family=Press+Start+2P" rel="stylesheet">
+    <script src="js/tailwind-3.2.6.js"></script>
+    <script src="js/axios.min.js"></script>
+    <script defer type="module" src="/src/main.js"></script>
+</head>
+<body draggable="false" x-data="{}">
+<canvas id="app"></canvas>
+<div class="absolute top-1/2 right-0"
+     style="width: 280px; margin-top: -245px;"
+     x-html="(await window.axios.get('menu.html')).data"></div>
+</body>
+</html>
