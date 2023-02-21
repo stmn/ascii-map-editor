@@ -17,14 +17,11 @@ This is a simple ASCII map editor useful especially for tile-based games.
 - Dungeons generator,
 - Importing and exporting,
 - 3 map formats:
-  - array-array
-  
+  - array-array  
     `[[" ","a"," "],["b"," ","c"],[" ","d"," "]]`
-  - array-text
-  
+  - array-text  
     `[" a ","b c"," d "]`
-  - text
-  
+  - text  
     ` a
     b c
     d`
@@ -37,7 +34,7 @@ This is a simple ASCII map editor useful especially for tile-based games.
 
 ## Technicals
 
-Underhood project uses: Vite, Tailwind, AlpineJS, and KaboomJS
+Under the hood project uses: Vite, Tailwind, AlpineJS, and KaboomJS
 
 - Dev: `npm run dev`
 - Build: `npm run build`
