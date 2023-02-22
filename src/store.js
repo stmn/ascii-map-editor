@@ -146,7 +146,7 @@ Alpine.store('map', {
     toClipboard() {
         try {
             const el = document.createElement('textarea');
-            el.value = store().mapString;
+            el.value = store().mapToString(false);
             document.body.appendChild(el);
             el.select();
             document.execCommand('copy');
