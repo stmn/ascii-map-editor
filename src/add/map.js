@@ -53,13 +53,14 @@ export default function addMap() {
                         const charX = charY[x];
                         if (charX && charX !== empty) {
                             const color = store().getColor(charX)
+                            const isDouble = charX.length > 1;
                             k.drawText({
                                 text: charX,
-                                size: tileSize / 1.2,
+                                size: isDouble ? tileSize / 1.7 : tileSize / 1.2,
                                 width: tileSize,
                                 height: tileSize,
-                                pos: k.vec2((x * tileSize) + 5, (y * tileSize) + 3),
-                                color: k.rgb(color[0], color[1], color[2]),
+                                pos: k.vec2((x * tileSize) + (isDouble ? 2 : 5), (y * tileSize) + (isDouble ? 8 : 3)),
+                                color: isDouble ? k.rgb(255,255,255) : k.rgb(color[0], color[1], color[2]),
                             })
                         }
                     }

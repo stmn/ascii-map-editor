@@ -1,9 +1,9 @@
 import Alpine from "alpinejs";
 import k from "./kaboom";
 import MazeBuilder from "./vendor/MazeGenerator";
-import {NewDungeon} from "./vendor/DungeonGenerator";
-import {debounce} from "lodash";
-import {stringKilobytes} from "./helpers";
+import { NewDungeon } from "./vendor/DungeonGenerator";
+import { debounce } from "lodash";
+import { stringKilobytes } from "./helpers";
 
 export default function store(name = 'map', data) {
     return Alpine.store(name, data)
@@ -115,7 +115,7 @@ Alpine.store('map', {
                 if (row && row.length > width) width = row.length;
                 height++;
             });
-            return {width, height};
+            return { width, height };
         }
 
         if (typeof map !== 'object') {
@@ -128,7 +128,7 @@ Alpine.store('map', {
         }
 
         if (fixMapSize) {
-            const {width, height} = detectMapSize(store().map);
+            const { width, height } = detectMapSize(store().map);
             store().width = width;
             store().height = height;
 
@@ -162,13 +162,30 @@ Alpine.store('map', {
      * @returns {string}
      */
     mapToString(returnMessage = true) {
-        const {width, height, format, map, empty} = store()
+        const { width, height, format, map, empty } = store()
 
-        if (returnMessage && width * height > 50000) {
-            return 'Map has been hidden due to its size but you can still export it. Current format is ' + format + '.';
+        let hasMultiChar = false;
+        if (format !== 'array-array') {
+            for (let y = 0; y < height; y++) {
+                if (map[y]) {
+                    for (let x = 0; x < width; x++) {
+                        if (map[y][x] && map[y][x].length > 1) {
+                            hasMultiChar = true;
+                            break;
+                        }
+                    }
+                }
+                if (hasMultiChar) break;
+            }
         }
 
-        if (format === 'array-array') {
+        const effectiveFormat = hasMultiChar ? 'array-array' : format;
+
+        if (returnMessage && width * height > 50000) {
+            return 'Map has been hidden due to its size but you can still export it. Current format is ' + effectiveFormat + '.';
+        }
+
+        if (effectiveFormat === 'array-array') {
             // return JSON.stringify(map);
             let _map = [];
             for (let y = 0; y < height; y++) {
@@ -179,7 +196,7 @@ Alpine.store('map', {
                 _map.push(row);
             }
             return JSON.stringify(_map);
-        } else if (format === 'array-text') {
+        } else if (effectiveFormat === 'array-text') {
             let _map = [];
             for (let y = 0; y < height; y++) {
                 let row = '';
@@ -271,7 +288,7 @@ Alpine.store('map', {
 
     generateDungeon() {
         try {
-            const {width, height, character, extra, empty} = store();
+            const { width, height, character, extra, empty } = store();
             let map = [];
             const dungeon = NewDungeon({
                 width: width,
@@ -302,7 +319,7 @@ Alpine.store('map', {
 
     generateMaze() {
         try {
-            const {width, height, character, empty} = store();
+            const { width, height, character, empty } = store();
             let map = [];
             let Maze = new MazeBuilder(width, height);
             let maze = Maze.maze;

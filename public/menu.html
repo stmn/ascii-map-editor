@@ -22,9 +22,8 @@
     <div class="mt-2">
         <span>Character:</span>
         <input type="text"
-               @keydown="(e) => e.key.length===1 ? character = e.key : ''"
                placeholder="Type character"
-               maxlength="1"
+               maxlength="2"
                x-model="character"
                class="w-full border-2 border-black rounded p-1 mt-2">
     </div>
