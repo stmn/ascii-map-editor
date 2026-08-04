@@ -15,7 +15,18 @@ export function serializeProject(grid: Grid, legend: LegendEntry[]): string {
 
 // tolerancyjny odczyt: v2 + znane warianty v1/obce
 export function parseProject(json: string): { grid: Grid; legend: LegendEntry[] } {
-  const data: unknown = JSON.parse(json);
+  let data: unknown;
+
+  try {
+    data = JSON.parse(json);
+  } catch {
+    // format tekstowy v1: surowy tekst z liniami oddzielonymi newline
+    if (json.trim().length === 0) {
+      throw new Error('Unrecognized map format');
+    }
+    const lines = json.split('\n').map((line) => line.replace(/\r$/, ''));
+    return { grid: Grid.fromLines(lines, 0, 0), legend: [] };
+  }
 
   const fromLines = (lines: string[], ox = 0, oy = 0) => ({
     grid: Grid.fromLines(lines, ox, oy),
@@ -25,6 +36,13 @@ export function parseProject(json: string): { grid: Grid; legend: LegendEntry[] 
   if (Array.isArray(data) && data.every((l) => typeof l === 'string')) {
     return fromLines(data as string[]);
   }
+
+  // format array-array v1: tablica tablic znakow
+  if (Array.isArray(data) && data.every((row) => Array.isArray(row) && (row as unknown[]).every((cell) => typeof cell === 'string'))) {
+    const lines = (data as string[][]).map((row) => row.map((cell) => (cell || ' ')[0]).join(''));
+    return fromLines(lines);
+  }
+
   if (typeof data === 'object' && data !== null) {
     const o = data as Record<string, unknown>;
     if (Array.isArray(o.lines)) {

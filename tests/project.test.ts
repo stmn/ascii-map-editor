@@ -27,4 +27,45 @@ describe('project', () => {
   it('odrzuca smieci', () => {
     expect(() => parseProject('{"foo": 1}')).toThrow('Unrecognized map format');
   });
+
+  it('importuje array-array format (v1)', () => {
+    const back = parseProject(JSON.stringify([['#', '#'], ['#', '.']]));
+    expect(back.grid.toLines()).toEqual(['##', '#.']);
+    expect(back.legend).toEqual([]);
+  });
+
+  it('importuje array-array z wieloznakowych celek (first-char mapping)', () => {
+    const back = parseProject(JSON.stringify([['XX', ' '], ['.', '#']]));
+    expect(back.grid.toLines()).toEqual(['X', '.#']);
+  });
+
+  it('importuje surowy tekst (v1 text format)', () => {
+    const back = parseProject('###\n#.#');
+    expect(back.grid.toLines()).toEqual(['###', '#.#']);
+    expect(back.legend).toEqual([]);
+  });
+
+  it('odrzuca pusty tekst', () => {
+    expect(() => parseProject('')).toThrow('Unrecognized map format');
+  });
+
+  it('importuje {map:[...]}', () => {
+    const back = parseProject(JSON.stringify({ map: ['##', '..'] }));
+    expect(back.grid.toLines()).toEqual(['##', '..']);
+  });
+
+  it('importuje {data:[...]}', () => {
+    const back = parseProject(JSON.stringify({ data: ['#.', '.#'] }));
+    expect(back.grid.toLines()).toEqual(['#.', '.#']);
+  });
+
+  it('importuje {rows:[...]}', () => {
+    const back = parseProject(JSON.stringify({ rows: ['##', '#.'] }));
+    expect(back.grid.toLines()).toEqual(['##', '#.']);
+  });
+
+  it('importuje {tiles:"..\n.."}', () => {
+    const back = parseProject(JSON.stringify({ tiles: '..\n..' }));
+    expect(back.grid.toLines()).toEqual(['..', '..']);
+  });
 });
