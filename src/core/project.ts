@@ -1,6 +1,7 @@
 import { Grid } from './grid';
+import type { LegendEntry } from './legend';
 
-export interface LegendEntry { ch: string; name: string; color: string }
+export type { LegendEntry };
 
 export function serializeProject(grid: Grid, legend: LegendEntry[]): string {
   const b = grid.bounds();
