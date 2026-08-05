@@ -34,14 +34,14 @@ export class Grid {
     return { minX, minY, maxX, maxY };
   }
 
-  toLines(): string[] {
-    const b = this.bounds();
+  toLines(bounds?: Bounds): string[] {
+    const b = bounds ?? this.bounds();
     if (!b) return [];
     const lines: string[] = [];
     for (let y = b.minY; y <= b.maxY; y++) {
       let line = '';
       for (let x = b.minX; x <= b.maxX; x++) line += this.get(x, y) ?? ' ';
-      lines.push(line.replace(/ +$/, ''));
+      lines.push(bounds ? line : line.replace(/ +$/, ''));
     }
     return lines;
   }

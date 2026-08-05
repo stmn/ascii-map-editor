@@ -24,4 +24,9 @@ describe('Grid', () => {
     expect(g.toLines()).toEqual(['###', '# #', '###']);
     expect(g.usedChars()).toEqual(['#']);
   });
+
+  it('toLines z jawnym bounds: dokladny prostokat bez trimu', () => {
+    const g = Grid.fromLines(['#']);
+    expect(g.toLines({ minX: 0, minY: 0, maxX: 2, maxY: 1 })).toEqual(['#  ', '   ']);
+  });
 });
