@@ -3,7 +3,7 @@ import { replaceCommand, snapshotLevel } from '../../core/commands';
 import { activeLayerOf, bumpContent } from '../../core/editorState';
 import { levelUsedChars } from '../../core/level';
 import { generateDungeon, generateMaze } from '../../core/generators';
-import { button, el, labeled } from '../dom';
+import { button, el, labeledStack } from '../dom';
 import { confirmModal } from '../modal';
 import { PanelsCtx, applyLevelToPanels, playPop, scheduleSave, toast } from './context';
 
@@ -60,12 +60,16 @@ export function initGenerate(ctx: PanelsCtx, generateBox: HTMLElement): void {
     ));
   }
 
-  const sizes = el('div', 'field-row');
-  sizes.append(labeled('W', widthInput), labeled('H', heightInput));
+  // W i H stackowane pionowo (etykieta nad inputem, pelna szerokosc karty) zamiast rzedu obok siebie
+  const sizes = el('div', 'field-col');
+  sizes.append(labeledStack('W', widthInput), labeledStack('H', heightInput));
   const genButtons = el('div', 'btn-row');
   genButtons.append(
     button('Maze', '', () => void generate('maze')),
     button('Dungeon', '', () => void generate('dungeon')),
   );
-  generateBox.append(sizes, genButtons, el('p', 'hint', 'Generating replaces the active layer.'));
+  generateBox.append(
+    sizes, genButtons,
+    el('p', 'hint hint-small hint-gap', 'Generating replaces the active layer.'),
+  );
 }

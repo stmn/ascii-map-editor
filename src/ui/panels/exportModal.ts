@@ -73,10 +73,12 @@ export function initExportModal(ctx: PanelsCtx, exportBox: HTMLElement): void {
     ))),
   );
 
-  // Legacy (v1): ten sam zestaw formatow co pole SWITCH FORMAT w pierwszym edytorze.
+  // Legacy (v1): Array of strings / Array of arrays. Format Text pokrywa sie z Copy TXT wyzej,
+  // wiec zostal usuniety z tego selecta (exportLegacy nadal go wspiera - Task 5, karta Map
+  // w Simplified, zachowuje wszystkie trzy formaty). Pierwsza opcja = default = array-text.
   const legacySelect = el('select', 'scope-select');
   for (const [value, label] of [
-    ['text', 'Text'], ['array-text', 'Array of strings'], ['array-array', 'Array of arrays'],
+    ['array-text', 'Array of strings'], ['array-array', 'Array of arrays'],
   ] as const) {
     const option = el('option', undefined, label);
     option.value = value;

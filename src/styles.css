@@ -59,12 +59,18 @@ textarea {
 }
 
 /* Sam sidebar jest przezroczystym stosem - "papierem" sa dopiero pojedyncze karty sekcji.
-   pointer-events: none sprawia, ze przerwy miedzy kartami nie lapia klikniec z mapy.
-   Kolumny sa dwie (prawa domyslnie pelna, lewa pusta) i roznia sie tylko krawedzia okna. */
+   pointer-events: none sprawia, ze przerwy miedzy kartami (i pusta przestrzen pod ostatnia
+   karta) nie lapia klikniec z mapy. Kolumny sa dwie (prawa domyslnie pelna, lewa pusta)
+   i roznia sie tylko krawedzia okna.
+   top+bottom (zamiast centrowania w pionie): kontener zawsze zajmuje cala wysokosc okna
+   (12px marginesu gora/dol), niezaleznie od liczby kart - karty startuja od gory (domyslny
+   justify-content: flex-start), a pusta przestrzen pod ostatnia karta zostaje CZESCIA
+   kontenera, wiec drag-active (nizej) moze na niej zlapac dragover/drop tez wtedy, gdy kart
+   jest malo. */
 .sidebar {
   position: fixed;
-  top: 50%;
-  transform: translateY(-50%);
+  top: 12px;
+  bottom: 12px;
   /* content-box: 8px odstepu od scrollbara doklada sie obok kart, a nie ich kosztem
      (przy overlay scrollbarze karty maja pelne 300px, przy klasycznym pasek zabiera swoje
      - tak jak przed dodaniem odstepu - ale juz nie dotyka ramek) */
@@ -73,7 +79,6 @@ textarea {
   flex-direction: column;
   gap: 12px;
   width: 300px;
-  max-height: calc(100vh - 24px);
   overflow-y: auto;
   /* stale miejsce na scrollbar + 8px odstepu, zeby nigdy nie dotykal ramek kart.
      Padding gora/dol to zapas na wskaznik wstawienia przy skrajnych pozycjach. */
@@ -137,9 +142,9 @@ textarea {
   pointer-events: auto;
 }
 
-/* Pusta kolumna jest widoczna dopiero w trakcie przeciagania - jako kreskowana strefa. */
+/* Pusta kolumna jest widoczna dopiero w trakcie przeciagania - jako kreskowana strefa.
+   Bez min-height: kontener juz ma pelna wysokosc okna dzieki top+bottom na .sidebar. */
 .sidebar.drag-active.is-empty {
-  min-height: 140px;
   outline: 2px dashed #000000;
   outline-offset: -2px;
 }
@@ -250,15 +255,26 @@ button:disabled:active {
   gap: 6px;
 }
 
-.field,
-.field-row {
+.field {
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
-.field-row {
-  gap: 12px;
+/* Wariant field: etykieta NAD kontrolka zamiast obok (np. W/H w Generate) - kontrolka
+   dostaje pelna szerokosc karty, patrz .size-input. Kolejnosc reguly (po .field) rozstrzyga
+   remis specyficznosci na korzysc stacka. */
+.field-stack {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+
+/* Kolumna pol pod soba (kazde na pelnej szerokosci) - przeciwienstwo .btn-row. */
+.field-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .hint {
@@ -266,6 +282,17 @@ button:disabled:active {
   font-size: 11px;
   line-height: 1.7;
   color: #565a75;
+}
+
+/* Mniejsza podpowiedz (Draw, Generate) - 9-10px zamiast standardowych 11px. */
+.hint-small {
+  font-size: 9px;
+}
+
+/* .hint ustawia margin:0 (przez shorthand) i wygrywa remis z .section-body > * + *, bo stoi
+   nizej w pliku - Generate potrzebuje jawnego odstepu nad podpowiedzia, wiec dogrywamy go tu. */
+.hint-gap {
+  margin-top: 8px;
 }
 
 /* Sekcja pomocnicza jak w v1 - szare pudelko na podpowiedzi. */
@@ -324,8 +351,9 @@ button:disabled:active {
   text-align: center;
 }
 
+/* Pelna szerokosc karty - W i H sa stackowane pionowo (.field-stack), nie obok siebie. */
 .size-input {
-  width: 64px;
+  width: 100%;
 }
 
 /* Bialy przycisk drugorzednej akcji - ten sam wyglad co Cancel w modalach. */
@@ -546,10 +574,23 @@ input[type='color'] {
   border-radius: 4px;
 }
 
+/* Owijka swatcha koloru: licznik siedzi NA kolorze (position absolute wzgledem tej owijki). */
+.legend-swatch {
+  position: relative;
+  flex: none;
+}
+
+/* Licznik uzyc wprost na kaflu koloru, wycentrowany. pointer-events: none, zeby klik dalej
+   trafial w input pod spodem i otwieral color picker. Kolor tekstu (biel/czern) ustawia
+   legend.ts wg isDarkColor(dom.ts) - jasny swatch dostaje czarny tekst, ciemny bialy. */
 .legend-count {
-  min-width: 30px;
-  text-align: right;
-  color: #565a75;
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  pointer-events: none;
 }
 
 /* Import: ukryty file input pod zielonym przyciskiem-etykieta. */

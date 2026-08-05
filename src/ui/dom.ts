@@ -46,3 +46,23 @@ export function labeled(text: string, control: HTMLElement): HTMLLabelElement {
   l.append(el('span', undefined, text), control);
   return l;
 }
+
+/** Wariant labeled: etykieta NAD kontrolka (stack pionowy, kontrolka na pelnej szerokosci) - pola W/H w Generate. */
+export function labeledStack(text: string, control: HTMLElement): HTMLLabelElement {
+  const l = labeled(text, control);
+  l.classList.add('field-stack');
+  return l;
+}
+
+/**
+ * Ciemny kolor tla wg WCAG relative luminance (prog 0.5) -> tekst na nim powinien byc bialy,
+ * jasny kolor -> czarny. Uzywane przez legend.ts do koloru licznika uzyc na swatchu koloru.
+ */
+export function isDarkColor(hex: string): boolean {
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+  const channel = (c: number): number => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+  const luminance = 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+  return luminance < 0.5;
+}

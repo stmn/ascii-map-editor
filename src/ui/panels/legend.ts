@@ -3,7 +3,7 @@ import { legendEditCommand, remapCommand } from '../../core/commands';
 import { bumpContent } from '../../core/editorState';
 import type { LegendEntry } from '../../core/legend';
 import { remapChar } from '../../core/remap';
-import { button, el, iconButton } from '../dom';
+import { button, el, iconButton, isDarkColor } from '../dom';
 import { icon } from '../icons';
 import { promptModal } from '../modal';
 import { PanelsCtx, errorMessage, playPop, scheduleSave, toast } from './context';
@@ -96,11 +96,18 @@ export function initLegend(ctx: PanelsCtx, legendBox: HTMLElement): LegendPanel 
       color.type = 'color';
       color.value = entry.color;
       color.setAttribute('aria-label', `Color of ${entry.ch}`);
+
+      // licznik siedzi NA swatchu (wrapper .legend-swatch, position:relative) - pointer-events:none
+      // na spanie, wiec klik i tak trafia w input i otwiera color picker
+      const count = el('span', 'legend-count', String(counts.get(entry.ch) ?? 0));
+      count.style.color = isDarkColor(entry.color) ? '#ffffff' : '#000000';
+
       // kolor czyta renderer prosto z legendy przy rysowaniu - splaszczenie warstw sie nie zmienia,
       // wiec wystarczy markDirty bez bumpContent
       color.addEventListener('input', () => {
         state.level.legend.upsert(entry.ch, { color: color.value });
         charBtn.style.color = color.value;
+        count.style.color = isDarkColor(color.value) ? '#ffffff' : '#000000';
         ctx.markDirty();
         scheduleSave();
       });
@@ -112,7 +119,10 @@ export function initLegend(ctx: PanelsCtx, legendBox: HTMLElement): LegendPanel 
         colorBefore = color.value;
       });
 
-      row.append(charBtn, editBtn, name, color, el('span', 'legend-count', String(counts.get(entry.ch) ?? 0)));
+      const swatch = el('div', 'legend-swatch');
+      swatch.append(color, count);
+
+      row.append(charBtn, editBtn, name, swatch);
       legendBox.append(row);
     }
   }
