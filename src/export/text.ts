@@ -1,11 +1,11 @@
-import { Grid } from '../core/grid';
+import { Bounds, Grid } from '../core/grid';
 
-export function exportTxt(grid: Grid): string {
-  return grid.toLines().map((l) => l + '\n').join('');
+export function exportTxt(grid: Grid, bounds?: Bounds): string {
+  return grid.toLines(bounds).map((l) => l.replace(/ +$/, '') + '\n').join('');
 }
 
-export function exportCsv(grid: Grid): string {
-  const b = grid.bounds();
+export function exportCsv(grid: Grid, bounds?: Bounds): string {
+  const b = bounds ?? grid.bounds();
   if (!b) return '';
   const rows: string[] = [];
   for (let y = b.minY; y <= b.maxY; y++) {
