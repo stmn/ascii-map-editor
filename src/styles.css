@@ -179,6 +179,15 @@ button.success:active {
   background: #15803d;
 }
 
+/* Wylaczony przycisk - szary i bez kursora "klikalnego" (regula po wariantach, zeby wygrywala). */
+button:disabled,
+button:disabled:hover,
+button:disabled:active {
+  color: #e5e7eb;
+  background: #9ca3af;
+  cursor: url('./assets/cursor.png'), default;
+}
+
 /* Uklady przyciskow: rzad (rowne szerokosci) i kolumna (pelna szerokosc). */
 .btn-row {
   display: flex;
@@ -255,6 +264,87 @@ button.success:active {
 
 .size-input {
   width: 64px;
+}
+
+/* Layers: wiersz per warstwa, gora listy = wierzch stosu. */
+.layer-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  box-sizing: border-box;
+  background: #ffffff;
+  border: 2px solid #000000;
+  border-radius: 4px;
+  padding: 4px;
+}
+
+.section-body > .layer-row + .layer-row {
+  margin-top: 6px;
+}
+
+.layer-row.active {
+  color: #ffffff;
+  background: #3b82f6;
+}
+
+.layer-name {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 4px;
+}
+
+.layer-btn {
+  flex: none;
+  width: 24px;
+  padding: 5px 0;
+  text-align: center;
+  color: #1a1c2c;
+  background: #ffffff;
+}
+
+.layer-btn:hover {
+  background: #e5e7eb;
+}
+
+.layer-btn:active {
+  background: #d1d5db;
+}
+
+.layer-btn:disabled,
+.layer-btn:disabled:hover {
+  color: #9ca3af;
+  background: #e5e7eb;
+}
+
+/* Ukryta warstwa: przekreslone i wyszarzone "oko". */
+.layer-eye.off {
+  color: #9ca3af;
+  background: #e5e7eb;
+  text-decoration: line-through;
+}
+
+.layer-del {
+  color: #ffffff;
+  background: #ef4444;
+}
+
+.layer-del:hover {
+  background: #dc2626;
+}
+
+.layer-del:active {
+  background: #b91c1c;
+}
+
+.layer-del:disabled,
+.layer-del:disabled:hover {
+  color: #9ca3af;
+  background: #e5e7eb;
+}
+
+.scope-select {
+  flex: 1;
+  min-width: 0;
 }
 
 /* Legend: znak, nazwa, kolor, licznik uzyc. */
@@ -343,6 +433,12 @@ input[type='color'] {
 
 .toast.error {
   background: #ef4444;
+}
+
+/* Wariant neutralny - ostrzezenia, ktore nie sa bledem (np. przyciecie liczby warstw). */
+.toast.info {
+  color: #1a1c2c;
+  background: #e5e7eb;
 }
 
 .toast.hidden {

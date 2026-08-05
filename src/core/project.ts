@@ -27,7 +27,7 @@ function levelOf(layers: Layer[], legend: LegendEntry[]): Level {
 }
 
 function single(grid: Grid, legend: LegendEntry[] = []): Level {
-  return levelOf([{ ...makeLayer('main'), grid }], legend);
+  return levelOf([makeLayer('main', grid)], legend);
 }
 
 // tolerancyjny odczyt: v3 + v2 + znane warianty v1/obce

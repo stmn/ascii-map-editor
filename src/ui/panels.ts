@@ -1,9 +1,9 @@
 // Panele boczne: brush, legenda, generatory, eksport i import.
 // Modul celowo NIE importuje app.ts - stan i callbacki dostaje przez initPanels(ctx),
 // dzieki czemu nie powstaje cykl importow (app.ts -> panels.ts, nigdy odwrotnie).
-import { Grid } from '../core/grid';
+import { Bounds, Grid } from '../core/grid';
 import { Legend } from '../core/legend';
-import { Layer, Level, flattenLayers, levelUsedChars, makeLayer } from '../core/level';
+import { Layer, Level, MAX_LAYERS, flattenLayers, levelUsedChars, makeLayer, unionBounds } from '../core/level';
 import { parseProject, serializeProject } from '../core/project';
 import { generateDungeon, generateMaze } from '../core/generators';
 import { exportCsv, exportTxt } from '../export/text';
@@ -41,9 +41,14 @@ export interface PanelsState {
   brush: string;
 }
 
-/** Warstwa wskazana przez activeLayer - jedyne miejsce indeksujace level.layers. */
+/**
+ * Warstwa wskazana przez activeLayer - jedyne miejsce indeksujace level.layers.
+ * Clamp jest siatka bezpieczenstwa: usuniecie warstwy albo import krotszego poziomu
+ * nie moze zostawic wiszacego indeksu i wywrocic malowania.
+ */
 function activeLayerOf(state: PanelsState): Layer {
-  return state.level.layers[state.activeLayer]!;
+  const { layers } = state.level;
+  return layers[Math.min(state.activeLayer, layers.length - 1)] ?? layers[0]!;
 }
 
 /** Siatka aktywnej warstwy - tu trafia malowanie i stad czytaja panele. */
@@ -104,13 +109,13 @@ let toastEl: HTMLDivElement | null = null;
 let toastTimer = 0;
 
 /** Pigulka na dole ekranu; jedna na raz, znika po 3 s. */
-export function toast(message: string, kind: 'ok' | 'error' = 'ok'): void {
+export function toast(message: string, kind: 'ok' | 'error' | 'info' = 'ok'): void {
   if (!toastEl) {
     toastEl = el('div', 'toast');
     document.body.append(toastEl);
   }
   toastEl.textContent = message;
-  toastEl.className = kind === 'error' ? 'toast error' : 'toast';
+  toastEl.className = kind === 'ok' ? 'toast' : `toast ${kind}`;
   window.clearTimeout(toastTimer);
   toastTimer = window.setTimeout(() => toastEl?.classList.add('hidden'), TOAST_MS);
 }
@@ -166,6 +171,7 @@ function countCells(grid: Grid): number {
 export function initPanels(ctx: PanelsContext): Panels {
   const { state } = ctx;
   const drawBox = requireEl('panel-draw');
+  const layersBox = requireEl('panel-layers');
   const legendBox = requireEl('panel-legend');
   const generateBox = requireEl('panel-generate');
   const exportBox = requireEl('panel-export');
@@ -249,11 +255,12 @@ export function initPanels(ctx: PanelsContext): Panels {
     setBrush(e.key);
   });
 
-  /** Czysci mape, ale zostawia legende - nazwy i kolory znakow przezywaja, liczniki spadaja do zera. */
-  function clearMap(): void {
-    if (activeGrid(state).isEmpty()) return;
-    if (!window.confirm('Clear the whole map?')) return;
-    activeGrid(state).clear();
+  /** Czysci aktywna warstwe, ale zostawia legende - nazwy i kolory znakow przezywaja. */
+  function clearLayer(): void {
+    const layer = activeLayerOf(state);
+    if (layer.grid.isEmpty()) return;
+    if (!window.confirm(`Clear layer "${layer.name}"?`)) return;
+    layer.grid.clear();
     ctx.markDirty();
     renderLegend();
     scheduleSave();
@@ -261,7 +268,7 @@ export function initPanels(ctx: PanelsContext): Panels {
   }
 
   const clearRow = el('div', 'btn-row');
-  clearRow.append(button('Clear', 'danger', clearMap));
+  clearRow.append(button('Clear layer', 'danger', clearLayer));
 
   drawBox.append(
     chips,
@@ -270,10 +277,134 @@ export function initPanels(ctx: PanelsContext): Panels {
     el('p', 'hint help-box', 'Press any character key to switch the brush. Alt or Ctrl + drag erases.'),
   );
 
+  // --- Layers ---
+  /** Wspolny epilog operacji na warstwach: przerysowanie canvasu, karty i autozapis. */
+  function afterLayerChange(): void {
+    ctx.markDirty();
+    renderLayers();
+    scheduleSave();
+  }
+
+  function setActiveLayer(index: number): void {
+    if (state.activeLayer === index) return;
+    state.activeLayer = index;
+    // aktywna warstwa to stan sesji - nie ma czego zapisywac, wystarczy odswiezyc karte
+    ctx.markDirty();
+    renderLayers();
+  }
+
+  function addLayer(): void {
+    const { layers } = state.level;
+    if (layers.length >= MAX_LAYERS) return;
+    // nowa warstwa laduje NAD aktywna, czyli o jeden dalej w tablicy
+    const index = Math.min(state.activeLayer, layers.length - 1) + 1;
+    layers.splice(index, 0, makeLayer(`layer ${layers.length + 1}`));
+    state.activeLayer = index;
+    afterLayerChange();
+    playPop();
+  }
+
+  function removeLayer(index: number): void {
+    const { layers } = state.level;
+    if (layers.length <= 1) return; // ostatniej warstwy nie usuwamy
+    const layer = layers[index]!;
+    if (!layer.grid.isEmpty() && !window.confirm(`Delete layer "${layer.name}"?`)) return;
+    layers.splice(index, 1);
+    // aktywna zostaje ta sama warstwa; gdy zniknela - schodzimy na sasiada
+    if (state.activeLayer === index) state.activeLayer = Math.min(index, layers.length - 1);
+    else if (state.activeLayer > index) state.activeLayer -= 1;
+    afterLayerChange();
+    renderLegend(); // znikniete komorki zmieniaja liczniki uzyc
+    playPop();
+  }
+
+  /** dir = +1 przesuwa warstwe w gore listy (dalej w tablicy = blizej wierzchu). */
+  function moveLayer(index: number, dir: 1 | -1): void {
+    const { layers } = state.level;
+    const target = index + dir;
+    if (target < 0 || target >= layers.length) return;
+    const moved = layers[index]!;
+    layers[index] = layers[target]!;
+    layers[target] = moved;
+    if (state.activeLayer === index) state.activeLayer = target;
+    else if (state.activeLayer === target) state.activeLayer = index;
+    afterLayerChange();
+  }
+
+  function layerButton(label: string, title: string, onClick: () => void): HTMLButtonElement {
+    const b = button(label, 'layer-btn', onClick);
+    b.title = title;
+    b.setAttribute('aria-label', title);
+    return b;
+  }
+
+  function layerRow(layer: Layer, index: number): HTMLElement {
+    const { layers } = state.level;
+    const row = el('div', index === state.activeLayer ? 'layer-row active' : 'layer-row');
+
+    const eye = layerButton(
+      layer.visible ? 'o' : '-',
+      layer.visible ? `Hide layer "${layer.name}"` : `Show layer "${layer.name}"`,
+      () => { layer.visible = !layer.visible; afterLayerChange(); },
+    );
+    eye.classList.add('layer-eye');
+    if (!layer.visible) eye.classList.add('off');
+
+    const name = el('input', 'layer-name');
+    name.type = 'text';
+    name.value = layer.name;
+    name.setAttribute('aria-label', `Name of layer ${index + 1}`);
+    // bez re-renderu karty - podmiana DOM w trakcie pisania zabralaby fokus
+    name.addEventListener('input', () => { layer.name = name.value; scheduleSave(); });
+
+    const up = layerButton('^', `Move layer "${layer.name}" up`, () => moveLayer(index, 1));
+    up.disabled = index === layers.length - 1;
+    const down = layerButton('v', `Move layer "${layer.name}" down`, () => moveLayer(index, -1));
+    down.disabled = index === 0;
+
+    const del = layerButton('X', `Delete layer "${layer.name}"`, () => removeLayer(index));
+    del.classList.add('layer-del');
+    del.disabled = layers.length <= 1;
+
+    // klik w tlo wiersza aktywuje warstwe; klikniecia w kontrolki zostawiamy im
+    row.addEventListener('click', (e) => {
+      if ((e.target as HTMLElement).closest('button, input')) return;
+      setActiveLayer(index);
+    });
+
+    row.append(eye, name, up, down, del);
+    return row;
+  }
+
+  // Karte przebudowujemy tylko przy jawnych operacjach na warstwach (nie przy pisaniu w nazwie),
+  // wiec podmiana DOM nigdy nie wpada uzytkownikowi w srodek edycji.
+  function renderLayers(): void {
+    const { layers } = state.level;
+    // ten sam clamp co w activeLayerOf - podswietlony wiersz zawsze pokazuje warstwe, na ktora trafia pedzel
+    state.activeLayer = Math.min(state.activeLayer, layers.length - 1);
+    layersBox.replaceChildren();
+    // gora listy = wierzch stosu, czyli koniec tablicy (jak w Tiled)
+    for (let i = layers.length - 1; i >= 0; i--) layersBox.append(layerRow(layers[i]!, i));
+    const add = button('Add layer', '', addLayer);
+    add.disabled = layers.length >= MAX_LAYERS;
+    add.title = add.disabled ? `Limit is ${MAX_LAYERS} layers` : 'Add a layer above the active one';
+    layersBox.append(add);
+  }
+
+  /** Import moze przyniesc wiecej warstw niz obslugujemy - zostawiamy najnizsze MAX_LAYERS. */
+  function trimLayers(): boolean {
+    if (state.level.layers.length <= MAX_LAYERS) return false;
+    state.level.layers = state.level.layers.slice(0, MAX_LAYERS);
+    return true;
+  }
+
   // --- Legend ---
   function usageCounts(): Map<string, number> {
     const counts = new Map<string, number>();
-    for (const { ch } of activeGrid(state).cells()) counts.set(ch, (counts.get(ch) ?? 0) + 1);
+    // liczniki sumujemy po wszystkich warstwach, takze ukrytych
+    for (const layer of state.level.layers) {
+      for (const { ch } of layer.grid.cells()) counts.set(ch, (counts.get(ch) ?? 0) + 1);
+    }
     return counts;
   }
 
@@ -342,11 +473,12 @@ export function initPanels(ctx: PanelsContext): Panels {
   }
 
   function generate(kind: 'maze' | 'dungeon'): void {
-    if (!activeGrid(state).isEmpty() && !window.confirm('Replace the current map?')) return;
+    const layer = activeLayerOf(state);
+    if (!layer.grid.isEmpty() && !window.confirm(`Replace layer "${layer.name}"?`)) return;
     const w = readSize(widthInput, DEFAULT_W);
     const h = readSize(heightInput, DEFAULT_H);
-    // na razie generator podmienia siatke aktywnej warstwy - wybor zakresu przyjdzie z panelem warstw
-    activeLayerOf(state).grid = kind === 'maze' ? generateMaze(w, h) : generateDungeon(w, h);
+    // generator podmienia siatke tylko aktywnej warstwy - reszta stosu zostaje nietknieta
+    layer.grid = kind === 'maze' ? generateMaze(w, h) : generateDungeon(w, h);
     state.level.legend.syncWith(levelUsedChars(state.level));
     ctx.centerOnPaper();
     ctx.markDirty();
@@ -363,13 +495,31 @@ export function initPanels(ctx: PanelsContext): Panels {
     button('Maze', '', () => generate('maze')),
     button('Dungeon', '', () => generate('dungeon')),
   );
-  generateBox.append(sizes, genButtons, el('p', 'hint', 'Generating replaces the current map.'));
+  generateBox.append(sizes, genButtons, el('p', 'hint', 'Generating replaces the active layer.'));
 
   // --- Export ---
+  const scopeSelect = el('select', 'scope-select');
+  for (const [value, label] of [['active', 'Active layer'], ['flat', 'Flattened']] as const) {
+    const option = el('option', undefined, label);
+    option.value = value;
+    scopeSelect.append(option);
+  }
+  scopeSelect.setAttribute('aria-label', 'Export scope');
+
+  /** Siatka wybrana przez dropdown Scope - tylko dla TXT/CSV, reszta eksportow bierze caly level. */
+  function scopeGrid(): Grid {
+    return scopeSelect.value === 'flat' ? flattenLayers(state.level.layers) : activeGrid(state);
+  }
+
+  /** Wspolne obrysowanie wszystkich warstw - dzieki temu pliki z roznych warstw sa wyrownane. */
+  function scopeBounds(): Bounds | undefined {
+    return unionBounds(state.level.layers) ?? undefined;
+  }
+
   const exportButtons = el('div', 'btn-col');
   exportButtons.append(
-    button('Copy TXT', '', () => void copyToClipboard(exportTxt(activeGrid(state)))),
-    button('Copy CSV', '', () => void copyToClipboard(exportCsv(activeGrid(state)))),
+    button('Copy TXT', '', () => void copyToClipboard(exportTxt(scopeGrid(), scopeBounds()))),
+    button('Copy CSV', '', () => void copyToClipboard(exportCsv(scopeGrid(), scopeBounds()))),
     button('Copy KaPlay', '', () => void copyToClipboard(exportKaplay(state.level))),
     button('Copy Godot', '', () => void copyToClipboard(exportGodot(state.level))),
     button('Download .tmx', '', () => download(exportTmx(state.level), 'map.tmx', 'application/xml')),
@@ -378,7 +528,11 @@ export function initPanels(ctx: PanelsContext): Panels {
       serializeProject(state.level), 'project.json', 'application/json',
     )),
   );
-  exportBox.append(exportButtons, el('p', 'hint', '.json keeps map and legend for later import.'));
+  exportBox.append(
+    labeled('Scope', scopeSelect),
+    exportButtons,
+    el('p', 'hint', 'Scope applies to TXT and CSV. .json keeps every layer and the legend for later import.'),
+  );
 
   async function downloadXp(): Promise<void> {
     try {
@@ -408,20 +562,26 @@ export function initPanels(ctx: PanelsContext): Panels {
       if (file.name.toLowerCase().endsWith('.xp')) {
         const { layers, colors } = await importXp(new Uint8Array(await file.arrayBuffer()));
         // .xp niesie same warstwy i kolory - legende budujemy od zera
-        state.level = { layers: layers.map((l) => ({ ...makeLayer(l.name), grid: l.grid })), legend: new Legend() };
+        state.level = { layers: layers.map((l) => makeLayer(l.name, l.grid)), legend: new Legend() };
         state.activeLayer = 0;
         for (const [ch, hex] of colors) state.level.legend.upsert(ch, { color: hex });
       } else {
         state.level = parseProject(await file.text());
         state.activeLayer = 0;
       }
+      const trimmed = trimLayers();
       state.level.legend.syncWith(levelUsedChars(state.level));
       ctx.centerOnPaper();
       ctx.markDirty();
+      renderLayers();
       renderLegend();
       scheduleSave();
       playPop();
-      toast(`Imported ${countCells(flattenLayers(state.level.layers))} cells`);
+      let cells = 0;
+      for (const layer of state.level.layers) cells += countCells(layer.grid);
+      toast(`Imported ${cells} cells`);
+      // ostrzezenie pokazujemy jako ostatnie, zeby nie zniklo pod toastem o imporcie
+      if (trimmed) toast(`Trimmed to ${MAX_LAYERS} layers`, 'info');
     } catch (e) {
       toast(errorMessage(e), 'error');
     }
@@ -439,6 +599,7 @@ export function initPanels(ctx: PanelsContext): Panels {
   }
 
   renderChips();
+  renderLayers();
   renderLegend();
 
   return { onMutate };
