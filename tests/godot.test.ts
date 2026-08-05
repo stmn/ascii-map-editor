@@ -46,4 +46,14 @@ describe('godot export', () => {
     expect(out).toContain('"dup (3)":');
     expect(out.match(/"dup \(2\)":/g)).toHaveLength(1);
   });
+
+  it('niekolidujaca literalna nazwa z sufiksem wychodzi bez zmian', () => {
+    const lv = createLevel();
+    lv.layers[0]!.name = 'x (2)';
+    lv.layers[0]!.grid = Grid.fromLines(['#']);
+    lv.legend.syncWith(['#']);
+    const out = exportGodot(lv);
+    expect(out).toContain('"x (2)":');
+    expect(out).not.toContain('"x":');
+  });
 });

@@ -2,15 +2,17 @@ import { Level, assertExportableBounds, unionBounds } from '../core/level';
 
 // Godot 4 odrzuca zduplikowane klucze slownika - powtorzone nazwy warstw dostaja
 // przyrostek " (2)", " (3)" itd., zeby wygenerowany plik dalej byl poprawny.
-// Dedupe po EMITOWANYM kluczu: nazwa bazowa (bez ewentualnego literalnego sufiksu
-// " (N)") grupuje kolizje pod wspolnym licznikiem, ktory bumpuje az do unikalnosci -
-// wiec ['dup','dup','dup (2)'] -> ['dup','dup (2)','dup (3)'], a nie 'dup (2) (2)'.
+// Dedupe po EMITOWANYM kluczu: sufiks bumpujemy TYLKO przy kolizji (nie-kolidujaca
+// literalna nazwa np. "x (2)" wychodzi bez zmian). Przy kolizji baza (bez ewentualnego
+// literalnego sufiksu " (N)") grupuje ja pod wspolnym licznikiem, ktory bumpuje az do
+// unikalnosci - wiec ['dup','dup','dup (2)'] -> ['dup','dup (2)','dup (3)'], a nie 'dup (2) (2)'.
 function dedupeKeys(names: string[]): string[] {
   const used = new Set<string>();
   return names.map((name) => {
+    if (!used.has(name)) { used.add(name); return name; }
     const base = name.replace(/ \(\d+\)$/, '');
-    let key = base;
-    for (let n = 2; used.has(key); n++) key = `${base} (${n})`;
+    let n = 2, key = `${base} (${n})`;
+    while (used.has(key)) { n++; key = `${base} (${n})`; }
     used.add(key);
     return key;
   });
