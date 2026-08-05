@@ -62,4 +62,12 @@ describe('rexpaint xp', () => {
     v3.setInt32(8, 0, true); v3.setInt32(12, -5, true); // zerowa szerokosc, ujemna wysokosc
     expect(() => parseXpBytes(dims)).toThrow('Not a valid .xp file');
   });
+
+  it('rzuca czytelny blad przy absurdalnych bounds', () => {
+    const lv = createLevel();
+    lv.layers[0]!.grid.set(0, 0, '#');
+    lv.layers[0]!.grid.set(999999, 999999, '#');
+    lv.legend.syncWith(['#']);
+    expect(() => buildXpBytes(lv)).toThrow('Map bounds too large to export');
+  });
 });

@@ -45,3 +45,13 @@ export function levelUsedChars(level: Level): string[] {
   for (const l of level.layers) for (const ch of l.grid.usedChars()) set.add(ch);
   return [...set].sort();
 }
+
+// gorny limit rozmiaru eksportu - chroni przed zawieszeniem karty przy pomylkowo
+// gigantycznych bounds (np. postawiona komorka na x=999999)
+export const MAX_EXPORT_CELLS = 4_000_000;
+
+export function assertExportableBounds(b: Bounds | null): void {
+  if (!b) return;
+  const cells = (b.maxX - b.minX + 1) * (b.maxY - b.minY + 1);
+  if (cells > MAX_EXPORT_CELLS) throw new Error('Map bounds too large to export');
+}

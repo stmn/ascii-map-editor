@@ -1,11 +1,13 @@
 // Formaty eksportu z ASCII Map Editor v1: text / array-text / array-array
 // (uzywane w modalu Export w sekcji Legacy; parseProject czyta wszystkie trzy)
 import { Bounds, Grid } from '../core/grid';
+import { assertExportableBounds } from '../core/level';
 
 export type LegacyFormat = 'text' | 'array-text' | 'array-array';
 
 export function exportLegacy(grid: Grid, format: LegacyFormat, bounds?: Bounds): string {
   const b = bounds ?? grid.bounds();
+  assertExportableBounds(b);
   if (!b) return format === 'text' ? '' : '[]';
   // toLines z jawnym bounds nie przycina spacji - array-array potrzebuje dokladnego prostokata
   const exact = grid.toLines(b);

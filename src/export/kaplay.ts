@@ -1,9 +1,10 @@
-import { Level, unionBounds } from '../core/level';
+import { Level, assertExportableBounds, unionBounds } from '../core/level';
 
 // snippet dla KaPlay (kaplayjs.com): wspolne tiles + addLevel per widoczna warstwa;
 // linie padowane do union bounds, zeby warstwy pokrywaly sie pozycyjnie
 export function exportKaplay(level: Level): string {
   const b = unionBounds(level.layers);
+  assertExportableBounds(b);
   const tiles = level.legend.entries()
     .map((e) => `  ${JSON.stringify(e.ch)}: () => [sprite(${JSON.stringify(e.name)})],`)
     .join('\n');

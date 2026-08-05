@@ -32,4 +32,18 @@ describe('godot export', () => {
     const dupKeyOccurrences = out.split('"dup":').length - 1;
     expect(dupKeyOccurrences).toBe(1);
   });
+
+  it('dedupe kluczy dziala tez przy literalnej nazwie rownej sufiksowi', () => {
+    const lv = createLevel();
+    lv.layers[0]!.name = 'dup';
+    lv.layers[0]!.grid = Grid.fromLines(['#']);
+    lv.layers.push(makeLayer('dup', Grid.fromLines(['#'])));
+    lv.layers.push(makeLayer('dup (2)', Grid.fromLines(['#'])));
+    lv.legend.syncWith(['#']);
+    const out = exportGodot(lv);
+    expect(out).toContain('"dup":');
+    expect(out).toContain('"dup (2)":');
+    expect(out).toContain('"dup (3)":');
+    expect(out.match(/"dup \(2\)":/g)).toHaveLength(1);
+  });
 });

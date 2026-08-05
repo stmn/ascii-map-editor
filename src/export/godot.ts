@@ -1,13 +1,18 @@
-import { Level, unionBounds } from '../core/level';
+import { Level, assertExportableBounds, unionBounds } from '../core/level';
 
 // Godot 4 odrzuca zduplikowane klucze slownika - powtorzone nazwy warstw dostaja
 // przyrostek " (2)", " (3)" itd., zeby wygenerowany plik dalej byl poprawny.
+// Dedupe po EMITOWANYM kluczu: nazwa bazowa (bez ewentualnego literalnego sufiksu
+// " (N)") grupuje kolizje pod wspolnym licznikiem, ktory bumpuje az do unikalnosci -
+// wiec ['dup','dup','dup (2)'] -> ['dup','dup (2)','dup (3)'], a nie 'dup (2) (2)'.
 function dedupeKeys(names: string[]): string[] {
-  const seen = new Map<string, number>();
+  const used = new Set<string>();
   return names.map((name) => {
-    const count = (seen.get(name) ?? 0) + 1;
-    seen.set(name, count);
-    return count === 1 ? name : `${name} (${count})`;
+    const base = name.replace(/ \(\d+\)$/, '');
+    let key = base;
+    for (let n = 2; used.has(key); n++) key = `${base} (${n})`;
+    used.add(key);
+    return key;
   });
 }
 
@@ -15,6 +20,7 @@ function dedupeKeys(names: string[]): string[] {
 // wspolne TILES -> atlas coords wg kolejnosci legendy
 export function exportGodot(level: Level): string {
   const b = unionBounds(level.layers);
+  assertExportableBounds(b);
   const keys = dedupeKeys(level.layers.map((l) => l.name));
   const levels = level.layers.map((l, i) => {
     const lines = (b ? l.grid.toLines(b) : []).map((s) => `\t\t${JSON.stringify(s)},`).join('\n');

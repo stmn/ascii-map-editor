@@ -37,4 +37,13 @@ describe('Level', () => {
     lv.layers.push(makeLayer('l2', Grid.fromLines(['@'])));
     expect(levelUsedChars(lv)).toEqual(['#', '@']);
   });
+
+  it('levelUsedChars obejmuje niewidoczne warstwy', () => {
+    const lv = createLevel();
+    lv.layers[0]!.grid.set(0, 0, '#');
+    const ukryta = makeLayer('u', Grid.fromLines(['@']));
+    ukryta.visible = false;
+    lv.layers.push(ukryta);
+    expect(levelUsedChars(lv)).toEqual(['#', '@']);
+  });
 });

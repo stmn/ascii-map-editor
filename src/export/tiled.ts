@@ -1,10 +1,11 @@
-import { Level, unionBounds } from '../core/level';
+import { Level, assertExportableBounds, unionBounds } from '../core/level';
 
 const esc = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 
 export function exportTmx(level: Level, tileSize = 16): string {
   const b = unionBounds(level.layers);
+  assertExportableBounds(b);
   const w = b ? b.maxX - b.minX + 1 : 0;
   const h = b ? b.maxY - b.minY + 1 : 0;
   const entries = level.legend.entries();

@@ -4,7 +4,7 @@
 // Pusta komorka: znak 32 + bg magenta (255,0,255) = przezroczystosc.
 // Warstwa 0 = najnizsza (kolejnosc jak w REXPaint).
 import { Grid } from '../core/grid';
-import { Level, unionBounds } from '../core/level';
+import { Level, assertExportableBounds, unionBounds } from '../core/level';
 
 function hexToRgb(hex: string): [number, number, number] {
   const n = parseInt(hex.slice(1), 16);
@@ -13,6 +13,7 @@ function hexToRgb(hex: string): [number, number, number] {
 
 export function buildXpBytes(level: Level): Uint8Array {
   const b = unionBounds(level.layers);
+  assertExportableBounds(b);
   const w = b ? b.maxX - b.minX + 1 : 1;
   const h = b ? b.maxY - b.minY + 1 : 1;
   const count = Math.max(1, level.layers.length);

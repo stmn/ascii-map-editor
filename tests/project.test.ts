@@ -76,4 +76,20 @@ describe('project', () => {
     expect(() => parseProject(JSON.stringify({ lines: [1, 2] })))
       .toThrow('Unrecognized map format');
   });
+
+  it('toleruje snieciete pola warstw v3', () => {
+    const back = parseProject(JSON.stringify({
+      app: 'ascii-level-editor', version: 3, legend: [],
+      layers: [
+        { lines: ['#'], visible: 'yes', origin: ['x', null] },
+        { lines: 123 },
+        { lines: ['@'] },
+      ],
+    }));
+    expect(back.layers).toHaveLength(2);
+    expect(back.layers[0]!.name).toBe('layer 1');
+    expect(back.layers[0]!.visible).toBe(true);
+    expect(back.layers[0]!.grid.get(0, 0)).toBe('#');
+    expect(back.layers[1]!.name).toBe('layer 2');
+  });
 });
