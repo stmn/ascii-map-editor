@@ -1,21 +1,37 @@
 import { Grid } from './grid';
+import { Legend } from './legend';
 import type { LegendEntry } from './legend';
+import { Layer, Level, makeLayer } from './level';
 
 export type { LegendEntry };
 
-export function serializeProject(grid: Grid, legend: LegendEntry[]): string {
-  const b = grid.bounds();
+export function serializeProject(level: Level): string {
   return JSON.stringify({
     app: 'ascii-level-editor',
-    version: 2,
-    origin: b ? [b.minX, b.minY] : [0, 0],
-    lines: grid.toLines(),
-    legend,
+    version: 3,
+    legend: level.legend.entries(),
+    layers: level.layers.map((l) => {
+      const b = l.grid.bounds();
+      return {
+        name: l.name,
+        visible: l.visible,
+        origin: b ? [b.minX, b.minY] : [0, 0],
+        lines: l.grid.toLines(),
+      };
+    }),
   }, null, 2);
 }
 
-// tolerancyjny odczyt: v2 + znane warianty v1/obce
-export function parseProject(json: string): { grid: Grid; legend: LegendEntry[] } {
+function levelOf(layers: Layer[], legend: LegendEntry[]): Level {
+  return { layers, legend: Legend.from(legend) };
+}
+
+function single(grid: Grid, legend: LegendEntry[] = []): Level {
+  return levelOf([{ ...makeLayer('main'), grid }], legend);
+}
+
+// tolerancyjny odczyt: v3 + v2 + znane warianty v1/obce
+export function parseProject(json: string): Level {
   let data: unknown;
 
   try {
@@ -26,37 +42,48 @@ export function parseProject(json: string): { grid: Grid; legend: LegendEntry[] 
       throw new Error('Unrecognized map format');
     }
     const lines = json.split('\n').map((line) => line.replace(/\r$/, ''));
-    return { grid: Grid.fromLines(lines, 0, 0), legend: [] };
+    return single(Grid.fromLines(lines, 0, 0));
   }
 
-  const fromLines = (lines: string[], ox = 0, oy = 0) => ({
-    grid: Grid.fromLines(lines, ox, oy),
-    legend: [] as LegendEntry[],
-  });
-
   if (Array.isArray(data) && data.every((l) => typeof l === 'string')) {
-    return fromLines(data as string[]);
+    return single(Grid.fromLines(data as string[]));
   }
 
   // format array-array v1: tablica tablic znakow
   if (Array.isArray(data) && data.every((row) => Array.isArray(row) && (row as unknown[]).every((cell) => typeof cell === 'string'))) {
     const lines = (data as string[][]).map((row) => row.map((cell) => (cell || ' ')[0]).join(''));
-    return fromLines(lines);
+    return single(Grid.fromLines(lines));
   }
 
   if (typeof data === 'object' && data !== null) {
     const o = data as Record<string, unknown>;
+    const legend = Array.isArray(o.legend) ? (o.legend as LegendEntry[]) : [];
+
+    // v3: warstwy
+    if (Array.isArray(o.layers)) {
+      const layers: Layer[] = [];
+      for (const raw of o.layers as Record<string, unknown>[]) {
+        if (!Array.isArray(raw.lines)) continue;
+        const origin = Array.isArray(raw.origin) ? (raw.origin as number[]) : [0, 0];
+        const layer = makeLayer(typeof raw.name === 'string' ? raw.name : `layer ${layers.length + 1}`);
+        layer.visible = raw.visible !== false;
+        layer.grid = Grid.fromLines(raw.lines as string[], Number(origin[0]) || 0, Number(origin[1]) || 0);
+        layers.push(layer);
+      }
+      if (layers.length) return levelOf(layers, legend);
+    }
+
+    // v2: pojedyncza mapa
     if (Array.isArray(o.lines)) {
       const origin = Array.isArray(o.origin) ? (o.origin as number[]) : [0, 0];
-      const legend = Array.isArray(o.legend) ? (o.legend as LegendEntry[]) : [];
-      return { ...fromLines(o.lines as string[], origin[0], origin[1]), legend };
+      return single(Grid.fromLines(o.lines as string[], Number(origin[0]) || 0, Number(origin[1]) || 0), legend);
     }
     for (const key of ['map', 'data', 'rows']) {
       if (Array.isArray(o[key]) && (o[key] as unknown[]).every((l) => typeof l === 'string')) {
-        return fromLines(o[key] as string[]);
+        return single(Grid.fromLines(o[key] as string[]));
       }
     }
-    if (typeof o.tiles === 'string') return fromLines((o.tiles as string).split('\n'));
+    if (typeof o.tiles === 'string') return single(Grid.fromLines((o.tiles as string).split('\n')));
     if (Array.isArray(o.cells)) {
       const g = new Grid();
       for (const c of o.cells as Record<string, unknown>[]) {
@@ -65,7 +92,7 @@ export function parseProject(json: string): { grid: Grid; legend: LegendEntry[] 
           g.set(c.x, c.y, ch);
         }
       }
-      if (!g.isEmpty()) return { grid: g, legend: [] };
+      if (!g.isEmpty()) return single(g);
     }
   }
   throw new Error('Unrecognized map format');

@@ -1,71 +1,69 @@
 // tests/project.test.ts
 import { describe, expect, it } from 'vitest';
 import { Grid } from '../src/core/grid';
+import { createLevel, makeLayer } from '../src/core/level';
 import { parseProject, serializeProject } from '../src/core/project';
 
 describe('project', () => {
-  it('roundtrip v2 z legenda i originem', () => {
-    const g = Grid.fromLines(['#@'], 5, 7);
-    const json = serializeProject(g, [{ ch: '#', name: 'wall', color: '#888888' }]);
-    const back = parseProject(json);
-    expect(back.grid.get(5, 7)).toBe('#');
-    expect(back.grid.get(6, 7)).toBe('@');
-    expect(back.legend[0]!.name).toBe('wall');
+  it('roundtrip v3: warstwy, widocznosc, origin, legenda', () => {
+    const lv = createLevel();
+    lv.layers[0]!.grid.set(5, 7, '#');
+    lv.legend.upsert('#', { name: 'wall', color: '#112233' });
+    const l2 = makeLayer('deco', Grid.fromLines(['@'], 1, 1));
+    l2.visible = false;
+    lv.layers.push(l2);
+    const back = parseProject(serializeProject(lv));
+    expect(back.layers).toHaveLength(2);
+    expect(back.layers[0]!.name).toBe('main');
+    expect(back.layers[0]!.grid.get(5, 7)).toBe('#');
+    expect(back.layers[1]!.name).toBe('deco');
+    expect(back.layers[1]!.visible).toBe(false);
+    expect(back.layers[1]!.grid.get(1, 1)).toBe('@');
+    expect(back.legend.get('#')!.name).toBe('wall');
+  });
+
+  it('importuje v2 jako jedna warstwe main z legenda', () => {
+    const v2 = JSON.stringify({
+      app: 'ascii-level-editor', version: 2, origin: [5, 7], lines: ['#@'],
+      legend: [{ ch: '#', name: 'wall', color: '#888888' }],
+    });
+    const back = parseProject(v2);
+    expect(back.layers).toHaveLength(1);
+    expect(back.layers[0]!.name).toBe('main');
+    expect(back.layers[0]!.grid.get(5, 7)).toBe('#');
+    expect(back.layers[0]!.grid.get(6, 7)).toBe('@');
+    expect(back.legend.get('#')!.name).toBe('wall');
   });
 
   it('importuje gola tablice stringow (v1)', () => {
     const back = parseProject(JSON.stringify(['###', '#.#']));
-    expect(back.grid.toLines()).toEqual(['###', '#.#']);
-    expect(back.legend).toEqual([]);
+    expect(back.layers[0]!.grid.toLines()).toEqual(['###', '#.#']);
+    expect(back.legend.entries()).toEqual([]);
+  });
+
+  it('importuje array-array (v1), pierwszy znak komorki', () => {
+    const back = parseProject(JSON.stringify([['XX', ' '], ['.', '#']]));
+    expect(back.layers[0]!.grid.toLines()).toEqual(['X', '.#']);
   });
 
   it('importuje {cells:[{x,y,c}]}', () => {
     const back = parseProject(JSON.stringify({ cells: [{ x: 0, y: 0, c: '#' }] }));
-    expect(back.grid.get(0, 0)).toBe('#');
+    expect(back.layers[0]!.grid.get(0, 0)).toBe('#');
   });
 
-  it('odrzuca smieci', () => {
+  it('importuje {map}/{data}/{rows}/{tiles}', () => {
+    for (const key of ['map', 'data', 'rows']) {
+      expect(parseProject(JSON.stringify({ [key]: ['#'] })).layers[0]!.grid.get(0, 0)).toBe('#');
+    }
+    expect(parseProject(JSON.stringify({ tiles: '#\n.' })).layers[0]!.grid.get(0, 1)).toBe('.');
+  });
+
+  it('importuje surowy tekst (v1 text)', () => {
+    expect(parseProject('###\n#.#').layers[0]!.grid.toLines()).toEqual(['###', '#.#']);
+  });
+
+  it('odrzuca smieci i pusty string', () => {
     expect(() => parseProject('{"foo": 1}')).toThrow('Unrecognized map format');
-  });
-
-  it('importuje array-array format (v1)', () => {
-    const back = parseProject(JSON.stringify([['#', '#'], ['#', '.']]));
-    expect(back.grid.toLines()).toEqual(['##', '#.']);
-    expect(back.legend).toEqual([]);
-  });
-
-  it('importuje array-array z wieloznakowych celek (first-char mapping)', () => {
-    const back = parseProject(JSON.stringify([['XX', ' '], ['.', '#']]));
-    expect(back.grid.toLines()).toEqual(['X', '.#']);
-  });
-
-  it('importuje surowy tekst (v1 text format)', () => {
-    const back = parseProject('###\n#.#');
-    expect(back.grid.toLines()).toEqual(['###', '#.#']);
-    expect(back.legend).toEqual([]);
-  });
-
-  it('odrzuca pusty tekst', () => {
     expect(() => parseProject('')).toThrow('Unrecognized map format');
-  });
-
-  it('importuje {map:[...]}', () => {
-    const back = parseProject(JSON.stringify({ map: ['##', '..'] }));
-    expect(back.grid.toLines()).toEqual(['##', '..']);
-  });
-
-  it('importuje {data:[...]}', () => {
-    const back = parseProject(JSON.stringify({ data: ['#.', '.#'] }));
-    expect(back.grid.toLines()).toEqual(['#.', '.#']);
-  });
-
-  it('importuje {rows:[...]}', () => {
-    const back = parseProject(JSON.stringify({ rows: ['##', '#.'] }));
-    expect(back.grid.toLines()).toEqual(['##', '#.']);
-  });
-
-  it('importuje {tiles:"..\n.."}', () => {
-    const back = parseProject(JSON.stringify({ tiles: '..\n..' }));
-    expect(back.grid.toLines()).toEqual(['..', '..']);
   });
 });
