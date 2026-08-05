@@ -1,28 +1,35 @@
-import { Grid } from '../core/grid';
-import { Legend } from '../core/legend';
+import { Level, unionBounds } from '../core/level';
 
 const esc = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 
-export function exportTmx(grid: Grid, legend: Legend, tileSize = 16): string {
-  const b = grid.bounds();
+export function exportTmx(level: Level, tileSize = 16): string {
+  const b = unionBounds(level.layers);
   const w = b ? b.maxX - b.minX + 1 : 0;
   const h = b ? b.maxY - b.minY + 1 : 0;
-  const entries = legend.entries();
+  const entries = level.legend.entries();
   const gidOf = new Map(entries.map((e, i) => [e.ch, i + 1]));
 
-  const rows: string[] = [];
-  if (b) {
-    for (let y = b.minY; y <= b.maxY; y++) {
-      const row: number[] = [];
-      for (let x = b.minX; x <= b.maxX; x++) {
-        const ch = grid.get(x, y);
-        row.push(ch ? gidOf.get(ch) ?? 0 : 0);
+  const layerXml = level.layers.map((layer, li) => {
+    const rows: string[] = [];
+    if (b) {
+      for (let y = b.minY; y <= b.maxY; y++) {
+        const row: number[] = [];
+        for (let x = b.minX; x <= b.maxX; x++) {
+          const ch = layer.grid.get(x, y);
+          row.push(ch ? gidOf.get(ch) ?? 0 : 0);
+        }
+        rows.push(row.join(',') + ',');
       }
-      rows.push(row.join(',') + ',');
     }
-  }
-  const csv = rows.join('\n').replace(/,$/, '');
+    const csv = rows.join('\n').replace(/,$/, '');
+    const vis = layer.visible ? '' : ' visible="0"';
+    return ` <layer id="${li + 1}" name="${esc(layer.name)}" width="${w}" height="${h}"${vis}>
+  <data encoding="csv">
+${csv}
+  </data>
+ </layer>`;
+  }).join('\n');
 
   const tiles = entries.map((e, i) =>
     `  <tile id="${i}"><properties><property name="name" value="${esc(e.name)}"/>` +
@@ -35,11 +42,7 @@ export function exportTmx(grid: Grid, legend: Legend, tileSize = 16): string {
   <image source="tileset.png" width="${tileSize * Math.max(1, entries.length)}" height="${tileSize}"/>
 ${tiles}
  </tileset>
- <layer id="1" name="map" width="${w}" height="${h}">
-  <data encoding="csv">
-${csv}
-  </data>
- </layer>
+${layerXml}
 </map>
 `;
 }
