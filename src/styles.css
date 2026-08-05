@@ -719,8 +719,9 @@ input[type='color'] {
   margin: 0;
 }
 
-/* Podglad legacy i pole wklejania: bez zawijania, wlasny scroll. */
-.modal-text {
+/* Podglad legacy, pole wklejania i podglad mapy w karcie Map: bez zawijania, wlasny scroll. */
+.modal-text,
+.map-text {
   display: block;
   box-sizing: border-box;
   width: 100%;
@@ -732,9 +733,102 @@ input[type='color'] {
   resize: vertical;
 }
 
+/* Karta jest wezsza od modalu, a pod polem musza sie jeszcze zmiescic Load i Copy. */
+.map-text {
+  height: 140px;
+}
+
 .btn-full {
   display: block;
   width: 100%;
+}
+
+/* --- Tryb Simplified / Advanced ---------------------------------------------
+   Karty chowa sam CSS po data-section - zapisany uklad kolumn (DnD) zostaje nietkniety,
+   wiec powrot do Advanced przywraca dokladnie to samo rozmieszczenie. */
+
+/* Karta Map jest odwrotnoscia reszty: widoczna wylacznie w Simplified. */
+.sidebar > details[data-section='map'] {
+  display: none;
+}
+
+body.mode-simplified .sidebar > details[data-section='map'] {
+  display: block;
+}
+
+body.mode-simplified .sidebar > details[data-section='project'],
+body.mode-simplified .sidebar > details[data-section='layers'],
+body.mode-simplified .sidebar > details[data-section='export'],
+body.mode-simplified .sidebar > details[data-section='import'] {
+  display: none;
+}
+
+/* Przelacznik trybu: dwusegmentowa pigulka na srodku gornej krawedzi. z-index ponizej
+   modali (20) i toastow (40), ale powyzej kolumn kart - musi zostac klikalny, gdy waskie
+   okno wsunie pod niego krawedz sidebara. */
+.mode-switch {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: flex;
+  background: #ffffff;
+  border: 2px solid #000000;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+/* Segment: bialy jak przyciski drugorzedne, bez wlasnej ramki - pigulka ma jedna wspolna. */
+.mode-seg {
+  color: #1a1c2c;
+  background: #ffffff;
+  border: 0;
+  border-radius: 0;
+  padding: 8px 12px;
+}
+
+.mode-seg + .mode-seg {
+  border-left: 2px solid #000000;
+}
+
+.mode-seg:hover {
+  background: #e5e7eb;
+}
+
+.mode-seg.active,
+.mode-seg.active:hover {
+  color: #ffffff;
+  background: #3b82f6;
+}
+
+/* Wybor trybu przy pierwszym starcie: dwa duze przyciski, tytul nad opisem. */
+.mode-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #1a1c2c;
+  background: #ffffff;
+  padding: 12px;
+  text-align: left;
+}
+
+.mode-choice:hover {
+  background: #e5e7eb;
+}
+
+.mode-choice:active {
+  background: #d1d5db;
+}
+
+.mode-choice-title {
+  font-size: 13px;
+}
+
+.mode-choice-desc {
+  font-size: 9px;
+  line-height: 1.7;
+  color: #565a75;
 }
 
 /* Toast: pigulka na dole ekranu, znika po 3 s. */

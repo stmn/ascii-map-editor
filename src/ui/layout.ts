@@ -49,14 +49,28 @@ function findCard(id: string): HTMLElement | null {
   return allCards().find((card) => sectionId(card) === id) ?? null;
 }
 
+/**
+ * Czy karta cokolwiek zajmuje. Tryb Simplified chowa czesc kart przez display:none (CSS po
+ * data-section), a taki element ma offsetParent === null i zerowy prostokat - dla pomiaru
+ * kolumn, wskaznika wstawienia i pustej strefy liczy sie WIDOCZNY sklad, nie zapis ukladu.
+ */
+function isVisible(card: HTMLElement): boolean {
+  return card.offsetParent !== null;
+}
+
+/** Karty kolumny, ktore realnie widac - reszta modulu operuje na pelnej liscie (cardsOf). */
+function visibleCardsOf(box: HTMLElement): HTMLElement[] {
+  return cardsOf(box).filter(isVisible);
+}
+
 // --- pomiar dla centrowania mapy ----------------------------------------------
 
 /**
- * Szerokosc kolumny w pikselach; pusta kolumna daje 0, bo nie zabiera mapie miejsca
- * (jej ramka ma w layoucie stala szerokosc, ale jest przezroczysta i nie lapie klikniec).
+ * Szerokosc kolumny w pikselach; kolumna bez WIDOCZNYCH kart daje 0, bo nie zabiera mapie
+ * miejsca (jej ramka ma w layoucie stala szerokosc, ale jest przezroczysta i nie lapie klikniec).
  */
 function columnWidth(box: HTMLElement | null): number {
-  if (!box || cardsOf(box).length === 0) return 0;
+  if (!box || visibleCardsOf(box).length === 0) return 0;
   return box.getBoundingClientRect().width;
 }
 
@@ -73,6 +87,17 @@ export function sidebarWidths(): { left: number; right: number } {
 function viewOffset(): number {
   const { left, right } = sidebarWidths();
   return (right - left) / 2;
+}
+
+/**
+ * Wykonuje zmiane ukladu i zwraca o ile przesunal sie offset centrowania. Jedna sciezka dla
+ * upuszczenia karty i przelaczenia trybu (ukrycie kart tez zmienia szerokosci kolumn), zeby
+ * oba zachowywaly sie tak samo: mapa jedzie w poziomie, reczne przewiniecie w pionie zostaje.
+ */
+export function withOffsetShift(change: () => void): number {
+  const before = viewOffset();
+  change();
+  return viewOffset() - before;
 }
 
 // --- persystencja --------------------------------------------------------------
@@ -155,9 +180,13 @@ let dragged: HTMLElement | null = null;
 let dropLine: HTMLElement | null = null;
 let onLayoutChange: ((offsetShift: number) => void) | null = null;
 
-/** Pusta kolumna dostaje klase zamiast :empty - wskaznik wstawienia tez jest dzieckiem kolumny. */
+/**
+ * Pusta kolumna dostaje klase zamiast :empty - wskaznik wstawienia tez jest dzieckiem kolumny.
+ * "Pusta" znaczy bez WIDOCZNYCH kart: kolumna z samymi kartami ukrytymi przez tryb wyglada
+ * dla uzytkownika na pusta i tak samo ma sie zachowac kreskowana strefa upuszczenia.
+ */
 function syncEmpty(): void {
-  for (const box of boxes()) box.classList.toggle('is-empty', cardsOf(box).length === 0);
+  for (const box of boxes()) box.classList.toggle('is-empty', visibleCardsOf(box).length === 0);
 }
 
 function ensureLine(): HTMLElement {
@@ -172,9 +201,12 @@ function hideLine(): void {
   dropLine?.remove();
 }
 
-/** Karta, PRZED ktora wypadnie upuszczenie: pierwsza, ktorej srodek lezy ponizej kursora. */
+/**
+ * Karta, PRZED ktora wypadnie upuszczenie: pierwsza WIDOCZNA, ktorej srodek lezy ponizej kursora.
+ * Karty ukryte przez tryb nie biora udzialu - nie zajmuja miejsca, wiec nie da sie w nie celowac.
+ */
 function dropBefore(box: HTMLElement, clientY: number): HTMLElement | null {
-  for (const card of cardsOf(box)) {
+  for (const card of visibleCardsOf(box)) {
     if (card === dragged) continue;
     const r = card.getBoundingClientRect();
     if (clientY < r.top + r.height / 2) return card;
@@ -188,7 +220,9 @@ function dropBefore(box: HTMLElement, clientY: number): HTMLElement | null {
  * Kolumna bez innych kart kreski nie dostaje - komunikatem jest tam kreskowana strefa.
  */
 function showLine(box: HTMLElement, before: HTMLElement | null): void {
-  const cards = cardsOf(box).filter((card) => card !== dragged);
+  // karta ukryta przez tryb ma offsetTop/offsetHeight rowne 0 - jako punkt odniesienia
+  // wrzucilaby kreske na sam gorny brzeg kolumny, wiec bierzemy tylko widoczne
+  const cards = visibleCardsOf(box).filter((card) => card !== dragged);
   // karta odniesienia: ta przed ktora wstawiamy, albo ostatnia gdy dokladamy na koniec
   const ref = before ?? cards[cards.length - 1];
   if (!ref) {
@@ -209,6 +243,9 @@ function showLine(box: HTMLElement, before: HTMLElement | null): void {
 }
 
 function startDrag(card: HTMLElement, e: DragEvent): void {
+  // przelaczenie trybu chowa karty bez ruszania ukladu, wiec "pustka" kolumny mogla sie od
+  // ostatniego przeliczenia zmienic - kreskowana strefa liczy sie dopiero teraz i tu ja odswiezamy
+  syncEmpty();
   dragged = card;
   const dt = e.dataTransfer;
   if (dt) {
@@ -257,12 +294,12 @@ function bindBox(box: HTMLElement): void {
     if (!dragged) return;
     e.preventDefault();
     const card = dragged;
-    const before = viewOffset();
-    box.insertBefore(card, dropBefore(box, e.clientY));
-    endDrag();
-    syncEmpty();
-    saveLayout();
-    onLayoutChange?.(viewOffset() - before);
+    onLayoutChange?.(withOffsetShift(() => {
+      box.insertBefore(card, dropBefore(box, e.clientY));
+      endDrag();
+      syncEmpty();
+      saveLayout();
+    }));
   });
 }
 

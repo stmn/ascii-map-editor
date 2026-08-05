@@ -12,6 +12,12 @@
     <!-- Lewa kolumna startuje pusta - sekcje trafiaja tu dopiero po przeciagnieciu przez usera. -->
     <aside id="sidebar-left" class="sidebar"></aside>
     <aside id="sidebar" class="sidebar">
+      <!-- Karta Map istnieje zawsze, ale widac ja tylko w trybie Simplified (CSS po data-section).
+           Stoi pierwsza, zeby w tym trybie byla na gorze kolumny - tak jak mapa w wersji v1. -->
+      <details open data-section="map">
+        <summary>Map</summary>
+        <div class="section-body" id="panel-map"></div>
+      </details>
       <details open data-section="project">
         <summary>Project</summary>
         <div class="section-body" id="panel-project"></div>

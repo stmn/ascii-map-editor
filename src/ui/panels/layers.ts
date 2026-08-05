@@ -22,6 +22,8 @@ export function initLayers(ctx: PanelsCtx, layersBox: HTMLElement): LayersPanel 
     bumpContent(state);
     ctx.markDirty();
     renderLayers();
+    // sklad, kolejnosc i widocznosc warstw zmieniaja splaszczenie, czyli tresc karty Map
+    ctx.hooks.renderMap();
     scheduleSave();
   }
 

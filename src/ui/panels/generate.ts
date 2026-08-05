@@ -51,6 +51,7 @@ export function initGenerate(ctx: PanelsCtx, generateBox: HTMLElement): void {
     ctx.centerOnPaper();
     ctx.markDirty();
     ctx.hooks.renderLegend();
+    ctx.hooks.renderMap();
     scheduleSave();
     playPop();
     toast(`Generated ${kind} ${w}x${h}`);

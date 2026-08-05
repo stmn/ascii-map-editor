@@ -7,6 +7,7 @@ import {
 } from './core/store';
 import { Renderer, centerView, paperRect } from './ui/renderer';
 import { applySavedLayout, sidebarWidths } from './ui/layout';
+import { applyStoredMode } from './ui/mode';
 import { InputController } from './ui/input';
 import { strokeCommand, type CellChange } from './core/commands';
 import {
@@ -208,9 +209,11 @@ async function restoreWorkspace(): Promise<void> {
 }
 
 renderer.resize();
-// uklad kolumn PRZED pierwszym malowaniem i przed centrowaniem: zapis lezy w localStorage
-// (odczyt synchroniczny), a boot czeka na magazyn nawet kilka sekund - bez tego uzytkownik
-// z wlasnym ukladem zobaczylby najpierw uklad domyslny i skok kart
+// tryb i uklad kolumn PRZED pierwszym malowaniem i przed centrowaniem: oba zapisy leza
+// w localStorage (odczyt synchroniczny), a boot czeka na magazyn nawet kilka sekund - bez tego
+// uzytkownik zobaczylby najpierw uklad domyslny z pelnym zestawem kart i skok mapy.
+// Sam przelacznik i pytanie o tryb przy pierwszym starcie dokladaja panele (initModeUi).
+applyStoredMode();
 applySavedLayout();
 centerOnPaper();
 

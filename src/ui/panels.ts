@@ -4,6 +4,7 @@
 import type { Command } from '../core/history';
 import type { EditorState } from '../core/editorState';
 import { initLayout } from './layout';
+import { initModeUi } from './mode';
 import { PanelHooks, PanelsCtx, initAutosave, requireEl, scheduleSave } from './panels/context';
 import { initDraw } from './panels/draw';
 import { initHistory } from './panels/history';
@@ -12,10 +13,14 @@ import { initLegend } from './panels/legend';
 import { initGenerate } from './panels/generate';
 import { initExportModal } from './panels/exportModal';
 import { initImportModal } from './panels/importModal';
+import { initMap } from './panels/map';
 import { initProject } from './panels/project';
 
-/** Odswiezenie legendy debounce'ujemy - pelny re-render przy kazdej komorce byloby marnotrawstwem. */
-const LEGEND_REFRESH_MS = 150;
+/**
+ * Widoki pochodne tresci mapy (legenda, podglad w karcie Map) odswiezamy z debounce - pelny
+ * re-render przy kazdej pomalowanej komorce byloby marnotrawstwem.
+ */
+const CONTENT_REFRESH_MS = 150;
 
 // Re-eksporty dla zgodnosci: stara nazwa typu i helpery, ktore mieszkaja juz w innych modulach.
 export type PanelsState = EditorState;
@@ -46,20 +51,26 @@ export function initPanels(ctx: PanelsContext): Panels {
   const generateBox = requireEl('panel-generate');
   const exportBox = requireEl('panel-export');
   const importBox = requireEl('panel-import');
+  const mapBox = requireEl('panel-map');
 
   initAutosave(state);
 
-  let legendTimer = 0;
+  let refreshTimer = 0;
 
   function onMutate(): void {
     scheduleSave();
-    window.clearTimeout(legendTimer);
-    legendTimer = window.setTimeout(() => hooks.renderLegend(), LEGEND_REFRESH_MS);
+    window.clearTimeout(refreshTimer);
+    refreshTimer = window.setTimeout(() => {
+      hooks.renderLegend();
+      hooks.renderMap();
+    }, CONTENT_REFRESH_MS);
   }
 
   // zaslepki na czas skladania modulow - odwolania miedzy panelami sa cykliczne,
   // wiec prawdziwe funkcje podpinamy dopiero gdy wszystkie moduly powstana
-  const hooks: PanelHooks = { renderLegend: () => {}, renderLayers: () => {}, setBrush: () => {} };
+  const hooks: PanelHooks = {
+    renderLegend: () => {}, renderLayers: () => {}, renderMap: () => {}, setBrush: () => {},
+  };
   const panelsCtx: PanelsCtx = { ...ctx, onMutate, hooks };
 
   // przed initDraw: oba dokladaja do #panel-draw, wiec rzad Undo/Redo laduje na gorze karty
@@ -73,7 +84,11 @@ export function initPanels(ctx: PanelsContext): Panels {
 
   initGenerate(panelsCtx, generateBox);
   initExportModal(panelsCtx, exportBox);
-  initImportModal(panelsCtx, importBox);
+  const importPanel = initImportModal(panelsCtx, importBox);
+  // Load w karcie Map to ten sam import co wklejony tekst - karta dostaje gotowa sciezke
+  // z modulu Import zamiast wlasnej kopii podmiany poziomu
+  const map = initMap(panelsCtx, mapBox, importPanel.applyImported);
+  hooks.renderMap = map.refresh;
   // karta projektow czyta magazyn asynchronicznie i sama rejestruje sie na zdarzenie zapisu
   // (odswiezanie miniatury biezacego poziomu) - nie potrzebuje wpisu w hookach miedzypanelowych
   const project = initProject(panelsCtx, projectBox);
@@ -81,15 +96,28 @@ export function initPanels(ctx: PanelsContext): Panels {
   draw.render();
   layers.render();
   legend.render();
+  map.refresh();
   project.render();
 
-  // przeciaganie kart podpinamy na koncu: karty maja juz tresc, a przeniesienie <details>
-  // miedzy kolumnami nie rusza ich sluchaczy (element zmienia rodzica, nie tozsamosc).
-  // Po dropie zmienia sie szerokosc kolumn, wiec mape przesuwamy TYLKO w poziomie o roznice
-  // offsetu - pelne centrowanie skasowaloby reczne przewiniecie w pionie.
-  initLayout((offsetShift) => {
+  /**
+   * Zmiana skladu widocznych kart (upuszczenie karty, przelaczenie trybu) zmienia szerokosci
+   * kolumn, wiec mape przesuwamy TYLKO w poziomie o roznice offsetu - pelne centrowanie
+   * skasowaloby reczne przewiniecie w pionie. Jedno zachowanie dla obu zrodel zmiany.
+   */
+  function shiftView(offsetShift: number): void {
     state.view.panX += offsetShift;
     ctx.markDirty();
+  }
+
+  // przeciaganie kart podpinamy na koncu: karty maja juz tresc, a przeniesienie <details>
+  // miedzy kolumnami nie rusza ich sluchaczy (element zmienia rodzica, nie tozsamosc)
+  initLayout(shiftView);
+
+  // przelacznik trybu (i pytanie o tryb przy pierwszym starcie) na samym koncu: modal wyboru
+  // ma wypasc nad gotowym edytorem, a wejscie w Simplified musi zastac karte Map do odswiezenia
+  initModeUi((offsetShift) => {
+    shiftView(offsetShift);
+    hooks.renderMap();
   });
 
   return { onMutate, pushHistory: (cmd) => hooks.pushHistory?.(cmd) };

@@ -11,29 +11,7 @@ import { exportXp } from '../../export/rexpaint';
 import { LegacyFormat, exportLegacy } from '../../export/legacy';
 import { button, el, labeled } from '../dom';
 import { openModal } from '../modal';
-import { PanelsCtx, download, errorMessage, playPop, toast } from './context';
-
-/**
- * Wspolna oslona akcji eksportu. Kazdy format potrafi rzucic (np. cap bounds z assertExportableBounds),
- * a taki blad ma wyladowac na czerwonym toascie zamiast po cichu w konsoli. Jedno miejsce zamiast
- * try/catch w kazdym przycisku - obsluguje tez akcje asynchroniczne (.xp, schowek).
- */
-function guarded(run: () => unknown): () => void {
-  return () => {
-    try {
-      const done = run();
-      if (done instanceof Promise) void done.catch((e: unknown) => toast(errorMessage(e), 'error'));
-    } catch (e) {
-      toast(errorMessage(e), 'error');
-    }
-  };
-}
-
-async function copyToClipboard(text: string): Promise<void> {
-  await navigator.clipboard.writeText(text);
-  playPop();
-  toast('Copied');
-}
+import { PanelsCtx, copyToClipboard, download, errorMessage, guarded } from './context';
 
 export function initExportModal(ctx: PanelsCtx, exportBox: HTMLElement): void {
   const { state } = ctx;

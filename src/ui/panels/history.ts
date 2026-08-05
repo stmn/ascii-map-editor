@@ -35,6 +35,7 @@ export function initHistory(ctx: PanelsCtx, drawBox: HTMLElement): void {
     ctx.markDirty();
     ctx.hooks.renderLayers();
     ctx.hooks.renderLegend();
+    ctx.hooks.renderMap();
     scheduleSave();
     // stan przyciskow odswiezamy takze tutaj: gdy komenda rzucila, History nie zdazylo zawolac onChange.
     // Popu nie gramy - undo bywa trzymane na skrocie, a seria dzwiekow byla by meczaca.

@@ -111,8 +111,11 @@ function mount(card: HTMLElement, overlayClass: string, onClose: () => void): Mo
 /**
  * Modal glowny: naglowek z tytulem i X, pod nim przekazane body (dostaje klase .modal-body,
  * wiec zachowuje odstepy kart sekcji). Zamykanie: X, Esc, klik w overlay.
+ * onClose odpala sie RAZ, niezaleznie od drogi zamkniecia (takze gdy modal zamknelo otwarcie
+ * kolejnego) - wybor trybu przy pierwszym starcie potrzebuje tego, by zadna sciezka nie
+ * zostawila edytora bez zapisanego trybu.
  */
-export function openModal(title: string, body: HTMLElement): ModalHandle {
+export function openModal(title: string, body: HTMLElement, onClose?: () => void): ModalHandle {
   mainModal?.close();
   const card = el('div', 'modal-card');
   card.setAttribute('role', 'dialog');
@@ -125,6 +128,7 @@ export function openModal(title: string, body: HTMLElement): ModalHandle {
   card.append(head, body);
   const handle = mount(card, 'modal-overlay', () => {
     if (mainModal === handle) mainModal = null;
+    onClose?.();
   });
   mainModal = handle;
   return handle;

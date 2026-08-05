@@ -15,7 +15,16 @@ function countCells(grid: Grid): number {
   return n;
 }
 
-export function initImportModal(ctx: PanelsCtx, importBox: HTMLElement): void {
+export interface ImportPanel {
+  /**
+   * Wspolna sciezka podmiany poziomu po udanym imporcie. Wystawiona na zewnatrz dla karty Map
+   * (tryb Simplified), ktorej przycisk Load jest tym samym importem wklejonego tekstu - dzieki
+   * temu obie drogi maja identyczne migawki historii, toasty i odswiezenia kart.
+   */
+  applyImported(level: Level): void;
+}
+
+export function initImportModal(ctx: PanelsCtx, importBox: HTMLElement): ImportPanel {
   const { state } = ctx;
   const fileInput = el('input', 'file-input');
   fileInput.type = 'file';
@@ -97,4 +106,6 @@ export function initImportModal(ctx: PanelsCtx, importBox: HTMLElement): void {
   importBox.append(button('Import...', 'success btn-full', () => {
     importModal = openModal('Import', importBody);
   }));
+
+  return { applyImported };
 }

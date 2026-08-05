@@ -1,7 +1,7 @@
 // Formaty eksportu z ASCII Map Editor v1: text / array-text / array-array
-// (uzywane w modalu Export w sekcji Legacy; parseProject czyta wszystkie trzy)
+// (uzywane w modalu Export w sekcji Legacy i w karcie Map; parseProject czyta wszystkie trzy)
 import { Bounds, Grid } from '../core/grid';
-import { assertExportableBounds } from '../core/level';
+import { Level, assertExportableBounds, flattenLayers, unionBounds } from '../core/level';
 
 export type LegacyFormat = 'text' | 'array-text' | 'array-array';
 
@@ -15,4 +15,13 @@ export function exportLegacy(grid: Grid, format: LegacyFormat, bounds?: Bounds):
   const trimmed = exact.map((l) => l.replace(/ +$/, ''));
   if (format === 'text') return trimmed.join('\n');
   return JSON.stringify(trimmed, null, '  ');
+}
+
+/**
+ * Caly poziom jako jedna mapa v1: splaszczenie WIDOCZNYCH warstw na obrysie WSZYSTKICH
+ * (tak samo jak scope "Flattened" w modalu Export, wiec oba podglady pokazuja to samo).
+ * Karta Map w trybie Simplified nie ma wyboru zakresu - zawsze pokazuje calosc.
+ */
+export function exportLegacyFlat(level: Level, format: LegacyFormat): string {
+  return exportLegacy(flattenLayers(level.layers), format, unionBounds(level.layers) ?? undefined);
 }

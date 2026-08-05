@@ -101,6 +101,7 @@ export function initDraw(ctx: PanelsCtx, drawBox: HTMLElement): DrawPanel {
     bumpContent(state);
     ctx.markDirty();
     ctx.hooks.renderLegend();
+    ctx.hooks.renderMap();
     scheduleSave();
     playPop();
     ctx.hooks.pushHistory?.(replaceCommand(

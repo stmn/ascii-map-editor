@@ -18,7 +18,11 @@ function baseButton(content: string | Node, className: string, onClick: () => vo
   return b;
 }
 
-export function button(label: string, className: string, onClick: () => void): HTMLButtonElement {
+/**
+ * Zwykly przycisk. Tresc bywa wezlem, a nie samym tekstem - przyciski wyboru trybu maja
+ * tytul i opis w dwoch liniach, wiec dostaja gotowy fragment zamiast stringa.
+ */
+export function button(label: string | Node, className: string, onClick: () => void): HTMLButtonElement {
   return baseButton(label, className, onClick);
 }
 

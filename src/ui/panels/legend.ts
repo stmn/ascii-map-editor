@@ -47,6 +47,8 @@ export function initLegend(ctx: PanelsCtx, legendBox: HTMLElement): LegendPanel 
     // pola tekstowe, wiec odswiezenie idzie normalnie - zdejmowanie fokusu nie jest potrzebne
     renderLegend();
     ctx.hooks.renderLayers();
+    // remap podmienil znaki takze na mapie - podglad w karcie Map musi za tym nadazyc
+    ctx.hooks.renderMap();
     playPop();
     ctx.hooks.pushHistory?.(remapCommand(state, entry.ch, answer));
   }

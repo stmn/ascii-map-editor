@@ -26,6 +26,12 @@ const TOAST_MS = 3000;
 export interface PanelHooks {
   renderLegend(): void;
   renderLayers(): void;
+  /**
+   * Odswieza podglad mapy w karcie Map (tryb Simplified). Wolaj wszedzie tam, gdzie zmienila
+   * sie TRESC poziomu - karta jest jej drugim widokiem pochodnym, obok legendy. W Advanced
+   * karta jest ukryta i wywolanie jest tanim no-opem (patrz panels/map.ts).
+   */
+  renderMap(): void;
   setBrush(ch: string): void;
   /** Podpina panels/history.ts; do jego zlozenia (i w testach bez paneli) wywolania sa cichym no-op. */
   pushHistory?(cmd: Command): void;
@@ -57,6 +63,7 @@ export function applyLevelToPanels(ctx: PanelsCtx, level: Level): boolean {
   ctx.markDirty();
   ctx.hooks.renderLayers();
   ctx.hooks.renderLegend();
+  ctx.hooks.renderMap();
   return trimmed;
 }
 
@@ -70,6 +77,22 @@ export function requireEl(id: string): HTMLElement {
 
 export function errorMessage(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
+}
+
+/**
+ * Wspolna oslona akcji, ktora potrafi rzucic (eksport przy zbyt duzych bounds, odmowa schowka).
+ * Blad ma wyladowac na czerwonym toascie zamiast po cichu w konsoli - jedno miejsce zamiast
+ * try/catch w kazdym przycisku. Obsluguje tez akcje asynchroniczne (.xp, schowek).
+ */
+export function guarded(run: () => unknown): () => void {
+  return () => {
+    try {
+      const done = run();
+      if (done instanceof Promise) void done.catch((e: unknown) => toast(errorMessage(e), 'error'));
+    } catch (e) {
+      toast(errorMessage(e), 'error');
+    }
+  };
 }
 
 // --- toast --------------------------------------------------------------------
@@ -101,6 +124,18 @@ export function playPop(): void {
   }
   pop.currentTime = 0;
   pop.play().catch(() => {});
+}
+
+// --- schowek ------------------------------------------------------------------
+
+/**
+ * Kopia do schowka z popem i toastem - jedna implementacja dla modalu Export i karty Map.
+ * Odmowa uprawnien odrzuca obietnice; wolajacy owija to w guarded(), zeby poszla na toast.
+ */
+export async function copyToClipboard(text: string): Promise<void> {
+  await navigator.clipboard.writeText(text);
+  playPop();
+  toast('Copied');
 }
 
 // --- pobieranie pliku ---------------------------------------------------------
