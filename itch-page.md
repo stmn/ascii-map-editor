@@ -43,9 +43,17 @@ locally as you draw.
 
 ### Works with your engine
 
-**KaPlay.** Copy and paste, it is the level format KaPlay already speaks:
+**KaPlay.** Copy and paste, it is the level format KaPlay already speaks: a shared `tiles`
+object, then one `addLevel(...)` call per visible layer, referencing it:
 
 ```js
+const tiles = {
+  "#": () => [sprite("wall")],
+  ".": () => [sprite("floor")],
+  "@": () => [sprite("player")],
+};
+
+// layer: main
 addLevel([
   "####",
   "#@.#",
@@ -53,17 +61,13 @@ addLevel([
 ], {
   tileWidth: 16,
   tileHeight: 16,
-  tiles: {
-    "#": () => [sprite("wall")],
-    ".": () => [sprite("floor")],
-    "@": () => [sprite("player")],
-  },
+  tiles,
 });
 ```
 
-Multiple layers export one `addLevel(...)` call per visible layer, sharing this same `tiles`
-object. Legend names become sprite names, so name the entries after the sprites you already
-load.
+Multiple layers repeat the `// layer: <name>` / `addLevel(...)` pair for each visible one,
+still sharing that same `tiles`. Legend names become sprite names, so name the entries after
+the sprites you already load.
 
 **Tiled.** Download a `.tmx` with one orthogonal CSV layer per level layer (hidden layers
 included, just marked invisible). Every tile keeps its legend name and its original character

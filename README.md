@@ -54,8 +54,9 @@ list is the floor, later layers draw on top of it. The Layers panel shows them t
 to match that stacking order.
 
 - **Cap:** up to 8 layers per level (`MAX_LAYERS`). Add layer disables itself at the cap.
-  A project, autosave entry or `.xp` file with more than 8 layers keeps the lowest 8 on load
-  and shows a toast; the same trim runs when the autosaved entry is restored on startup.
+  Importing a project or `.xp` file with more than 8 layers keeps the lowest 8 and shows an
+  info toast about the trim. The same trim runs on startup if the autosaved entry itself has
+  more than 8 layers, but silently, with no toast - only the Import path notifies you.
 - **Names:** editable per layer; blank on blur falls back to "layer N" (its 1-based
   position), because an empty name would break the Tiled `name` attribute and the Godot
   `LEVELS` dictionary key.
@@ -71,8 +72,9 @@ offset from another. Every export that lays layers on top of each other - Tiled 
 Godot `LEVELS` dict, one `addLevel` per layer in KaPlay, and the `.xp` binary - uses the union
 of all layers' bounding boxes as a common frame, so every layer's lines come out the same
 width and height and line up cell for cell. TXT, CSV and the Legacy (v1) formats use that same
-union whenever Scope is set to Flattened; Active layer scope uses that one layer's own bounds
-instead.
+union bounds regardless of Scope, so a file exported with Active layer lines up with one
+exported as Flattened; Scope only changes which cells are exported (one layer's content, or
+every visible layer merged), never the frame around them.
 
 ### Per-exporter mapping
 
@@ -141,7 +143,7 @@ and `scripts/build-standalone.mjs` is plain Node with no packages at all.
 | --- | --- | --- |
 | TXT | clipboard | Scope-dependent lines (active layer or flattened), trailing blank space trimmed to the bounding box |
 | CSV | clipboard | Scope-dependent, one character per cell, commas escaped |
-| KaPlay | clipboard | one `addLevel([...], { tiles: {...} })` block per visible layer, sharing one `tiles` object |
+| KaPlay | clipboard | a shared `const tiles = {...}`, then one `addLevel([...], { tiles })` block per visible layer, referencing that same `tiles` |
 | Godot | clipboard | GDScript with a `LEVELS` dict keyed by layer name, shared `TILES`, and a `load_layer(tile_map, layer_name)` helper |
 | Tiled | `map.tmx` | orthogonal map, one `<layer>` element per level layer (hidden ones get `visible="0"`), legend exported as tile properties |
 | REXPaint | `map.xp` | gzipped `.xp`, native multi-layer (up to 8), legend colors as foreground |
@@ -157,9 +159,18 @@ Specifications and API docs:
 
 ### KaPlay
 
-A level with one layer exports a single block:
+The export is always a shared `tiles` object first, then one `addLevel(...)` call per
+**visible** layer, each after a `// layer: <name>` comment and referencing that same `tiles`.
+A level with one layer ("main") looks like this:
 
 ```js
+const tiles = {
+  "#": () => [sprite("wall")],
+  ".": () => [sprite("floor")],
+  "@": () => [sprite("player")],
+};
+
+// layer: main
 addLevel([
   "####",
   "#@.#",
@@ -167,16 +178,12 @@ addLevel([
 ], {
   tileWidth: 16,
   tileHeight: 16,
-  tiles: {
-    "#": () => [sprite("wall")],
-    ".": () => [sprite("floor")],
-    "@": () => [sprite("player")],
-  },
+  tiles,
 });
 ```
 
-A level with more layers exports one `addLevel(...)` call per **visible** layer, each after a
-`// layer: <name>` comment, all sharing the same `tiles` object; call them in order so later
+A level with more layers repeats the `// layer: <name>` / `addLevel(...)` pair for each
+visible one, still sharing the single `tiles` declared at the top; call them in order so later
 layers stack on top of earlier ones. Legend names become sprite names, so name your legend
 entries after the sprites you loaded with `loadSprite`.
 
