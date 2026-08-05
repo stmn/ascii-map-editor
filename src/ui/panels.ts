@@ -3,6 +3,7 @@
 // dzieki czemu nie powstaje cykl importow (app.ts -> panels.ts, nigdy odwrotnie).
 import { Grid } from '../core/grid';
 import { Legend } from '../core/legend';
+import { Layer, Level, flattenLayers, levelUsedChars, makeLayer } from '../core/level';
 import { parseProject, serializeProject } from '../core/project';
 import { generateDungeon, generateMaze } from '../core/generators';
 import { exportCsv, exportTxt } from '../export/text';
@@ -15,8 +16,8 @@ import type { View } from './renderer';
 // import assetu przez Vite - bundler podmienia URL na wersje z hashem i relatywna baza
 import popUrl from '../assets/pop.wav';
 
-/** Klucz autozapisu w localStorage. */
-const STORAGE_KEY = 'ascii-level-editor-v2';
+/** Klucz autozapisu w localStorage - app.ts czyta go przy starcie. */
+export const STORAGE_KEY = 'ascii-level-editor-v2';
 /** Autozapis jest debounce'owany - malowanie sypie mutacjami co komorke. */
 const SAVE_DEBOUNCE_MS = 500;
 /** Odswiezenie legendy tez debounce'ujemy - pelny re-render przy kazdej komorce byloby marnotrawstwem. */
@@ -34,10 +35,20 @@ const DEFAULT_H = 21;
 
 /** Stan edytora widziany przez panele - app.ts przekazuje swoj obiekt state. */
 export interface PanelsState {
-  grid: Grid;
-  legend: Legend;
+  level: Level;
+  activeLayer: number;
   view: View;
   brush: string;
+}
+
+/** Warstwa wskazana przez activeLayer - jedyne miejsce indeksujace level.layers. */
+function activeLayerOf(state: PanelsState): Layer {
+  return state.level.layers[state.activeLayer]!;
+}
+
+/** Siatka aktywnej warstwy - tu trafia malowanie i stad czytaja panele. */
+export function activeGrid(state: PanelsState): Grid {
+  return activeLayerOf(state).grid;
 }
 
 export interface PanelsContext {
@@ -165,7 +176,7 @@ export function initPanels(ctx: PanelsContext): Panels {
 
   function saveNow(): void {
     try {
-      const json = serializeProject(state.grid, state.legend.entries());
+      const json = serializeProject(state.level);
       if (json.length > MAX_SAVE_BYTES) return; // za duza mapa - pomijamy zapis
       localStorage.setItem(STORAGE_KEY, json);
     } catch {
@@ -188,26 +199,6 @@ export function initPanels(ctx: PanelsContext): Panels {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') flushSave();
   });
-
-  function restoreSaved(): void {
-    let saved: string | null = null;
-    try {
-      saved = localStorage.getItem(STORAGE_KEY);
-    } catch {
-      return;
-    }
-    if (!saved) return;
-    try {
-      const parsed = parseProject(saved);
-      state.grid = parsed.grid;
-      state.legend = Legend.from(parsed.legend);
-      state.legend.syncWith(parsed.grid.usedChars());
-      ctx.centerOnPaper();
-      ctx.markDirty();
-    } catch {
-      // uszkodzony zapis - startujemy od pustej mapy
-    }
-  }
 
   // --- Draw ---
   const chips = el('div', 'chips');
@@ -260,9 +251,9 @@ export function initPanels(ctx: PanelsContext): Panels {
 
   /** Czysci mape, ale zostawia legende - nazwy i kolory znakow przezywaja, liczniki spadaja do zera. */
   function clearMap(): void {
-    if (state.grid.isEmpty()) return;
+    if (activeGrid(state).isEmpty()) return;
     if (!window.confirm('Clear the whole map?')) return;
-    state.grid.clear();
+    activeGrid(state).clear();
     ctx.markDirty();
     renderLegend();
     scheduleSave();
@@ -282,7 +273,7 @@ export function initPanels(ctx: PanelsContext): Panels {
   // --- Legend ---
   function usageCounts(): Map<string, number> {
     const counts = new Map<string, number>();
-    for (const { ch } of state.grid.cells()) counts.set(ch, (counts.get(ch) ?? 0) + 1);
+    for (const { ch } of activeGrid(state).cells()) counts.set(ch, (counts.get(ch) ?? 0) + 1);
     return counts;
   }
 
@@ -290,7 +281,7 @@ export function initPanels(ctx: PanelsContext): Panels {
     // nie przerywamy edycji nazwy/koloru przez podmiane DOM pod palcami
     if (legendBox.contains(document.activeElement)) return;
     const counts = usageCounts();
-    const entries = state.legend.entries();
+    const entries = state.level.legend.entries();
     legendBox.replaceChildren();
     if (entries.length === 0) {
       legendBox.append(el('p', 'hint', 'Paint something to fill the legend.'));
@@ -307,7 +298,7 @@ export function initPanels(ctx: PanelsContext): Panels {
       name.value = entry.name;
       name.setAttribute('aria-label', `Name of ${entry.ch}`);
       name.addEventListener('input', () => {
-        state.legend.upsert(entry.ch, { name: name.value });
+        state.level.legend.upsert(entry.ch, { name: name.value });
         scheduleSave();
       });
 
@@ -316,7 +307,7 @@ export function initPanels(ctx: PanelsContext): Panels {
       color.value = entry.color;
       color.setAttribute('aria-label', `Color of ${entry.ch}`);
       color.addEventListener('input', () => {
-        state.legend.upsert(entry.ch, { color: color.value });
+        state.level.legend.upsert(entry.ch, { color: color.value });
         charBtn.style.color = color.value;
         ctx.markDirty();
         scheduleSave();
@@ -351,11 +342,12 @@ export function initPanels(ctx: PanelsContext): Panels {
   }
 
   function generate(kind: 'maze' | 'dungeon'): void {
-    if (!state.grid.isEmpty() && !window.confirm('Replace the current map?')) return;
+    if (!activeGrid(state).isEmpty() && !window.confirm('Replace the current map?')) return;
     const w = readSize(widthInput, DEFAULT_W);
     const h = readSize(heightInput, DEFAULT_H);
-    state.grid = kind === 'maze' ? generateMaze(w, h) : generateDungeon(w, h);
-    state.legend.syncWith(state.grid.usedChars());
+    // na razie generator podmienia siatke aktywnej warstwy - wybor zakresu przyjdzie z panelem warstw
+    activeLayerOf(state).grid = kind === 'maze' ? generateMaze(w, h) : generateDungeon(w, h);
+    state.level.legend.syncWith(levelUsedChars(state.level));
     ctx.centerOnPaper();
     ctx.markDirty();
     renderLegend();
@@ -376,21 +368,21 @@ export function initPanels(ctx: PanelsContext): Panels {
   // --- Export ---
   const exportButtons = el('div', 'btn-col');
   exportButtons.append(
-    button('Copy TXT', '', () => void copyToClipboard(exportTxt(state.grid))),
-    button('Copy CSV', '', () => void copyToClipboard(exportCsv(state.grid))),
-    button('Copy KaPlay', '', () => void copyToClipboard(exportKaplay(state.grid, state.legend))),
-    button('Copy Godot', '', () => void copyToClipboard(exportGodot(state.grid, state.legend))),
-    button('Download .tmx', '', () => download(exportTmx(state.grid, state.legend), 'map.tmx', 'application/xml')),
+    button('Copy TXT', '', () => void copyToClipboard(exportTxt(activeGrid(state)))),
+    button('Copy CSV', '', () => void copyToClipboard(exportCsv(activeGrid(state)))),
+    button('Copy KaPlay', '', () => void copyToClipboard(exportKaplay(state.level))),
+    button('Copy Godot', '', () => void copyToClipboard(exportGodot(state.level))),
+    button('Download .tmx', '', () => download(exportTmx(state.level), 'map.tmx', 'application/xml')),
     button('Download .xp', '', () => void downloadXp()),
     button('Download .json', '', () => download(
-      serializeProject(state.grid, state.legend.entries()), 'project.json', 'application/json',
+      serializeProject(state.level), 'project.json', 'application/json',
     )),
   );
   exportBox.append(exportButtons, el('p', 'hint', '.json keeps map and legend for later import.'));
 
   async function downloadXp(): Promise<void> {
     try {
-      const bytes = await exportXp(state.grid, state.legend);
+      const bytes = await exportXp(state.level);
       download(bytes.slice(), 'map.xp', 'application/octet-stream');
     } catch (e) {
       toast(errorMessage(e), 'error');
@@ -414,22 +406,22 @@ export function initPanels(ctx: PanelsContext): Panels {
   async function importFile(file: File): Promise<void> {
     try {
       if (file.name.toLowerCase().endsWith('.xp')) {
-        const { grid, colors } = await importXp(new Uint8Array(await file.arrayBuffer()));
-        state.grid = grid;
-        state.legend.syncWith(grid.usedChars());
-        for (const [ch, hex] of colors) state.legend.upsert(ch, { color: hex });
+        const { layers, colors } = await importXp(new Uint8Array(await file.arrayBuffer()));
+        // .xp niesie same warstwy i kolory - legende budujemy od zera
+        state.level = { layers: layers.map((l) => ({ ...makeLayer(l.name), grid: l.grid })), legend: new Legend() };
+        state.activeLayer = 0;
+        for (const [ch, hex] of colors) state.level.legend.upsert(ch, { color: hex });
       } else {
-        const parsed = parseProject(await file.text());
-        state.grid = parsed.grid;
-        state.legend = Legend.from(parsed.legend);
-        state.legend.syncWith(parsed.grid.usedChars());
+        state.level = parseProject(await file.text());
+        state.activeLayer = 0;
       }
+      state.level.legend.syncWith(levelUsedChars(state.level));
       ctx.centerOnPaper();
       ctx.markDirty();
       renderLegend();
       scheduleSave();
       playPop();
-      toast(`Imported ${countCells(state.grid)} cells`);
+      toast(`Imported ${countCells(flattenLayers(state.level.layers))} cells`);
     } catch (e) {
       toast(errorMessage(e), 'error');
     }
@@ -446,7 +438,6 @@ export function initPanels(ctx: PanelsContext): Panels {
     legendTimer = window.setTimeout(renderLegend, LEGEND_REFRESH_MS);
   }
 
-  restoreSaved();
   renderChips();
   renderLegend();
 

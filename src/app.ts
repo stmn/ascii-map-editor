@@ -1,10 +1,10 @@
 import './styles.css';
-import { Grid } from './core/grid';
-import { Legend } from './core/legend';
+import { createLevel, levelUsedChars } from './core/level';
+import { parseProject } from './core/project';
 import { Renderer, centerView, paperRect } from './ui/renderer';
 import { InputController } from './ui/input';
-import { initPanels } from './ui/panels';
-// import typu (nie wartosci) - nie tworzy cyklu w runtime, wiec app.ts nadal nie zalezy od panels.ts w czasie wykonania
+import { STORAGE_KEY, activeGrid, initPanels } from './ui/panels';
+// import typu (nie wartosci) - PanelsState istnieje tylko w typach, wiec nie dokladamy zaleznosci runtime
 import type { PanelsState as EditorState } from './ui/panels';
 
 /** Przesuniecie startowego widoku w lewo, bo prawa krawedz zajmuje panel (jak +140 w v1). */
@@ -13,8 +13,8 @@ const SIDEBAR_OFFSET = 140;
 export type { EditorState };
 
 export const state: EditorState = {
-  grid: new Grid(),
-  legend: new Legend(),
+  level: createLevel(),
+  activeLayer: 0,
   view: { panX: 0, panY: 0, scale: 32 },
   brush: '#',
 };
@@ -27,10 +27,34 @@ let dirty = true;
 export function markDirty(): void { dirty = true; }
 
 function centerOnPaper(): void {
-  centerView(state.view, paperRect(state.grid), canvas.clientWidth, canvas.clientHeight, SIDEBAR_OFFSET);
+  centerView(state.view, paperRect(state.level), canvas.clientWidth, canvas.clientHeight, SIDEBAR_OFFSET);
+}
+
+/**
+ * Odtworzenie autozapisu. Czytamy tylko wpisy wygladajace na nasz projekt (JSON z app === ...),
+ * zeby obcy albo uszkodzony wpis pod tym kluczem nie wywracal startu edytora.
+ */
+function restoreSaved(): void {
+  let saved: string | null = null;
+  try {
+    saved = localStorage.getItem(STORAGE_KEY);
+  } catch {
+    return; // storage zablokowany (tryb prywatny) - autozapis jest opcjonalny
+  }
+  if (!saved || !saved.startsWith('{')) return;
+  try {
+    const data = JSON.parse(saved) as { app?: unknown };
+    if (data?.app !== 'ascii-level-editor') return;
+    state.level = parseProject(saved);
+    state.activeLayer = 0;
+    state.level.legend.syncWith(levelUsedChars(state.level));
+  } catch {
+    // uszkodzony zapis - startujemy od pustego poziomu
+  }
 }
 
 renderer.resize();
+restoreSaved();
 centerOnPaper();
 
 // panele dostaja stan i callbacki - nie importuja app.ts, wiec nie ma cyklu
@@ -38,14 +62,14 @@ const panels = initPanels({ state, markDirty, centerOnPaper });
 
 new InputController(canvas, {
   paint(x, y) {
-    state.grid.set(x, y, state.brush);
+    activeGrid(state).set(x, y, state.brush);
     // syncWith zbiera i sortuje wszystkie znaki - wolamy tylko gdy pedzel nie ma jeszcze wpisu
-    if (!state.legend.get(state.brush)) state.legend.syncWith(state.grid.usedChars());
+    if (!state.level.legend.get(state.brush)) state.level.legend.syncWith(levelUsedChars(state.level));
     markDirty();
     panels.onMutate();
   },
   erase(x, y) {
-    state.grid.set(x, y, ' ');
+    activeGrid(state).set(x, y, ' ');
     markDirty();
     panels.onMutate();
   },
@@ -76,7 +100,7 @@ document.fonts?.ready.then(markDirty).catch(() => {});
 function frame(): void {
   if (dirty) {
     dirty = false;
-    renderer.draw(state.grid, state.legend, state.view);
+    renderer.draw(state.level, state.view);
   }
   requestAnimationFrame(frame);
 }

@@ -1,5 +1,5 @@
-import { Grid, type Bounds } from '../core/grid';
-import { Legend } from '../core/legend';
+import { type Bounds } from '../core/grid';
+import { Level, flattenLayers, unionBounds } from '../core/level';
 
 export interface View { panX: number; panY: number; scale: number }
 
@@ -19,11 +19,11 @@ const OUTLINE_WIDTH = 4;
 const SMALL_SCALE = 12;
 
 /**
- * Prostokat papieru: bounds mapy powiekszone o 1 komorke marginesu z kazdej strony,
- * a dla pustej mapy domyslny prostokat 24x16.
+ * Prostokat papieru: bounds wszystkich warstw powiekszone o 1 komorke marginesu
+ * z kazdej strony, a dla pustego poziomu domyslny prostokat 24x16.
  */
-export function paperRect(grid: Grid): Bounds {
-  const b = grid.bounds();
+export function paperRect(level: Level): Bounds {
+  const b = unionBounds(level.layers);
   if (!b) return { ...DEFAULT_PAPER };
   return { minX: b.minX - 1, minY: b.minY - 1, maxX: b.maxX + 1, maxY: b.maxY + 1 };
 }
@@ -45,7 +45,7 @@ export class Renderer {
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
-  draw(grid: Grid, legend: Legend, view: View): void {
+  draw(level: Level, view: View): void {
     const { ctx } = this;
     const w = this.canvas.clientWidth, h = this.canvas.clientHeight;
     ctx.fillStyle = COLOR_DESK;
@@ -57,7 +57,7 @@ export class Renderer {
     const x1 = x0 + Math.ceil(w / s) + 2, y1 = y0 + Math.ceil(h / s) + 2;
 
     // papier
-    const paper = paperRect(grid);
+    const paper = paperRect(level);
     const px = paper.minX * s - view.panX;
     const py = paper.minY * s - view.panY;
     const pw = (paper.maxX - paper.minX + 1) * s;
@@ -86,16 +86,17 @@ export class Renderer {
     ctx.lineWidth = OUTLINE_WIDTH;
     ctx.strokeRect(px - OUTLINE_WIDTH / 2, py - OUTLINE_WIDTH / 2, pw + OUTLINE_WIDTH, ph + OUTLINE_WIDTH);
 
-    // znaki
+    // znaki - widoczne warstwy splaszczone do jednej siatki, gorne nadpisuja dolne
+    const flat = flattenLayers(level.layers);
     const fontPx = Math.max(6, Math.round(s * 0.6));
     ctx.font = s >= SMALL_SCALE
       ? `${fontPx}px "Press Start 2P", monospace`
       : `${fontPx}px ui-monospace, Menlo, monospace`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    for (const { x, y, ch } of grid.cells()) {
+    for (const { x, y, ch } of flat.cells()) {
       if (x < x0 || x > x1 || y < y0 || y > y1) continue;
-      ctx.fillStyle = legend.get(ch)?.color ?? COLOR_INK_FALLBACK;
+      ctx.fillStyle = level.legend.get(ch)?.color ?? COLOR_INK_FALLBACK;
       ctx.fillText(ch, x * s - view.panX + s / 2, y * s - view.panY + s / 2);
     }
 
