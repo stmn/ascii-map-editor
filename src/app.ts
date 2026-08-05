@@ -13,7 +13,7 @@ import { activeLayerOf, applyLevelToState, bumpContent, type EditorState } from 
 // panele nie importuja app.ts - stan i callbacki dostaja przez initPanels, wiec nie ma cyklu
 import { initPanels } from './ui/panels';
 import {
-  errorMessage, readCurrentRef, reportSaveError, setCurrentLevel, setStore, toast,
+  errorMessage, readCurrentRef, reportSaveError, setCurrentLevel, setGestureActiveGetter, setStore, toast,
 } from './ui/panels/context';
 
 /** Autozapis sprzed workspace: pojedyncza mapa w localStorage. Czytany raz, przy migracji. */
@@ -213,7 +213,7 @@ async function boot(): Promise<void> {
   // panele dostaja stan i callbacki - nie importuja app.ts, wiec nie ma cyklu
   const panels = initPanels({ state, markDirty, centerOnPaper });
 
-  new InputController(canvas, {
+  const input = new InputController(canvas, {
     paint(x, y) {
       strokeSet(x, y, state.brush);
       // syncWith zbiera i sortuje wszystkie znaki - wolamy tylko gdy pedzel nie ma jeszcze wpisu
@@ -245,6 +245,7 @@ async function boot(): Promise<void> {
     },
     viewChanged: markDirty,
   }, state.view);
+  setGestureActiveGetter(() => input.isGesturing());
 
   markDirty();
 }

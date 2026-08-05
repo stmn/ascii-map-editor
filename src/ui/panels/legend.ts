@@ -30,6 +30,9 @@ export function initLegend(ctx: PanelsCtx, legendBox: HTMLElement): LegendPanel 
   async function editChar(entry: LegendEntry): Promise<void> {
     const answer = await promptModal('Change character', entry.ch);
     if (answer === null || answer === entry.ch) return; // Cancel/Esc albo bez zmiany
+    // wpis mogl zniknac w miedzyczasie (undo/redo, remap z innego rzedu) - remap na martwym
+    // znaku bylby cichym no-op, a komenda z niego pchnieta mialaby zla inwersje
+    if (!state.level.legend.get(entry.ch)) return;
     try {
       remapChar(state.level, entry.ch, answer);
     } catch (e) {
@@ -52,7 +55,9 @@ export function initLegend(ctx: PanelsCtx, legendBox: HTMLElement): LegendPanel 
     // TYLKO pole tekstowe: przycisk (znak, edycja znaku) nie trzyma zadnego stanu edycji, a fokus
     // na nim po zamknieciu modala blokowalby odswiezenie karty po undo/redo.
     const focused = document.activeElement;
-    if (focused instanceof HTMLInputElement && focused.type === 'text' && legendBox.contains(focused)) return;
+    // text (nazwa) i color (probnik OS) trzymaja otwarty stan edycji - podmiana DOM pod nimi
+    // przerwalaby pisanie albo zamknela probnik koloru w trakcie wyboru
+    if (focused instanceof HTMLInputElement && (focused.type === 'text' || focused.type === 'color') && legendBox.contains(focused)) return;
     const counts = usageCounts();
     const entries = state.level.legend.entries();
     legendBox.replaceChildren();

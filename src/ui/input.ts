@@ -57,6 +57,12 @@ export class InputController {
     window.addEventListener('keydown', (e) => this.key(e));
   }
 
+  /** Trwa pociagniecie pedzla/gumki - skroty klawiszowe (undo/redo) go pytaja, zeby nie
+   * mutowac siatki w polowie gestu (before/after strokeCells bylyby wtedy nieaktualne). */
+  isGesturing(): boolean {
+    return this.painting || this.erasing;
+  }
+
   private endGesture(): void {
     // strokeEnd tylko po gescie malowania/gumki - pan i puste pointerupy nie tworza wpisu historii
     const painted = this.painting || this.erasing;

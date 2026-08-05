@@ -163,6 +163,17 @@ let levelSwitchHook: (() => void) | null = null;
 export function setOnLevelSwitch(fn: () => void): void { levelSwitchHook = fn; }
 
 /**
+ * Getter aktywnego gestu (malowanie/gumka) z InputController - wpiety dopiero po jego
+ * utworzeniu w app.ts, wiec skroty undo/redo (panels/history.ts) pytaja o niego przez
+ * ten posrednik, a nie wprost o instancje kontrolera.
+ */
+let gestureActiveGetter: (() => boolean) | null = null;
+
+export function setGestureActiveGetter(fn: () => boolean): void { gestureActiveGetter = fn; }
+
+export function isGestureActive(): boolean { return gestureActiveGetter?.() ?? false; }
+
+/**
  * Podmiana biezacego rekordu - TYLKO przy prawdziwym przelaczeniu poziomu (boot, wybor
  * innego poziomu). Wolaj PRZED podmiana state.level, bo domykamy tu zawieszony autozapis:
  * inaczej debounce zapisalby tresc nowego poziomu pod stary rekord.

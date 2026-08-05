@@ -6,7 +6,7 @@ import { History } from '../../core/history';
 import { button, el } from '../dom';
 import { isTypingTarget } from '../input';
 import { isModalOpen } from '../modal';
-import { PanelsCtx, errorMessage, scheduleSave, setOnLevelSwitch, toast } from './context';
+import { PanelsCtx, errorMessage, isGestureActive, scheduleSave, setOnLevelSwitch, toast } from './context';
 
 /** Historia jest sesyjna i dotyczy JEDNEGO poziomu - przelaczenie poziomu ja kasuje. */
 const history = new History();
@@ -63,6 +63,9 @@ export function initHistory(ctx: PanelsCtx, drawBox: HTMLElement): void {
     // Alt w komplecie to juz inny skrot (i modyfikator gumki) - nie porywamy go na undo
     if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
     if (isTypingTarget(e.target) || isModalOpen()) return;
+    // Ctrl to tez modyfikator gumki - Z wcisniety w polowie Ctrl+drag mutowalby siatke
+    // z nieaktualnym before w trwajacym gescie (patrz InputController.isGesturing)
+    if (isGestureActive()) return;
     const key = e.key.toLowerCase();
     if (key === 'z') {
       e.preventDefault();
