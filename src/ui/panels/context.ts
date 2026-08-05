@@ -1,6 +1,7 @@
 // Wspolny kontekst modulow panelu: stan, callbacki do app.ts, hooki miedzymodulowe
 // oraz drobne narzedzia UI (toast, dzwiek, autozapis). Jedno miejsce zamiast kopii w kazdym module.
 import { applyLevelToState, type EditorState } from '../../core/editorState';
+import type { Command } from '../../core/history';
 import type { Level } from '../../core/level';
 import { serializeProject } from '../../core/project';
 import type { LevelRecord, WorkspaceStore } from '../../core/store';
@@ -26,6 +27,8 @@ export interface PanelHooks {
   renderLegend(): void;
   renderLayers(): void;
   setBrush(ch: string): void;
+  /** Opcjonalny - Task 3 podpina prawdziwa historie; bez niej wywolania sa cichym no-op. */
+  pushHistory?(cmd: Command): void;
 }
 
 export interface PanelsCtx {
