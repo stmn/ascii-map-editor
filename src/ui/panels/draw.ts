@@ -1,6 +1,6 @@
-// Panel Draw: pasek ostatnich znakow, pole pedzla, skrot klawiszowy i czyszczenie warstwy.
+// Panel Draw: pasek ostatnich znakow, pole pedzla, rozmiar stopki, skrot klawiszowy i czyszczenie warstwy.
 import { replaceCommand, snapshotLevel } from '../../core/commands';
-import { activeLayerOf, bumpContent } from '../../core/editorState';
+import { BRUSH_SIZES, activeLayerOf, bumpContent } from '../../core/editorState';
 import { button, el, labeled } from '../dom';
 import { confirmModal, isModalOpen } from '../modal';
 import { isTypingTarget } from '../input';
@@ -15,9 +15,25 @@ export interface DrawPanel {
   render(): void;
 }
 
+/**
+ * Pasek chipow: wspolny dla znakow pedzla i rozmiarow stopki - rozni je tylko lista wartosci,
+ * aktywny element i tooltip, wiec budowa chipa zostaje w jednym miejscu.
+ */
+function renderChipRow<T>(
+  box: HTMLElement, items: readonly T[], active: T, title: (value: T) => string, pick: (value: T) => void,
+): void {
+  box.replaceChildren();
+  for (const value of items) {
+    const chip = button(String(value), value === active ? 'chip active' : 'chip', () => pick(value));
+    chip.title = title(value);
+    box.append(chip);
+  }
+}
+
 export function initDraw(ctx: PanelsCtx, drawBox: HTMLElement): DrawPanel {
   const { state } = ctx;
   const chips = el('div', 'chips');
+  const sizeChips = el('div', 'chips');
   const charInput = el('input', 'char-input');
   charInput.type = 'text';
   charInput.maxLength = 1;
@@ -34,12 +50,11 @@ export function initDraw(ctx: PanelsCtx, drawBox: HTMLElement): DrawPanel {
   }
 
   function renderChips(): void {
-    chips.replaceChildren();
-    for (const ch of recent) {
-      const chip = button(ch, ch === state.brush ? 'chip active' : 'chip', () => setBrush(ch));
-      chip.title = `Brush: ${ch}`;
-      chips.append(chip);
-    }
+    renderChipRow(chips, recent, state.brush, (ch) => `Brush: ${ch}`, setBrush);
+  }
+
+  function renderSizeChips(): void {
+    renderChipRow(sizeChips, BRUSH_SIZES, state.brushSize, (n) => `Brush size: ${n}x${n}`, setBrushSize);
   }
 
   function setBrush(ch: string): void {
@@ -47,6 +62,13 @@ export function initDraw(ctx: PanelsCtx, drawBox: HTMLElement): DrawPanel {
     pushRecent(ch);
     if (charInput.value !== ch) charInput.value = ch;
     renderChips();
+  }
+
+  /** Rozmiar jest sesyjny (jak pedzel) - nie zapisujemy go, ale hover musi od razu zmienic rozmiar. */
+  function setBrushSize(n: number): void {
+    state.brushSize = n;
+    renderSizeChips();
+    ctx.markDirty();
   }
 
   charInput.addEventListener('input', () => {
@@ -92,9 +114,13 @@ export function initDraw(ctx: PanelsCtx, drawBox: HTMLElement): DrawPanel {
   drawBox.append(
     chips,
     labeled('Char', charInput),
+    labeled('Size', sizeChips),
     clearRow,
     el('p', 'hint help-box', 'Press any character key to switch the brush. Alt or Ctrl + drag erases.'),
   );
 
-  return { setBrush, render: renderChips };
+  return {
+    setBrush,
+    render() { renderChips(); renderSizeChips(); },
+  };
 }

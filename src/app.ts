@@ -9,7 +9,9 @@ import { Renderer, centerView, paperRect } from './ui/renderer';
 import { applySavedLayout, sidebarWidths } from './ui/layout';
 import { InputController } from './ui/input';
 import { strokeCommand, type CellChange } from './core/commands';
-import { activeLayerOf, applyLevelToState, bumpContent, type EditorState } from './core/editorState';
+import {
+  activeLayerOf, applyLevelToState, bumpContent, forEachFootprintCell, type EditorState,
+} from './core/editorState';
 // panele nie importuja app.ts - stan i callbacki dostaja przez initPanels, wiec nie ma cyklu
 import { initPanels } from './ui/panels';
 import {
@@ -30,6 +32,7 @@ export const state: EditorState = {
   activeLayer: 0,
   view: { panX: 0, panY: 0, scale: 32 },
   brush: '#',
+  brushSize: 1,
   contentRev: 0,
 };
 
@@ -75,6 +78,15 @@ function strokeSet(x: number, y: number, ch: string): void {
   const seen = strokeCells.get(key);
   if (seen) seen.after = after;
   else strokeCells.set(key, { layerId: layer.id, x, y, before, after });
+}
+
+/**
+ * Jedno dotkniecie pedzla: cala stopka n x n wokol komorki kursora. Interpolacja Bresenhama
+ * wola to dla kazdego kroku linii, wiec szybkie przeciagniecie zostawia gruba, ciagla kreske,
+ * a wszystkie komorki stopki ida do tego samego gestu historii (dedupe w strokeSet).
+ */
+function strokeFootprint(x: number, y: number, ch: string): void {
+  forEachFootprintCell(x, y, state.brushSize, (cx, cy) => strokeSet(cx, cy, ch));
 }
 
 /** localStorage potrafi rzucac (tryb prywatny) - blad odczytu traktujemy jak brak wpisu. */
@@ -215,7 +227,7 @@ async function boot(): Promise<void> {
 
   const input = new InputController(canvas, {
     paint(x, y) {
-      strokeSet(x, y, state.brush);
+      strokeFootprint(x, y, state.brush);
       // syncWith zbiera i sortuje wszystkie znaki - wolamy tylko gdy pedzel nie ma jeszcze wpisu
       if (!state.level.legend.get(state.brush)) state.level.legend.syncWith(levelUsedChars(state.level));
       bumpContent(state);
@@ -223,7 +235,7 @@ async function boot(): Promise<void> {
       panels.onMutate();
     },
     erase(x, y) {
-      strokeSet(x, y, ' ');
+      strokeFootprint(x, y, ' ');
       bumpContent(state);
       markDirty();
       panels.onMutate();
@@ -270,7 +282,7 @@ document.fonts?.ready.then(markDirty).catch(() => {});
 function frame(): void {
   if (dirty) {
     dirty = false;
-    renderer.draw(state.level, state.view, state.contentRev);
+    renderer.draw(state);
   }
   requestAnimationFrame(frame);
 }

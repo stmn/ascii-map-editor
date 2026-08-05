@@ -1,7 +1,21 @@
+import { footprintBounds } from '../core/editorState';
 import { Grid, type Bounds } from '../core/grid';
 import { Level, flattenLayers, unionBounds } from '../core/level';
 
 export interface View { panX: number; panY: number; scale: number }
+
+/**
+ * To, co renderer czyta ze stanu edytora. EditorState spelnia ten ksztalt strukturalnie,
+ * wiec app.ts podaje po prostu swoj state - kolejne pola do rysowania nie zmieniaja sygnatury
+ * draw() (a renderer nie importuje typu EditorState, wiec nie ma zapetlenia modulow).
+ */
+export interface DrawState {
+  level: Level;
+  view: View;
+  contentRev: number;
+  /** Bok stopki pedzla - podswietlenie kursora pokrywa dokladnie malowany obszar. */
+  brushSize: number;
+}
 
 /** Domyslny "papier" 24x16 pokazywany gdy mapa jest pusta. */
 export const DEFAULT_PAPER: Bounds = { minX: 0, minY: 0, maxX: 23, maxY: 15 };
@@ -59,7 +73,8 @@ export class Renderer {
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
-  draw(level: Level, view: View, contentRev: number): void {
+  draw(state: DrawState): void {
+    const { level, view } = state;
     const { ctx } = this;
     const w = this.canvas.clientWidth, h = this.canvas.clientHeight;
     ctx.fillStyle = COLOR_DESK;
@@ -101,7 +116,7 @@ export class Renderer {
     ctx.strokeRect(px - OUTLINE_WIDTH / 2, py - OUTLINE_WIDTH / 2, pw + OUTLINE_WIDTH, ph + OUTLINE_WIDTH);
 
     // znaki - widoczne warstwy splaszczone do jednej siatki, gorne nadpisuja dolne
-    const flat = this.flatten(level, contentRev);
+    const flat = this.flatten(level, state.contentRev);
     const fontPx = Math.max(6, Math.round(s * 0.6));
     ctx.font = s >= SMALL_SCALE
       ? `${fontPx}px "Press Start 2P", monospace`
@@ -114,10 +129,14 @@ export class Renderer {
       ctx.fillText(ch, x * s - view.panX + s / 2, y * s - view.panY + s / 2);
     }
 
-    // podswietlenie komorki pod kursorem
+    // podswietlenie stopki pedzla pod kursorem - jeden prostokat zamiast n x n wypelnien
     if (this.hover) {
+      const f = footprintBounds(this.hover.x, this.hover.y, state.brushSize);
       ctx.fillStyle = this.eraseHover ? COLOR_HOVER_ERASE : COLOR_HOVER;
-      ctx.fillRect(this.hover.x * s - view.panX, this.hover.y * s - view.panY, s, s);
+      ctx.fillRect(
+        f.minX * s - view.panX, f.minY * s - view.panY,
+        (f.maxX - f.minX + 1) * s, (f.maxY - f.minY + 1) * s,
+      );
     }
   }
 }

@@ -1,9 +1,12 @@
 // Stan edytora: typ wspolny dla app.ts i paneli plus helpery indeksujace warstwy.
 // Modul nie dotyka DOM - trzyma wylacznie model i jego bezpieczne odczyty.
-import { Grid } from './grid';
+import { Grid, type Bounds } from './grid';
 import { Layer, Level, MAX_LAYERS, levelUsedChars } from './level';
 // import TYPU (nie wartosci) - View mieszka przy rendererze, wiec runtime nie dostaje tu zadnej zaleznosci
 import type { View } from '../ui/renderer';
+
+/** Rozmiary pedzla oferowane w panelu Draw - bok kwadratowej stopki. */
+export const BRUSH_SIZES: readonly number[] = [1, 2, 3, 4, 5];
 
 /** Stan edytora widziany przez panele - app.ts przekazuje swoj obiekt state. */
 export interface EditorState {
@@ -11,11 +14,32 @@ export interface EditorState {
   activeLayer: number;
   view: View;
   brush: string;
+  /** Bok kwadratowej stopki pedzla (1-5). Sesyjny jak brush - nie trafia do zapisu. */
+  brushSize: number;
   /**
    * Licznik zmian TRESCI mapy. Renderer trzyma po nim cache splaszczenia warstw,
    * wiec pan i zoom (ktore tresci nie ruszaja) cache'u nie kasuja.
    */
   contentRev: number;
+}
+
+/**
+ * Prostokat stopki pedzla wokol komorki kursora. Rozmiar parzysty nie ma srodka,
+ * wiec nadmiar idzie w prawo i w dol: offsety od -floor((n-1)/2) do +ceil((n-1)/2).
+ * JEDYNE zrodlo tej geometrii - maluje po niej app.ts, a renderer podswietla dokladnie ten sam obszar.
+ */
+export function footprintBounds(cx: number, cy: number, size: number): Bounds {
+  const n = Math.max(1, Math.round(size));
+  const back = Math.floor((n - 1) / 2), fwd = Math.ceil((n - 1) / 2);
+  return { minX: cx - back, minY: cy - back, maxX: cx + fwd, maxY: cy + fwd };
+}
+
+/** Obchodzi komorki stopki wiersz po wierszu - paint i erase jada po tej samej sciezce. */
+export function forEachFootprintCell(
+  cx: number, cy: number, size: number, fn: (x: number, y: number) => void,
+): void {
+  const b = footprintBounds(cx, cy, size);
+  for (let y = b.minY; y <= b.maxY; y++) for (let x = b.minX; x <= b.maxX; x++) fn(x, y);
 }
 
 /**
