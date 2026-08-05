@@ -27,9 +27,15 @@ locally as you draw.
 
 ### What you get
 
-- Paint with any ASCII character. Press a key, that character becomes your brush.
+- Paint with any ASCII character. Press a key, that character becomes your brush, and a
+  brush size chip (1x1 up to 5x5) paints a square footprint instead of one cell at a time.
 - Named layers, up to 8 per level: add, reorder, rename, hide or delete them from the Layers
-  panel, all sharing one legend for the whole level.
+  panel, all sharing one legend for the whole level. A "Dim other layers" toggle fades
+  everything but the active layer to 50% on the canvas, so you always see what you are
+  painting on.
+- Two modes: Advanced, the full editor, and Simplified, a smaller map-and-legend layout close
+  to the original v1 tool. A first-run chooser asks which one you want, and a switch at the
+  top of the screen changes it any time after that.
 - A legend that turns characters into real tiles: give each one a name and a color, and see
   how many times it is used. Change a character on the fly too: one click remaps it everywhere
   on every layer.
@@ -45,10 +51,12 @@ locally as you draw.
   it back into another browser or another machine.
 - An Export dialog: TXT, CSV, KaPlay snippet, Godot GDScript, Tiled `.tmx`, REXPaint `.xp`
   and a project `.json` that keeps every layer and the legend - plus a Legacy (v1) tab with
-  the three formats the original editor used to save.
+  the two array formats the original editor used to save (the third, plain text, is covered
+  by Copy TXT in the same dialog, and stays available too in the Simplified mode map view).
 - An Import dialog: load a file or paste text straight in, for project files, plain text,
   REXPaint `.xp` and both old v1 array formats.
 - Mouse wheel zoom, drag to pan, Alt or Ctrl to erase.
+- Clean, high-contrast icon buttons (thick-stroke Lucide icons) across every panel and dialog.
 
 ### Works with your engine
 
@@ -133,6 +141,9 @@ cursors and sound baked in. Double click it, no install, no internet, no browser
 It is pay what you want, and $2 is a fair nudge if the tool saved you an afternoon.
 
 ### Changelog
+
+**v2.4** - simplified classic mode with first run chooser, brush sizes, layer dimming, UI icon
+polish.
 
 **v2.3** - undo/redo, legend character remap, customizable dual-sidebar layout.
 

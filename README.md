@@ -51,6 +51,30 @@ itch.io-ready HTML project (`index.html` as the entry point) and it also contain
 - Import opens a dialog: load a `.json`, `.txt` or REXPaint `.xp` file, or paste text
   directly - both routes run through the same tolerant parser.
 
+## Brush size
+
+The Draw card has a row of size chips next to the character field, 1x1 up to 5x5
+(`BRUSH_SIZES` in `core/editorState.ts`). The selected size paints and erases a square
+footprint centered on the cursor cell; for an even size (2 or 4), which has no exact center,
+the extra row and column go right and down. The hover highlight on the canvas shows that same
+footprint before you click, and painting or erasing a whole stroke with a bigger brush is
+still one undo step, exactly like a 1x1 stroke.
+
+Brush size is a session setting, like the brush character itself: it is not written to
+`localStorage` and resets to 1x1 on the next load.
+
+## Layer dimming
+
+The Layers card has a "Dim other layers" checkbox, on by default. While it is checked and
+more than one layer is visible, every cell belonging to a layer other than the active one is
+drawn at 50% opacity on the canvas, so the layer you are currently painting on stands out from
+the rest of the stack. It is a view-only setting: it never changes the saved level, is not
+part of undo/redo, and is not persisted between sessions - it always starts on.
+
+The checkbox itself lives in the Layers card, which Simplified mode hides (see Modes below),
+so in Simplified the dimming stays wherever it was last set (on, by default) with no way to
+change it until you switch back to Advanced.
+
 ## Undo and redo
 
 Ctrl+Z (Cmd+Z on Mac) undoes the last change; Ctrl+Shift+Z or Ctrl+Y (Cmd+Shift+Z or Cmd+Y on
@@ -92,11 +116,18 @@ the same way again, so the rest of the history above and below it stays intact.
 
 ## Layout
 
-The seven panel cards (Project, Draw, Layers, Legend, Generate, Export, Import) live in two
-sidebar columns, one on each side of the canvas; the right column is where all seven start.
-Drag a card by its header - the collapsed title bar - into the other column, or up and down
-within the same column: a thin line shows where it will land before you drop it. A column with
-nothing in it collapses out of the map's way instead of reserving empty space.
+The eight panel cards (Project, Draw, Layers, Legend, Generate, Export, Import, Map) live in
+two sidebar columns, one on each side of the canvas; the right column is where all eight
+start. Map is the odd one out: it only shows in Simplified mode, see Modes below. Drag a card
+by its header - the collapsed title bar - into the other column, or up and down within the
+same column: a thin line shows where it will land before you drop it.
+
+Both sidebar columns are always the full height of the window and top-aligned: cards stack
+from the top, and whatever space is left below the last card - or all of it, in a column with
+no visible cards - stays part of the column instead of collapsing away. That leftover space
+has no card drawn around it and lets clicks fall straight through to the map underneath it, so
+an empty or half-full column never gets in the way of painting; the column only turns into a
+visible dashed drop zone while a card is actually being dragged over it.
 
 The arrangement is saved to `localStorage` under the key `ascii-level-editor-layout` (two
 lists of card ids, left and right, top to bottom) and is re-applied before the very first
@@ -109,6 +140,54 @@ moving a card between columns - which changes their widths - shifts the view hor
 re-center it, but only horizontally: vertical scroll and zoom level survive a drop untouched.
 Both columns keep a fixed 8px gap between their cards and the scrollbar, so a classic
 (non-overlay) scrollbar never touches a card's border.
+
+## Modes
+
+The editor has two modes: **Advanced**, the full editor with every card, and **Simplified**,
+a smaller layout closer to the original v1 tool. Both modes share the same underlying level,
+history and storage; switching modes never changes what is on the map, only which cards are
+on screen.
+
+### Choosing and switching
+
+The first time the editor runs, before any mode is stored, a "Welcome" dialog asks which mode
+to start in. Clicking Advanced or Simplified there sets the mode. Closing the dialog any other
+way - Esc, the X button, or a click on the overlay behind it - also sets a mode, falling back
+to Advanced, so the editor is never left without one stored; the dialog does not ask again
+once a mode is stored.
+
+After that first choice, a pill switch fixed at the top-center of the screen lets you change
+mode at any time, with the current mode highlighted. The choice is written to `localStorage`
+under the key `ascii-level-editor-mode` (value `advanced` or `simplified`), so it survives a
+reload. If `localStorage` is unavailable (private browsing, for example) the switch still
+works for the rest of the session, but the Welcome dialog asks again on the next load.
+
+### What Simplified hides
+
+Simplified keeps four cards: **Map**, **Draw**, **Legend** and **Generate**. It hides
+**Project**, **Layers**, **Export** and **Import** with plain CSS (`display: none` by
+`data-section`), so nothing about a hidden card's content is lost - switch back to Advanced
+and every card is exactly as you left it, including a custom position from dragging it between
+sidebar columns. A hidden card also takes no space and cannot be dropped into, so drag and
+drop in Simplified only ever targets the cards you can actually see.
+
+### The Map card
+
+Map is the closest thing Simplified has to the old v1 workflow of one text box for the whole
+level: a single textarea that is both a live export preview and an import field, plus a
+format picker offering the same three shapes v1 used to save - Text, Array of strings, Array
+of arrays.
+
+- The preview rewrites itself after every edit, in whichever format is currently selected.
+- **Load** parses whatever is in the textarea through the same tolerant parser as the Import
+  dialog's paste box (`.json` project text, a v1 map, or anything else `parseProject`
+  understands), and applies it through the same undo-aware replace-level command Import uses.
+  In practice that means **Load replaces the whole map - Undo brings it back** - exactly like
+  loading a file through Import, and the card says so directly under its buttons.
+- **Copy** copies the current preview text to the clipboard.
+
+Map only offers to view or replace the whole map as text; it has no per-layer or per-legend
+controls of its own, since those live in the cards Simplified hides.
 
 ## Projects and levels
 
@@ -224,10 +303,13 @@ and so on, bottom to top; rename them in the Layers panel afterwards if you want
 
 Export and Import open modal dialogs rather than inline panels. The Export modal has the
 Scope selector, one copy-or-download button per format, and a "Legacy (v1)" section: a format
-picker (Text, Array of strings, Array of arrays - the exact three shapes the original v1
-editor used to save), a live preview textarea, and a Copy legacy button. The Import modal has
-a file picker for `.json` / `.txt` / `.xp` plus a paste box; both routes run through the same
-tolerant parser, so pasting an old v1 export works exactly like importing its file.
+picker with two of the three shapes the original v1 editor used to save - Array of strings and
+Array of arrays - a live preview textarea, and a Copy legacy button. The third shape, plain
+Text, is left out of this picker because it duplicates the Copy TXT button already in the same
+dialog; all three legacy shapes together are still available in Simplified mode's Map card,
+see Modes above. The Import modal has a file picker for `.json` / `.txt` / `.xp` plus a paste
+box; both routes run through the same tolerant parser, so pasting an old v1 export works
+exactly like importing its file.
 
 ## Architecture
 
@@ -465,7 +547,11 @@ everything lands on a single layer named "main". REXPaint `.xp` files are handle
 - Font: Press Start 2P by CodeMan38, SIL Open Font License:
   <https://fonts.google.com/specimen/Press+Start+2P>.
 - Cursor sprites and `pop.wav` come from the original v1 repository.
+- Icons: Lucide, ISC License (a few glyphs also carry the Feather project's MIT license):
+  <https://lucide.dev>. The button icons across every card and modal are inlined as SVG path
+  data at dev time (`src/ui/icons.ts`); the build ships no Lucide package and makes no network
+  request for them at runtime.
 
-Full license texts (this project, the MIT license of the original, and the OFL of Press
-Start 2P) are in `LICENSES.md`. `npm run zip` copies that file into `dist/`, so every
-distributed copy of the editor carries it.
+Full license texts (this project, the MIT license of the original, the OFL of Press Start 2P,
+and the ISC/MIT licenses of the Lucide icons) are in `LICENSES.md`. `npm run zip` copies that
+file into `dist/`, so every distributed copy of the editor carries it.
