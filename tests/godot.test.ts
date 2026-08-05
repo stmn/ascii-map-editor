@@ -1,18 +1,22 @@
 import { describe, expect, it } from 'vitest';
 import { Grid } from '../src/core/grid';
-import { Legend } from '../src/core/legend';
+import { createLevel, makeLayer } from '../src/core/level';
 import { exportGodot } from '../src/export/godot';
 
 describe('godot export', () => {
-  it('snippet zawiera LEVEL, TILES i set_cell', () => {
-    const g = Grid.fromLines(['#@']);
-    const l = new Legend();
-    l.syncWith(g.usedChars());
-    const out = exportGodot(g, l);
-    expect(out).toContain('const LEVEL = [');
-    expect(out).toContain('"#@"');
+  it('LEVELS per warstwa, wspolne TILES, load_layer', () => {
+    const lv = createLevel();
+    lv.layers[0]!.grid = Grid.fromLines(['#@']);
+    lv.layers.push(makeLayer('deco', Grid.fromLines(['~'], 2, 0)));
+    lv.legend.syncWith(['#', '@', '~']);
+    const out = exportGodot(lv);
+    expect(out).toContain('const LEVELS = {');
+    expect(out).toContain('"main": [');
+    expect(out).toContain('"deco": [');
+    expect(out).toContain('"#@ "');
+    expect(out).toContain('"  ~"');
     expect(out).toContain('"#": Vector2i(0, 0)');
-    expect(out).toContain('"@": Vector2i(1, 0)');
-    expect(out).toContain('set_cell(Vector2i(x, y)');
+    expect(out).toContain('func load_layer(tile_map: TileMapLayer, layer_name: String, source_id: int = 0) -> void:');
+    expect(out).toContain('set_cell(Vector2i(x, y), source_id, TILES[ch])');
   });
 });
