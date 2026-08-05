@@ -4,6 +4,7 @@ import { bumpContent } from '../../core/editorState';
 import type { LegendEntry } from '../../core/legend';
 import { remapChar } from '../../core/remap';
 import { button, el, iconButton } from '../dom';
+import { icon } from '../icons';
 import { promptModal } from '../modal';
 import { PanelsCtx, errorMessage, playPop, scheduleSave, toast } from './context';
 
@@ -71,7 +72,7 @@ export function initLegend(ctx: PanelsCtx, legendBox: HTMLElement): LegendPanel 
       charBtn.style.color = entry.color;
       charBtn.title = `Use ${entry.ch} as brush`;
 
-      const editBtn = iconButton('e', 'legend-edit', 'Change character', () => void editChar(entry));
+      const editBtn = iconButton(icon('pencil'), 'legend-edit', 'Change character', () => void editChar(entry));
 
       const name = el('input', 'legend-name');
       name.type = 'text';

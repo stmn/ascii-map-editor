@@ -1,6 +1,7 @@
 // Modale edytora: pol-przezroczysty overlay + biala karta w stylu kart sekcji (v1).
 // Modul nie zna stanu edytora - dostaje gotowe body i sam pilnuje zamykania (X, Esc, klik w overlay).
-import { button, el } from './dom';
+import { button, el, iconButton } from './dom';
+import { icon } from './icons';
 
 export interface ModalHandle {
   close(): void;
@@ -118,9 +119,7 @@ export function openModal(title: string, body: HTMLElement): ModalHandle {
   card.setAttribute('aria-modal', 'true');
   card.setAttribute('aria-label', title);
   const head = el('div', 'modal-head');
-  const close = button('X', 'modal-x', () => handle.close());
-  close.title = 'Close';
-  close.setAttribute('aria-label', 'Close');
+  const close = iconButton(icon('x'), 'modal-x', 'Close', () => handle.close());
   head.append(el('span', 'modal-title', title), close);
   body.classList.add('modal-body');
   card.append(head, body);

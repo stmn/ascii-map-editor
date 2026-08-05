@@ -9,11 +9,17 @@ export function el<K extends keyof HTMLElementTagNameMap>(
   return node;
 }
 
-export function button(label: string, className: string, onClick: () => void): HTMLButtonElement {
-  const b = el('button', className, label);
+/** Wspolny szkielet przycisku: <button type="button"> z trescia (tekst albo wezel, np. ikona SVG) i klikiem. */
+function baseButton(content: string | Node, className: string, onClick: () => void): HTMLButtonElement {
+  const b = el('button', className);
   b.type = 'button';
+  b.append(content);
   b.addEventListener('click', onClick);
   return b;
+}
+
+export function button(label: string, className: string, onClick: () => void): HTMLButtonElement {
+  return baseButton(label, className, onClick);
 }
 
 /** Opis przycisku-ikony: tooltip i etykieta dla czytnika ekranu zawsze ida razem. */
@@ -23,13 +29,14 @@ export function setIconTitle(b: HTMLButtonElement, title: string): void {
 }
 
 /**
- * Kwadratowy przycisk-ikona w wierszu listy (warstwy, poziomy): sam znak w srodku,
- * a pelny opis w tooltipie i dla czytnika ekranu.
+ * Kwadratowy przycisk-ikona w wierszu listy (warstwy, poziomy, legenda): tresc w srodku to albo
+ * ikona SVG z icons.ts, albo pojedynczy znak - string zostaje dla chipow legendy/pedzla, ktore
+ * maja pozostac widocznymi znakami, nie ikonami. Pelny opis idzie zawsze w tooltip i aria-label.
  */
 export function iconButton(
-  label: string, className: string, title: string, onClick: () => void,
+  glyph: SVGElement | string, className: string, title: string, onClick: () => void,
 ): HTMLButtonElement {
-  const b = button(label, className, onClick);
+  const b = baseButton(glyph, className, onClick);
   setIconTitle(b, title);
   return b;
 }

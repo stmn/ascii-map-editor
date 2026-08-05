@@ -5,6 +5,7 @@ import {
 import { bumpContent, clampedActive } from '../../core/editorState';
 import { Layer, MAX_LAYERS, makeLayer } from '../../core/level';
 import { button, el, iconButton } from '../dom';
+import { icon } from '../icons';
 import { confirmModal } from '../modal';
 import { PanelsCtx, playPop, scheduleSave } from './context';
 
@@ -91,17 +92,17 @@ export function initLayers(ctx: PanelsCtx, layersBox: HTMLElement): LayersPanel 
     ctx.hooks.pushHistory?.(layerMoveCommand(state, index, target));
   }
 
-  function layerButton(label: string, title: string, onClick: () => void): HTMLButtonElement {
-    return iconButton(label, 'layer-btn', title, onClick);
+  function layerButton(glyph: SVGElement, title: string, onClick: () => void): HTMLButtonElement {
+    return iconButton(glyph, 'layer-btn', title, onClick);
   }
 
   function layerRow(layer: Layer, index: number): HTMLElement {
     const { layers } = state.level;
     const row = el('div', index === state.activeLayer ? 'layer-row active' : 'layer-row');
 
-    // znak oka zostaje ten sam - stan ukrycia niesie przekreslenie i wyszarzenie
+    // eye/eye-off niesie stan ukrycia sama ikona - wyszarzone tlo .off zostaje jako dodatkowy sygnal
     const eye = layerButton(
-      'o',
+      layer.visible ? icon('eye') : icon('eye-off'),
       layer.visible ? `Hide layer "${layer.name}"` : `Show layer "${layer.name}"`,
       () => {
         layer.visible = !layer.visible;
@@ -138,12 +139,12 @@ export function initLayers(ctx: PanelsCtx, layersBox: HTMLElement): LayersPanel 
       nameBefore = layer.name;
     });
 
-    const up = layerButton('^', `Move layer "${layer.name}" up`, () => moveLayer(index, 1));
+    const up = layerButton(icon('chevron-up'), `Move layer "${layer.name}" up`, () => moveLayer(index, 1));
     up.disabled = index === layers.length - 1;
-    const down = layerButton('v', `Move layer "${layer.name}" down`, () => moveLayer(index, -1));
+    const down = layerButton(icon('chevron-down'), `Move layer "${layer.name}" down`, () => moveLayer(index, -1));
     down.disabled = index === 0;
 
-    const del = layerButton('X', `Delete layer "${layer.name}"`, () => void removeLayer(index));
+    const del = layerButton(icon('trash'), `Delete layer "${layer.name}"`, () => void removeLayer(index));
     del.classList.add('layer-del');
     del.disabled = layers.length <= 1;
 

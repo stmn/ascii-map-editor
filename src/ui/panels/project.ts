@@ -8,6 +8,7 @@ import {
   type LevelRecord, type ProjectMeta, type WorkspaceStore,
 } from '../../core/store';
 import { button, el, iconButton, setIconTitle } from '../dom';
+import { icon } from '../icons';
 import { confirmModal, promptModal } from '../modal';
 import {
   PanelsCtx, applyLevelToPanels, download, errorMessage, flushSave, getCurrentLevel,
@@ -333,10 +334,10 @@ export function initProject(ctx: PanelsCtx, box: HTMLElement): ProjectPanel {
       renameLevel(store, record, name.value);
     });
 
-    const dup = iconButton('D', 'level-btn', `Duplicate level "${record.name}"`, () => {
+    const dup = iconButton(icon('copy'), 'level-btn', `Duplicate level "${record.name}"`, () => {
       runOp(duplicateLevel(store, record, levels));
     });
-    const del = iconButton('X', 'level-btn level-del', `Delete level "${record.name}"`, () => {
+    const del = iconButton(icon('trash'), 'level-btn level-del', `Delete level "${record.name}"`, () => {
       runOp(deleteLevel(store, record, levels));
     });
     del.disabled = levels.length <= 1;
@@ -374,7 +375,7 @@ export function initProject(ctx: PanelsCtx, box: HTMLElement): ProjectPanel {
     const actions = el('div', 'btn-row project-actions');
     const rename = button('Rename', 'btn-plain', () => { if (meta) runOp(renameProject(store, meta)); });
     rename.disabled = !meta;
-    const del = iconButton('X', 'level-btn level-del', 'Delete project', () => {
+    const del = iconButton(icon('trash'), 'level-btn level-del', 'Delete project', () => {
       if (meta) runOp(deleteProject(store, meta, projects));
     });
     del.disabled = !meta || projects.length <= 1;

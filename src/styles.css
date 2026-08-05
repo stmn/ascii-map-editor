@@ -384,13 +384,23 @@ button:disabled:active {
   background: #3b82f6;
 }
 
+/* Przyciski-ikony (Lucide, src/ui/icons.ts): kwadrat 22x22 wewnatrz, ikona wysrodkowana flexem. */
+.icon {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  display: block;
+}
+
 .layer-btn,
 .level-btn,
 .legend-edit {
   flex: none;
   width: 24px;
   padding: 5px 0;
-  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   color: #1a1c2c;
   background: #ffffff;
 }
@@ -416,11 +426,10 @@ button:disabled:active {
   background: #e5e7eb;
 }
 
-/* Ukryta warstwa: przekreslone i wyszarzone "oko". */
+/* Ukryta warstwa: ikona zmienia sie na eye-off (patrz layers.ts), tu zostaje tylko wyszarzone tlo. */
 .layer-eye.off {
   color: #9ca3af;
   background: #e5e7eb;
-  text-decoration: line-through;
 }
 
 .layer-del,
@@ -458,12 +467,11 @@ button:disabled:active {
   width: 100%;
 }
 
-/* New i Rename dziela szerokosc rzedu, czerwony X zostaje waski jak w wierszach warstw. */
+/* New i Rename dziela szerokosc rzedu, czerwony trash zostaje waski jak w wierszach warstw. */
 .project-actions .level-del {
   flex: none;
   width: 26px;
   padding: 6px 0;
-  text-align: center;
 }
 
 /* Kolumna, nie grid: sciezka grid dawalaby sciezke o szerokosci max-content pola nazwy,
@@ -625,7 +633,9 @@ input[type='color'] {
   flex: none;
   width: 26px;
   padding: 4px 0;
-  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   color: #1a1c2c;
   background: #ffffff;
 }
