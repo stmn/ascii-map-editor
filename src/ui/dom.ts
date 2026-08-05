@@ -16,6 +16,12 @@ export function button(label: string, className: string, onClick: () => void): H
   return b;
 }
 
+/** Opis przycisku-ikony: tooltip i etykieta dla czytnika ekranu zawsze ida razem. */
+export function setIconTitle(b: HTMLButtonElement, title: string): void {
+  b.title = title;
+  b.setAttribute('aria-label', title);
+}
+
 /**
  * Kwadratowy przycisk-ikona w wierszu listy (warstwy, poziomy): sam znak w srodku,
  * a pelny opis w tooltipie i dla czytnika ekranu.
@@ -24,8 +30,7 @@ export function iconButton(
   label: string, className: string, title: string, onClick: () => void,
 ): HTMLButtonElement {
   const b = button(label, className, onClick);
-  b.title = title;
-  b.setAttribute('aria-label', title);
+  setIconTitle(b, title);
   return b;
 }
 

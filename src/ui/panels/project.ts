@@ -7,7 +7,7 @@ import {
   exportWorkspace, importWorkspace, nextName,
   type LevelRecord, type ProjectMeta, type WorkspaceStore,
 } from '../../core/store';
-import { button, el, iconButton } from '../dom';
+import { button, el, iconButton, setIconTitle } from '../dom';
 import { confirmModal, promptModal } from '../modal';
 import {
   PanelsCtx, applyLevelToPanels, download, errorMessage, flushSave, getCurrentLevel, getStore,
@@ -32,8 +32,18 @@ function makeLevelRecord(projectId: string, name: string, order: number): LevelR
 }
 
 export function initProject(ctx: PanelsCtx, box: HTMLElement): ProjectPanel {
-  /** Wiersze listy po id poziomu - pozwalaja odswiezyc miniature i podswietlenie BEZ przebudowy DOM. */
-  const rows = new Map<string, { row: HTMLElement; thumb: HTMLElement }>();
+  /**
+   * Wiersze listy po id poziomu - pozwalaja odswiezyc wiersz BEZ przebudowy DOM.
+   * `record` to migawka z czasu renderu, ktora obsluga wiersza (nazwa, duplikat) trzyma w domknieciu;
+   * musi nadazac za rzeczywistoscia, bo zapis nazwy poziomu NIE-biezacego idzie wlasnie z niej.
+   */
+  const rows = new Map<string, {
+    row: HTMLElement;
+    thumb: HTMLElement;
+    record: LevelRecord;
+    dup: HTMLButtonElement;
+    del: HTMLButtonElement;
+  }>();
   /** Numer ostatniego zamowionego renderu - starszy (wolniejszy odczyt) nie moze nadpisac nowszego. */
   let renderSeq = 0;
 
@@ -55,12 +65,29 @@ export function initProject(ctx: PanelsCtx, box: HTMLElement): ProjectPanel {
   }
 
   /**
-   * Po kazdym autozapisie odswiezamy miniature biezacego wiersza. Celowo bez przebudowy karty:
-   * zapis leci tez w trakcie pisania w polu nazwy, a podmiana DOM zabralaby wtedy fokus.
+   * Dociagniecie wiersza do aktualnego rekordu BEZ przebudowy karty: migawka w mapie, miniatura
+   * i opisy przyciskow. Krytyczne dla migawki - zapis nazwy poziomu NIE-biezacego wysyla caly
+   * rekord z domkniecia, wiec bez tego pierwsze wcisniecie klawisza w polu nazwy poziomu, ktory
+   * byl w miedzyczasie malowany, cofnelo by jego tresc do stanu z ostatniego renderu.
+   */
+  function syncRow(record: LevelRecord): void {
+    const entry = rows.get(record.id);
+    if (!entry) return;
+    if (entry.record !== record) Object.assign(entry.record, record);
+    setRowThumb(record.id, record.thumb);
+    // tytuly niosa nazwe, wiec starzeja sie tak samo jak migawka
+    setIconTitle(entry.dup, `Duplicate level "${entry.record.name}"`);
+    setIconTitle(entry.del, `Delete level "${entry.record.name}"`);
+  }
+
+  /**
+   * Po kazdym autozapisie dociagamy wiersz biezacego poziomu (miniatura + migawka).
+   * Celowo bez przebudowy karty: zapis leci tez w trakcie pisania w polu nazwy,
+   * a podmiana DOM zabralaby wtedy fokus.
    */
   setOnSaved(() => {
     const current = getCurrentLevel();
-    if (current) setRowThumb(current.id, current.thumb);
+    if (current) syncRow(current);
   });
 
   // --- operacje na poziomach ---------------------------------------------------
@@ -94,8 +121,10 @@ export function initProject(ctx: PanelsCtx, box: HTMLElement): ProjectPanel {
     }
     setCurrentLevel(fresh);
     applyLevelToPanels(ctx, level);
-    // flushSave w setCurrentLevel odswiezyl miniature poprzedniego rekordu - pokazujemy ja od razu
-    if (previous) setRowThumb(previous.id, previous.thumb);
+    // Przelaczenie nie przebudowuje karty, wiec migawki obu wierszy dociagamy tu recznie:
+    // opuszczany dostaje tresc i miniature domknieta przez flushSave, wchodzacy - kopie z magazynu.
+    if (previous) syncRow(previous);
+    syncRow(fresh);
     setActiveRow(fresh.id);
     playPop();
     return true;
@@ -299,9 +328,9 @@ export function initProject(ctx: PanelsCtx, box: HTMLElement): ProjectPanel {
     });
 
     row.append(thumb, name, dup, del);
-    rows.set(record.id, { row, thumb });
-    // biezacy poziom ma swiezsza miniature w zywym rekordzie niz kopia z magazynu
-    setRowThumb(record.id, active ? current!.thumb : record.thumb);
+    rows.set(record.id, { row, thumb, record, dup, del });
+    // biezacy poziom ma swiezsza tresc i miniature w zywym rekordzie niz kopia z magazynu
+    syncRow(active ? current! : record);
     return row;
   }
 
@@ -366,9 +395,13 @@ export function initProject(ctx: PanelsCtx, box: HTMLElement): ProjectPanel {
    * straznik co w karcie Legend). Zmiany nazw i tak sa juz zapisane, wiec nic nie ginie.
    */
   async function render(): Promise<void> {
+    // straznik przed odczytami magazynu - odczyt i tak poszedlby do kosza
+    const focused = document.activeElement;
+    if (focused instanceof HTMLInputElement && box.contains(focused)) return;
     const seq = ++renderSeq;
     const store = getStore();
     if (!store) {
+      rows.clear(); // wiersze znikaja z DOM, wiec mapa nie moze zostac z odpietymi wezlami
       box.replaceChildren(el('p', 'hint', 'Storage unavailable - projects cannot be saved.'));
       return;
     }
@@ -376,8 +409,6 @@ export function initProject(ctx: PanelsCtx, box: HTMLElement): ProjectPanel {
     const projectId = getCurrentLevel()?.projectId ?? projects[0]?.id ?? null;
     const levels = projectId ? await store.listLevels(projectId) : [];
     if (seq !== renderSeq) return; // w trakcie odczytu przyszedl nowszy render
-    const focused = document.activeElement;
-    if (focused instanceof HTMLInputElement && box.contains(focused)) return;
     build(store, projects, projectId, levels);
   }
 
