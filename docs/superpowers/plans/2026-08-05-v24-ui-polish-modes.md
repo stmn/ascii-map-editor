@@ -138,6 +138,34 @@ Kolejnosc: 1 ikony, 2 rozmiar pedzla, 3 szlify stylu, 4 dim warstw, 5 tryby, 6 d
 
 ---
 
+### Task 7: Simplified jako replika ukladu v1 (user request ze screenshotem) + fixy z finalnego review
+
+**Files:**
+- Modify: `src/ui/panels/map.ts` (przebudowa na karte glowna v1), `src/ui/mode.ts`, `src/core/generators.ts`, `src/core/editorState.ts`, `src/ui/renderer.ts`, `src/ui/icons.ts`, `src/ui/panels/generate.ts` (wyciagniecie wspolnej logiki), `index.html`, `src/styles.css`
+- Create: `src/ui/panels/extra.ts` (karta Extra features)
+- Test: `tests/generators.test.ts` (min/max room)
+
+**Zachowanie (wzorzec: screenshot v1 od usera):**
+1. Simplified pokazuje TYLKO 2 karty: glowna "Map" + "Extra features" (warunkowo). Ukryte DODATKOWO wzgledem D5: draw, legend, generate (pedzel przez input Character i klawiature; undo przez Ctrl+Z).
+2. Karta glowna, kolejnosc JAK W V1: `Width:`/`Height:` obok siebie (label nad inputem, 50/50, default 14/12, min 3 max 199); `Character:` (input, dwustronna synchronizacja ze state.brush - zmiana pedzla klawiszem aktualizuje input); wiersz `Map:` + niebieski link `SWITCH FORMAT` (prawa strona); textarea; rzad przyciskow `[Clear czerwony][Center niebieski][Load zielony]`; `[To clipboard]` full width niebieski; szary box checkboxow: `Show grid` / `Show colors` / `Extra features`.
+3. SWITCH FORMAT: cykl text -> array-text -> array-array -> text (jak v1); format sesyjny; textarea odswieza sie natychmiast; cykl czysci flage userEdited (nadpisuje wklejke - zachowanie v1).
+4. **userEdited guard (FIX Important z finalnego review):** flaga ustawiana na `input` textarea; refresh podgladu POMIJA nadpisanie gdy flaga aktywna (dotyczy tez sciezki po undo); czyszczona po udanym Load i przy SWITCH FORMAT. Wklejka usera nie moze zniknac przez klik w canvas + debounce.
+5. Clear: confirmModal('Clear the whole map?'); czysci WSZYSTKIE warstwy (ReplaceCommand - undoable); legenda zostaje. Center: centerOnPaper. Load: istniejacy pipeline applyImported (bez duplikacji). To clipboard: kopia textarea + toast + pop.
+6. Po udanym Load i po generatorach: inputy W/H aktualizowane do wymiarow union bounds (v1 robil detectMapSize).
+7. `Show grid` -> `state.gridVisible` (default true; renderer pomija linie siatki gdy false, papier i obrys zostaja). `Show colors` -> `state.colorsEnabled` (default true; false = wszystkie glify w kolorze atramentu, jak gray-mode v1). Oba view-only: markDirty, bez historii/autosave; stan globalny (Advanced na razie bez UI do nich).
+8. Karta `Extra features`: naglowek z X (odznacza checkbox); `Maze generator` + [Generate]; separator; `Dungeon generator`: `Min. room size:` (default 4), `Max. room size:` (default 8), [Generate]. Generatory: W/H z karty glownej; wspolna sciezka confirm+ReplaceCommand wyciagnieta z generate.ts (zero duplikacji).
+9. `generateDungeon`: opcjonalne koncowe parametry `minRoom = 4, maxRoom = 10`; pokoje `rw = ri(minRoom, maxRoom)`, `rh = ri(minRoom, maxRoom)` (swap gdy min > max). Test: deterministyczny dla seeda z custom min/max + plansza ma podloge; istniejace testy bez zmian (test determinizmu porownuje dwa runy, przejdzie mimo zmiany rozkladu rh).
+10. **Dim wylaczony w Simplified (FIX):** warunek `!isSimplified()` w sciezce dim renderera (import mode.ts - bez cyklu); state.dimOthers nietkniety.
+11. **Usun ikone `plus` (FIX):** dead code z D1.
+12. Advanced: wizualnie bez zmian (Map/Extra ukryte w advanced przez ten sam mechanizm CSS).
+
+- [ ] **Step 1:** generators min/max (TDD) + editorState (gridVisible/colorsEnabled) + renderer (toggles + dim-w-simplified off).
+- [ ] **Step 2:** map.ts przebudowa + extra.ts + mode.ts (nowa lista ukrytych) + style + index.html.
+- [ ] **Step 3:** Weryfikacja: `npm test` + `npm run build`; JEDNA sesja CDP (--use-mock-keychain): uklad karty glownej 1:1 ze screenshotem v1 (screenshot porownawczy), SWITCH FORMAT cykluje, paste -> klik w canvas -> wklejka NIE znika, Load + undo, Clear wszystkich warstw + undo, Show grid/colors dzialaja, Extra features toggle + X, advanced niezmieniony, zero bledow konsoli; kill + ps.
+- [ ] **Step 4: Commit.** `git add -A && git commit -m "Rebuild simplified mode as faithful v1 panel replica"`
+
+---
+
 ### Task 6: Docs + wersja 2.4.0 + pakowanie
 
 **Files:**
