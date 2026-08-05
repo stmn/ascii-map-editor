@@ -40,6 +40,22 @@ export function flattenLayers(layers: Layer[]): Grid {
   return flat;
 }
 
+/**
+ * Jak flattenLayers, ale kazda komorka niesie tez indeks warstwy zrodlowej (pozycja w oryginalnej
+ * tablicy layers, NIE w kolejnosci malowania). Renderer uzywa tego do przyciemniania komorek
+ * spoza aktywnej warstwy - bez indeksu nie dalby rady odroznic, z ktorej warstwy pochodzi znak
+ * po splaszczeniu.
+ */
+export function flattenWithSource(layers: Layer[]): Map<string, { ch: string; layerIndex: number }> {
+  const flat = new Map<string, { ch: string; layerIndex: number }>();
+  for (let layerIndex = 0; layerIndex < layers.length; layerIndex++) {
+    const l = layers[layerIndex]!;
+    if (!l.visible) continue;
+    for (const { x, y, ch } of l.grid.cells()) flat.set(`${x},${y}`, { ch, layerIndex });
+  }
+  return flat;
+}
+
 export function levelUsedChars(level: Level): string[] {
   const set = new Set<string>();
   for (const l of level.layers) for (const ch of l.grid.usedChars()) set.add(ch);

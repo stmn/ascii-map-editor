@@ -1,6 +1,6 @@
 import { footprintBounds } from '../core/editorState';
-import { Grid, type Bounds } from '../core/grid';
-import { Level, flattenLayers, unionBounds } from '../core/level';
+import { type Bounds } from '../core/grid';
+import { Level, flattenWithSource, unionBounds } from '../core/level';
 
 export interface View { panX: number; panY: number; scale: number }
 
@@ -15,6 +15,10 @@ export interface DrawState {
   contentRev: number;
   /** Bok stopki pedzla - podswietlenie kursora pokrywa dokladnie malowany obszar. */
   brushSize: number;
+  /** Indeks aktywnej warstwy - decyduje, ktore komorki rysujemy pelna alfa gdy dimOthers wlaczone. */
+  activeLayer: number;
+  /** Czy przyciemniac na canvasie komorki spoza aktywnej warstwy (patrz DIM_ALPHA). */
+  dimOthers: boolean;
 }
 
 /** Domyslny "papier" 24x16 pokazywany gdy mapa jest pusta. */
@@ -33,6 +37,11 @@ const COLOR_HOVER_ERASE = 'rgba(250,50,50,0.5)';
 const OUTLINE_WIDTH = 4;
 /** Ponizej tego scale rysujemy fallbackiem monospace - Press Start 2P jest nieczytelny. */
 const SMALL_SCALE = 12;
+/**
+ * Alfa komorek spoza aktywnej warstwy gdy dimOthers wlaczone. Stala wartosc (bez gradacji
+ * po glebokosci warstwy) - decyzja ownera/kontrolera, patrz task-4 brief.
+ */
+const DIM_ALPHA = 0.5;
 
 /**
  * Prostokat papieru: bounds wszystkich warstw powiekszone o 1 komorke marginesu
@@ -50,18 +59,28 @@ export class Renderer {
   /** Gdy true, podswietlenie kursora jest czerwone (tryb gumki). */
   eraseHover = false;
   /**
-   * Splaszczenie warstw z ostatniego rysowania. Klatki po panie/zoomie i po ruchu kursora
-   * trafiaja tu w cache - przeliczamy dopiero gdy contentRev (licznik mutacji tresci) sie zmieni.
+   * Splaszczenie warstw (z indeksem warstwy zrodlowej kazdej komorki) z ostatniego rysowania.
+   * Klatki po panie/zoomie i po ruchu kursora trafiaja tu w cache - przeliczamy dopiero gdy
+   * contentRev (licznik mutacji tresci) sie zmieni.
+   *
+   * Decyzja o cache'u dla przyciemniania (Task 4): activeLayer i dimOthers CELOWO nie wchodza
+   * do klucza cache'u. Ten sam splaszczony wynik sluzy i sciezce z dim, i bez - o alfie kazdej
+   * komorki decydujemy dopiero w draw() przy kazdym rysowaniu, czytajac biezacy state.activeLayer
+   * i state.dimOthers. Draw() i tak leci co klatke po markDirty (patrz app.ts frame()), a zmiana
+   * aktywnej warstwy juz dzis wola tylko markDirty bez bumpContent (przelaczanie warstwy nie
+   * rusza tresci mapy) - dzieki temu, ze alfa nigdy nie jest zapamietana w cachu, kolejne
+   * przerysowanie automatycznie odswieza przyciemnienie bez potrzeby poszerzania klucza cache'u
+   * ani osobnej sciezki dla dim/bez dim.
    */
-  private cachedFlat: { rev: number; flat: Grid } | null = null;
+  private cachedFlat: { rev: number; flat: Map<string, { ch: string; layerIndex: number }> } | null = null;
 
   constructor(private canvas: HTMLCanvasElement) {
     this.ctx = canvas.getContext('2d')!;
   }
 
-  private flatten(level: Level, contentRev: number): Grid {
+  private flatten(level: Level, contentRev: number): Map<string, { ch: string; layerIndex: number }> {
     if (this.cachedFlat?.rev !== contentRev) {
-      this.cachedFlat = { rev: contentRev, flat: flattenLayers(level.layers) };
+      this.cachedFlat = { rev: contentRev, flat: flattenWithSource(level.layers) };
     }
     return this.cachedFlat.flat;
   }
@@ -115,18 +134,26 @@ export class Renderer {
     ctx.lineWidth = OUTLINE_WIDTH;
     ctx.strokeRect(px - OUTLINE_WIDTH / 2, py - OUTLINE_WIDTH / 2, pw + OUTLINE_WIDTH, ph + OUTLINE_WIDTH);
 
-    // znaki - widoczne warstwy splaszczone do jednej siatki, gorne nadpisuja dolne
+    // znaki - widoczne warstwy splaszczone do jednej mapy, gorne nadpisuja dolne (kazda komorka
+    // niesie tez indeks warstwy zrodlowej - patrz komentarz przy cachedFlat)
     const flat = this.flatten(level, state.contentRev);
+    // przyciemniamy tylko gdy user wlaczyl to w karcie Layers I jest co odroznic (>1 widoczna warstwa) -
+    // przy jednej widocznej warstwie przyciemnianie nie mialoby czego pokazac
+    const visibleLayers = level.layers.filter((l) => l.visible).length;
+    const dimming = state.dimOthers && visibleLayers > 1;
     const fontPx = Math.max(6, Math.round(s * 0.6));
     ctx.font = s >= SMALL_SCALE
       ? `${fontPx}px "Press Start 2P", monospace`
       : `${fontPx}px ui-monospace, Menlo, monospace`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    for (const { x, y, ch } of flat.cells()) {
+    for (const [key, { ch, layerIndex }] of flat) {
+      const [x, y] = key.split(',').map(Number);
       if (x < x0 || x > x1 || y < y0 || y > y1) continue;
       ctx.fillStyle = level.legend.get(ch)?.color ?? COLOR_INK_FALLBACK;
+      ctx.globalAlpha = dimming && layerIndex !== state.activeLayer ? DIM_ALPHA : 1;
       ctx.fillText(ch, x * s - view.panX + s / 2, y * s - view.panY + s / 2);
+      ctx.globalAlpha = 1;
     }
 
     // podswietlenie stopki pedzla pod kursorem - jeden prostokat zamiast n x n wypelnien

@@ -28,6 +28,22 @@ export function initLayers(ctx: PanelsCtx, layersBox: HTMLElement): LayersPanel 
   /** Wiersze karty w kolejnosci tablicy warstw - do przelaczania podswietlenia bez przebudowy DOM. */
   const rowEls: HTMLElement[] = [];
 
+  /**
+   * Checkbox przyciemniania nie-aktywnych warstw na canvasie - ustawienie WIDOKU (jak brush,
+   * brushSize), nie tresci mapy, wiec zmiana idzie TYLKO przez markDirty: bez historii (undo/redo
+   * by nie mialo sensu dla podgladu) i bez autozapisu (nic tu nie trafia do rekordu poziomu).
+   */
+  const dimCheckbox = el('input');
+  dimCheckbox.type = 'checkbox';
+  dimCheckbox.checked = state.dimOthers;
+  dimCheckbox.setAttribute('aria-label', 'Dim other layers');
+  dimCheckbox.addEventListener('change', () => {
+    state.dimOthers = dimCheckbox.checked;
+    ctx.markDirty();
+  });
+  const dimRow = el('label', 'field help-box');
+  dimRow.append(dimCheckbox, el('span', undefined, 'Dim other layers'));
+
   function setActiveLayer(index: number): void {
     if (state.activeLayer === index) return;
     state.activeLayer = index;
@@ -174,7 +190,7 @@ export function initLayers(ctx: PanelsCtx, layersBox: HTMLElement): LayersPanel 
     const add = button('Add layer', '', addLayer);
     add.disabled = layers.length >= MAX_LAYERS;
     add.title = add.disabled ? `Limit is ${MAX_LAYERS} layers` : 'Add a layer above the active one';
-    layersBox.append(add);
+    layersBox.append(add, dimRow);
   }
 
   return { render: renderLayers };

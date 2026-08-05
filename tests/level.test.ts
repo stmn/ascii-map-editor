@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { Grid } from '../src/core/grid';
-import { MAX_LAYERS, createLevel, flattenLayers, levelUsedChars, makeLayer, unionBounds } from '../src/core/level';
+import {
+  MAX_LAYERS, createLevel, flattenLayers, flattenWithSource, levelUsedChars, makeLayer, unionBounds,
+} from '../src/core/level';
 
 describe('Level', () => {
   it('createLevel ma jedna widoczna warstwe main', () => {
@@ -29,6 +31,18 @@ describe('Level', () => {
     expect(flat.get(0, 0)).toBe('X');
     expect(flat.get(1, 0)).toBe('b');
     expect(flat.get(2, 0)).toBeNull();
+  });
+
+  it('flattenWithSource: gorna widoczna wygrywa i niesie indeks warstwy zrodlowej, niewidoczne pomijane', () => {
+    const dol = makeLayer('dol', Grid.fromLines(['ab']));
+    const gora = makeLayer('gora', Grid.fromLines(['X']));
+    const ukryta = makeLayer('ukryta', Grid.fromLines(['ZZZ']));
+    ukryta.visible = false;
+    const flat = flattenWithSource([dol, gora, ukryta]);
+    expect(flat.get('0,0')).toEqual({ ch: 'X', layerIndex: 1 });
+    expect(flat.get('1,0')).toEqual({ ch: 'b', layerIndex: 0 });
+    expect(flat.get('2,0')).toBeUndefined();
+    expect(flattenWithSource([])).toEqual(new Map());
   });
 
   it('levelUsedChars sumuje warstwy', () => {

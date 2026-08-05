@@ -34,6 +34,7 @@ export const state: EditorState = {
   brush: '#',
   brushSize: 1,
   contentRev: 0,
+  dimOthers: true,
 };
 
 const canvas = document.getElementById('map') as HTMLCanvasElement;

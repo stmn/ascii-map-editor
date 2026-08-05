@@ -21,6 +21,11 @@ export interface EditorState {
    * wiec pan i zoom (ktore tresci nie ruszaja) cache'u nie kasuja.
    */
   contentRev: number;
+  /**
+   * Czy przyciemniac na canvasie komorki spoza aktywnej warstwy. Ustawienie WIDOKU (jak brushSize) -
+   * sesyjne, nie trafia do zapisu ani historii. Domyslnie wlaczone.
+   */
+  dimOthers: boolean;
 }
 
 /**
