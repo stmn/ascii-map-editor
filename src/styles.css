@@ -282,6 +282,8 @@ button:disabled:active {
   margin-top: 6px;
 }
 
+/* Aktywny wiersz czyta sie jako niebieski razem z polem nazwy - przyciski zostaja biale,
+   zeby dalej wygladaly na kontrolki. */
 .layer-row.active {
   color: #ffffff;
   background: #3b82f6;
@@ -291,6 +293,11 @@ button:disabled:active {
   flex: 1;
   min-width: 0;
   padding: 5px 4px;
+}
+
+.layer-row.active .layer-name {
+  color: #ffffff;
+  background: #3b82f6;
 }
 
 .layer-btn {

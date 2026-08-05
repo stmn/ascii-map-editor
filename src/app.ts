@@ -3,7 +3,7 @@ import { createLevel, levelUsedChars } from './core/level';
 import { parseProject } from './core/project';
 import { Renderer, centerView, paperRect } from './ui/renderer';
 import { InputController } from './ui/input';
-import { STORAGE_KEY, activeGrid, initPanels } from './ui/panels';
+import { STORAGE_KEY, activeGrid, initPanels, trimLayers } from './ui/panels';
 // import typu (nie wartosci) - PanelsState istnieje tylko w typach, wiec nie dokladamy zaleznosci runtime
 import type { PanelsState as EditorState } from './ui/panels';
 
@@ -47,6 +47,8 @@ function restoreSaved(): void {
     if (data?.app !== 'ascii-level-editor') return;
     state.level = parseProject(saved);
     state.activeLayer = 0;
+    // wpis moze byc podmieniony recznie - limit warstw obowiazuje tak samo jak przy imporcie
+    trimLayers(state.level);
     state.level.legend.syncWith(levelUsedChars(state.level));
   } catch {
     // uszkodzony zapis - startujemy od pustego poziomu

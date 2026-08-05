@@ -42,13 +42,24 @@ export interface PanelsState {
 }
 
 /**
- * Warstwa wskazana przez activeLayer - jedyne miejsce indeksujace level.layers.
- * Clamp jest siatka bezpieczenstwa: usuniecie warstwy albo import krotszego poziomu
- * nie moze zostawic wiszacego indeksu i wywrocic malowania.
+ * Indeks aktywnej warstwy przyciety do zakresu. Siatka bezpieczenstwa: usuniecie warstwy
+ * albo import krotszego poziomu nie moze zostawic wiszacego indeksu i wywrocic malowania.
  */
+function clampedActive(state: PanelsState): number {
+  return Math.max(0, Math.min(state.activeLayer, state.level.layers.length - 1));
+}
+
+/** Warstwa wskazana przez activeLayer - jedyne miejsce indeksujace level.layers. */
 function activeLayerOf(state: PanelsState): Layer {
   const { layers } = state.level;
-  return layers[Math.min(state.activeLayer, layers.length - 1)] ?? layers[0]!;
+  return layers[clampedActive(state)] ?? layers[0]!;
+}
+
+/** Import (i obcy autozapis) moze przyniesc wiecej warstw niz obslugujemy - zostawiamy najnizsze MAX_LAYERS. */
+export function trimLayers(level: Level): boolean {
+  if (level.layers.length <= MAX_LAYERS) return false;
+  level.layers = level.layers.slice(0, MAX_LAYERS);
+  return true;
 }
 
 /** Siatka aktywnej warstwy - tu trafia malowanie i stad czytaja panele. */
@@ -285,19 +296,23 @@ export function initPanels(ctx: PanelsContext): Panels {
     scheduleSave();
   }
 
+  /** Wiersze karty w kolejnosci tablicy warstw - do przelaczania podswietlenia bez przebudowy DOM. */
+  const rowEls: HTMLElement[] = [];
+
   function setActiveLayer(index: number): void {
     if (state.activeLayer === index) return;
     state.activeLayer = index;
-    // aktywna warstwa to stan sesji - nie ma czego zapisywac, wystarczy odswiezyc karte
+    // aktywna warstwa to stan sesji - nie ma czego zapisywac, a sama klasa oszczedza nam
+    // przebudowy karty, wiec klik w pole nazwy nie zabiera sobie fokusu
+    rowEls.forEach((row, i) => row.classList.toggle('active', i === index));
     ctx.markDirty();
-    renderLayers();
   }
 
   function addLayer(): void {
     const { layers } = state.level;
     if (layers.length >= MAX_LAYERS) return;
     // nowa warstwa laduje NAD aktywna, czyli o jeden dalej w tablicy
-    const index = Math.min(state.activeLayer, layers.length - 1) + 1;
+    const index = clampedActive(state) + 1;
     layers.splice(index, 0, makeLayer(`layer ${layers.length + 1}`));
     state.activeLayer = index;
     afterLayerChange();
@@ -329,6 +344,7 @@ export function initPanels(ctx: PanelsContext): Panels {
     if (state.activeLayer === index) state.activeLayer = target;
     else if (state.activeLayer === target) state.activeLayer = index;
     afterLayerChange();
+    playPop();
   }
 
   function layerButton(label: string, title: string, onClick: () => void): HTMLButtonElement {
@@ -342,8 +358,9 @@ export function initPanels(ctx: PanelsContext): Panels {
     const { layers } = state.level;
     const row = el('div', index === state.activeLayer ? 'layer-row active' : 'layer-row');
 
+    // znak oka zostaje ten sam - stan ukrycia niesie przekreslenie i wyszarzenie
     const eye = layerButton(
-      layer.visible ? 'o' : '-',
+      'o',
       layer.visible ? `Hide layer "${layer.name}"` : `Show layer "${layer.name}"`,
       () => { layer.visible = !layer.visible; afterLayerChange(); },
     );
@@ -356,6 +373,15 @@ export function initPanels(ctx: PanelsContext): Panels {
     name.setAttribute('aria-label', `Name of layer ${index + 1}`);
     // bez re-renderu karty - podmiana DOM w trakcie pisania zabralaby fokus
     name.addEventListener('input', () => { layer.name = name.value; scheduleSave(); });
+    // pointerdown leci przed fokusem, a aktywacja nie przebudowuje karty - klik w nazwe robi obie rzeczy
+    name.addEventListener('pointerdown', () => setActiveLayer(index));
+    // pusta nazwa psulaby TMX i klucze slownika w Godot - wracamy do domyslnej z pozycji
+    name.addEventListener('blur', () => {
+      if (name.value.trim()) return;
+      layer.name = `layer ${index + 1}`;
+      name.value = layer.name;
+      scheduleSave();
+    });
 
     const up = layerButton('^', `Move layer "${layer.name}" up`, () => moveLayer(index, 1));
     up.disabled = index === layers.length - 1;
@@ -376,26 +402,23 @@ export function initPanels(ctx: PanelsContext): Panels {
     return row;
   }
 
-  // Karte przebudowujemy tylko przy jawnych operacjach na warstwach (nie przy pisaniu w nazwie),
+  // Karte przebudowujemy tylko przy zmianie skladu warstw (nie przy aktywacji ani pisaniu w nazwie),
   // wiec podmiana DOM nigdy nie wpada uzytkownikowi w srodek edycji.
   function renderLayers(): void {
     const { layers } = state.level;
-    // ten sam clamp co w activeLayerOf - podswietlony wiersz zawsze pokazuje warstwe, na ktora trafia pedzel
-    state.activeLayer = Math.min(state.activeLayer, layers.length - 1);
+    // podswietlony wiersz ma zawsze pokazywac warstwe, na ktora trafia pedzel
+    state.activeLayer = clampedActive(state);
     layersBox.replaceChildren();
+    rowEls.length = 0;
     // gora listy = wierzch stosu, czyli koniec tablicy (jak w Tiled)
-    for (let i = layers.length - 1; i >= 0; i--) layersBox.append(layerRow(layers[i]!, i));
+    for (let i = layers.length - 1; i >= 0; i--) {
+      rowEls[i] = layerRow(layers[i]!, i);
+      layersBox.append(rowEls[i]!);
+    }
     const add = button('Add layer', '', addLayer);
     add.disabled = layers.length >= MAX_LAYERS;
     add.title = add.disabled ? `Limit is ${MAX_LAYERS} layers` : 'Add a layer above the active one';
     layersBox.append(add);
-  }
-
-  /** Import moze przyniesc wiecej warstw niz obslugujemy - zostawiamy najnizsze MAX_LAYERS. */
-  function trimLayers(): boolean {
-    if (state.level.layers.length <= MAX_LAYERS) return false;
-    state.level.layers = state.level.layers.slice(0, MAX_LAYERS);
-    return true;
   }
 
   // --- Legend ---
@@ -569,7 +592,7 @@ export function initPanels(ctx: PanelsContext): Panels {
         state.level = parseProject(await file.text());
         state.activeLayer = 0;
       }
-      const trimmed = trimLayers();
+      const trimmed = trimLayers(state.level);
       state.level.legend.syncWith(levelUsedChars(state.level));
       ctx.centerOnPaper();
       ctx.markDirty();
@@ -579,9 +602,9 @@ export function initPanels(ctx: PanelsContext): Panels {
       playPop();
       let cells = 0;
       for (const layer of state.level.layers) cells += countCells(layer.grid);
-      toast(`Imported ${cells} cells`);
-      // ostrzezenie pokazujemy jako ostatnie, zeby nie zniklo pod toastem o imporcie
-      if (trimmed) toast(`Trimmed to ${MAX_LAYERS} layers`, 'info');
+      // jeden toast na raz - ostrzezenie o przycieciu doklejamy do komunikatu importu
+      if (trimmed) toast(`Imported ${cells} cells, trimmed to ${MAX_LAYERS} layers`, 'info');
+      else toast(`Imported ${cells} cells`);
     } catch (e) {
       toast(errorMessage(e), 'error');
     }
