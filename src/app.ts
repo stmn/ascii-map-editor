@@ -34,7 +34,8 @@ centerView(state.view, paperRect(state.grid), canvas.clientWidth, canvas.clientH
 new InputController(canvas, {
   paint(x, y) {
     state.grid.set(x, y, state.brush);
-    state.legend.syncWith(state.grid.usedChars());
+    // syncWith zbiera i sortuje wszystkie znaki - wolamy tylko gdy pedzel nie ma jeszcze wpisu
+    if (!state.legend.get(state.brush)) state.legend.syncWith(state.grid.usedChars());
     markDirty();
   },
   erase(x, y) {

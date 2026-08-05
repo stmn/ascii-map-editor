@@ -47,7 +47,15 @@ a {
   width: 100vw;
   height: 100vh;
   display: block;
+  touch-action: none;
   cursor: url('/assets/cursor.png'), default;
+}
+
+/* user-select: none z body nie moze blokowac zaznaczania w polach formularza */
+input,
+textarea {
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 #sidebar {
