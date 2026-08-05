@@ -63,7 +63,8 @@ export function parseProject(json: string): Level {
     if (Array.isArray(o.layers)) {
       const layers: Layer[] = [];
       for (const raw of o.layers as Record<string, unknown>[]) {
-        if (!Array.isArray(raw.lines)) continue;
+        // niezgodna warstwa (brak lines albo elementy nie-string) jest pomijana, nie wywraca calego importu
+        if (!Array.isArray(raw.lines) || !raw.lines.every((l) => typeof l === 'string')) continue;
         const origin = Array.isArray(raw.origin) ? (raw.origin as number[]) : [0, 0];
         const layer = makeLayer(typeof raw.name === 'string' ? raw.name : `layer ${layers.length + 1}`);
         layer.visible = raw.visible !== false;
@@ -74,7 +75,7 @@ export function parseProject(json: string): Level {
     }
 
     // v2: pojedyncza mapa
-    if (Array.isArray(o.lines)) {
+    if (Array.isArray(o.lines) && (o.lines as unknown[]).every((l) => typeof l === 'string')) {
       const origin = Array.isArray(o.origin) ? (o.origin as number[]) : [0, 0];
       return single(Grid.fromLines(o.lines as string[], Number(origin[0]) || 0, Number(origin[1]) || 0), legend);
     }

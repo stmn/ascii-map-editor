@@ -66,4 +66,14 @@ describe('project', () => {
     expect(() => parseProject('{"foo": 1}')).toThrow('Unrecognized map format');
     expect(() => parseProject('')).toThrow('Unrecognized map format');
   });
+
+  it('v3: warstwa z nie-stringowymi lines jest pomijana, brak warstw -> rzuca', () => {
+    expect(() => parseProject(JSON.stringify({ layers: [{ lines: [1, 2] }] })))
+      .toThrow('Unrecognized map format');
+  });
+
+  it('v2: nie-stringowe lines nie przechodza jako mapa -> rzuca', () => {
+    expect(() => parseProject(JSON.stringify({ lines: [1, 2] })))
+      .toThrow('Unrecognized map format');
+  });
 });

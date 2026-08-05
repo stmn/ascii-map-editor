@@ -1,3 +1,4 @@
+import { isModalOpen } from './modal';
 import { screenToCell, type View } from './renderer';
 
 export interface InputCallbacks {
@@ -104,6 +105,7 @@ export class InputController {
   }
 
   private key(e: KeyboardEvent): void {
+    if (isModalOpen()) return;
     if (isTypingTarget(e.target)) return;
     const step = 48;
     if (e.key === 'ArrowLeft') this.view.panX -= step;

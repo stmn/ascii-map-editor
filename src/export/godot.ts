@@ -1,12 +1,24 @@
 import { Level, unionBounds } from '../core/level';
 
+// Godot 4 odrzuca zduplikowane klucze slownika - powtorzone nazwy warstw dostaja
+// przyrostek " (2)", " (3)" itd., zeby wygenerowany plik dalej byl poprawny.
+function dedupeKeys(names: string[]): string[] {
+  const seen = new Map<string, number>();
+  return names.map((name) => {
+    const count = (seen.get(name) ?? 0) + 1;
+    seen.set(name, count);
+    return count === 1 ? name : `${name} (${count})`;
+  });
+}
+
 // GDScript dla Godot 4.x: LEVELS per warstwa (uzytkownik podpina osobne TileMapLayer),
 // wspolne TILES -> atlas coords wg kolejnosci legendy
 export function exportGodot(level: Level): string {
   const b = unionBounds(level.layers);
-  const levels = level.layers.map((l) => {
+  const keys = dedupeKeys(level.layers.map((l) => l.name));
+  const levels = level.layers.map((l, i) => {
     const lines = (b ? l.grid.toLines(b) : []).map((s) => `\t\t${JSON.stringify(s)},`).join('\n');
-    return `\t${JSON.stringify(l.name)}: [\n${lines}\n\t],`;
+    return `\t${JSON.stringify(keys[i])}: [\n${lines}\n\t],`;
   }).join('\n');
   const tiles = level.legend.entries()
     .map((e, i) => `\t${JSON.stringify(e.ch)}: Vector2i(${i}, 0), # ${e.name}`)

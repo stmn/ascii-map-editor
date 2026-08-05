@@ -291,12 +291,20 @@ export function initPanels(ctx: PanelsContext): Panels {
     ctx.markDirty();
   }
 
+  /** Pierwsza wolna nazwa "layer N" - unika duplikatow, ktore psulyby klucze eksportu Godot. */
+  function nextLayerName(layers: Layer[]): string {
+    const used = new Set(layers.map((l) => l.name));
+    let n = 1;
+    while (used.has(`layer ${n}`)) n++;
+    return `layer ${n}`;
+  }
+
   function addLayer(): void {
     const { layers } = state.level;
     if (layers.length >= MAX_LAYERS) return;
     // nowa warstwa laduje NAD aktywna, czyli o jeden dalej w tablicy
     const index = clampedActive(state) + 1;
-    layers.splice(index, 0, makeLayer(`layer ${layers.length + 1}`));
+    layers.splice(index, 0, makeLayer(nextLayerName(layers)));
     state.activeLayer = index;
     afterLayerChange();
     playPop();
