@@ -343,11 +343,12 @@ button:disabled:active {
   background: #d1d5db;
 }
 
+/* Ten sam kontrast co przy zwyklym przycisku: #6b7280 na #e5e7eb to ~3.9:1 (bylo ~2:1). */
 .layer-btn:disabled,
 .layer-btn:disabled:hover,
 .level-btn:disabled,
 .level-btn:disabled:hover {
-  color: #9ca3af;
+  color: #6b7280;
   background: #e5e7eb;
 }
 
@@ -378,7 +379,7 @@ button:disabled:active {
 .layer-del:disabled:hover,
 .level-del:disabled,
 .level-del:disabled:hover {
-  color: #9ca3af;
+  color: #6b7280;
   background: #e5e7eb;
 }
 

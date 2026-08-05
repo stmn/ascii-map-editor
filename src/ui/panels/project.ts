@@ -10,12 +10,22 @@ import {
 import { button, el, iconButton, setIconTitle } from '../dom';
 import { confirmModal, promptModal } from '../modal';
 import {
-  PanelsCtx, applyLevelToPanels, download, errorMessage, flushSave, getCurrentLevel, getStore,
-  playPop, reportSaveError, scheduleSave, setCurrentLevel, setOnSaved, toast, updateCurrentLevel,
+  PanelsCtx, applyLevelToPanels, download, errorMessage, flushSave, getCurrentLevel,
+  getSaveErrorCount, getStore, playPop, reportSaveError, scheduleSave, setCurrentLevel,
+  setOnSaved, toast, updateCurrentLevel,
 } from './context';
 
 export interface ProjectPanel {
   render(): void;
+}
+
+/**
+ * Odpalenie operacji magazynu z uchwytu zdarzenia. Kazde takie wywolanie musi tedy przejsc:
+ * samo `void` zamienialoby odrzucenie (padniete IndexedDB, brak miejsca) w cicha awarie -
+ * przycisk nie robi nic i nawet nie mowi dlaczego. Jedno miejsce zamiast .catch przy kazdym klikaniu.
+ */
+function runOp(op: Promise<unknown>): void {
+  op.catch(reportSaveError);
 }
 
 /** Pusty poziom gotowy do zapisu - wspolny ksztalt dla "New level", nowego projektu i pustego projektu. */
@@ -270,6 +280,9 @@ export function initProject(ctx: PanelsCtx, box: HTMLElement): ProjectPanel {
   // --- kopia zapasowa workspace ------------------------------------------------
 
   async function exportWorkspaceFile(store: WorkspaceStore): Promise<void> {
+    // kopia zapasowa ma zawierac to, co widac na ekranie - ostatnie pociagniecia pedzla
+    // wisza jeszcze w debounce autozapisu, wiec bez flusha wyszlyby poza plik
+    flushSave();
     try {
       download(await exportWorkspace(store), 'workspace.json', 'application/json');
     } catch (e) {
@@ -279,9 +292,16 @@ export function initProject(ctx: PanelsCtx, box: HTMLElement): ProjectPanel {
 
   async function importWorkspaceFile(store: WorkspaceStore, file: File): Promise<void> {
     try {
+      // magazyn fallback polyka bledy zapisu (miekki kontrakt KvJsonStore), wiec importWorkspace
+      // moze wrocic "sukcesem" mimo niezapisanych rekordow - licznik bledow to jedyny slad
+      const errorsBefore = getSaveErrorCount();
       const added = await importWorkspace(store, await file.text(), Date.now());
       playPop();
-      toast(`Imported ${added.projects} projects, ${added.levels} levels`);
+      if (getSaveErrorCount() > errorsBefore) {
+        toast('Import may be incomplete - storage errors occurred', 'error');
+      } else {
+        toast(`Imported ${added.projects} projects, ${added.levels} levels`);
+      }
       await render();
     } catch (e) {
       toast(errorMessage(e), 'error');
@@ -305,7 +325,7 @@ export function initProject(ctx: PanelsCtx, box: HTMLElement): ProjectPanel {
     name.setAttribute('aria-label', `Name of level ${index + 1}`);
     name.addEventListener('input', () => renameLevel(store, record, name.value));
     // pointerdown leci przed fokusem - klik w nazwe przelacza poziom i zostawia kursor w polu
-    name.addEventListener('pointerdown', () => { void switchTo(store, record); });
+    name.addEventListener('pointerdown', () => { runOp(switchTo(store, record)); });
     // pusta nazwa nic nie mowi na liscie - wracamy do pierwszej wolnej "Level N"
     name.addEventListener('blur', () => {
       if (name.value.trim()) return;
@@ -314,17 +334,17 @@ export function initProject(ctx: PanelsCtx, box: HTMLElement): ProjectPanel {
     });
 
     const dup = iconButton('D', 'level-btn', `Duplicate level "${record.name}"`, () => {
-      void duplicateLevel(store, record, levels);
+      runOp(duplicateLevel(store, record, levels));
     });
     const del = iconButton('X', 'level-btn level-del', `Delete level "${record.name}"`, () => {
-      void deleteLevel(store, record, levels);
+      runOp(deleteLevel(store, record, levels));
     });
     del.disabled = levels.length <= 1;
 
     // klik w tlo wiersza przelacza poziom; klikniecia w kontrolki zostawiamy im
     row.addEventListener('click', (e) => {
       if ((e.target as HTMLElement).closest('button, input')) return;
-      void switchTo(store, record);
+      runOp(switchTo(store, record));
     });
 
     row.append(thumb, name, dup, del);
@@ -348,17 +368,17 @@ export function initProject(ctx: PanelsCtx, box: HTMLElement): ProjectPanel {
       option.selected = meta.id === projectId;
       select.append(option);
     }
-    select.addEventListener('change', () => { void openProject(store, select.value); });
+    select.addEventListener('change', () => { runOp(openProject(store, select.value)); });
 
     const meta = projects.find((p) => p.id === projectId) ?? null;
     const actions = el('div', 'btn-row project-actions');
-    const rename = button('Rename', 'btn-plain', () => { if (meta) void renameProject(store, meta); });
+    const rename = button('Rename', 'btn-plain', () => { if (meta) runOp(renameProject(store, meta)); });
     rename.disabled = !meta;
     const del = iconButton('X', 'level-btn level-del', 'Delete project', () => {
-      if (meta) void deleteProject(store, meta, projects);
+      if (meta) runOp(deleteProject(store, meta, projects));
     });
     del.disabled = !meta || projects.length <= 1;
-    actions.append(button('New', '', () => { void newProject(store, projects); }), rename, del);
+    actions.append(button('New', '', () => { runOp(newProject(store, projects)); }), rename, del);
 
     box.append(select, actions);
 
@@ -369,7 +389,7 @@ export function initProject(ctx: PanelsCtx, box: HTMLElement): ProjectPanel {
 
     const list = el('div', 'level-list');
     levels.forEach((record, index) => list.append(levelRow(store, record, index, levels)));
-    box.append(list, button('New level', 'btn-full', () => { void newLevel(store, projectId, levels); }));
+    box.append(list, button('New level', 'btn-full', () => { runOp(newLevel(store, projectId, levels)); }));
 
     const fileInput = el('input', 'file-input');
     fileInput.type = 'file';
@@ -378,26 +398,33 @@ export function initProject(ctx: PanelsCtx, box: HTMLElement): ProjectPanel {
       const file = fileInput.files?.[0];
       // reset od razu, zeby ponowny wybor tego samego pliku znowu wywolal change
       fileInput.value = '';
-      if (file) void importWorkspaceFile(store, file);
+      if (file) runOp(importWorkspaceFile(store, file));
     });
 
     const backup = el('div', 'btn-row');
     backup.append(
-      button('Export workspace', 'btn-plain', () => { void exportWorkspaceFile(store); }),
+      button('Export workspace', 'btn-plain', () => { runOp(exportWorkspaceFile(store)); }),
       button('Import workspace', 'btn-plain', () => fileInput.click()),
     );
     box.append(backup, fileInput);
   }
 
   /**
-   * Pelna przebudowa karty po kazdej zmianie danych. Przebudowe pomijamy, gdy fokus siedzi
-   * w polu nazwy w tej karcie - podmiana DOM przerwalaby uzytkownikowi pisanie (ten sam
-   * straznik co w karcie Legend). Zmiany nazw i tak sa juz zapisane, wiec nic nie ginie.
+   * Pelna przebudowa karty. Wolamy ja WYLACZNIE po zmianie struktury (nowy/skasowany/przelaczony
+   * poziom, zmiana projektu, import), wiec pominiecie zostawiloby liste z nieistniejacymi wierszami.
+   * Dlatego fokus w polu nazwy nie blokuje renderu - zabieramy go swiadomie (blur), bo kazde
+   * nacisniecie klawisza jest juz zapisane, wiec traci sie najwyzej kursor, nigdy dane.
+   * Odswiezanie miniatur idzie osobna sciezka (setRowThumb/syncRow, bez przebudowy DOM),
+   * wiec autozapis w trakcie pisania nadal nie rusza pola nazwy.
    */
   async function render(): Promise<void> {
-    // straznik przed odczytami magazynu - odczyt i tak poszedlby do kosza
     const focused = document.activeElement;
-    if (focused instanceof HTMLInputElement && box.contains(focused)) return;
+    if (focused instanceof HTMLInputElement && box.contains(focused)) {
+      focused.blur();
+      // blur moze dopiero co zamowic zapis nazwy (pusta wraca do "Level N") - domykamy go
+      // przed odczytem, inaczej przebudowana lista pokazalaby nazwe sprzed edycji
+      flushSave();
+    }
     const seq = ++renderSeq;
     const store = getStore();
     if (!store) {
@@ -412,5 +439,5 @@ export function initProject(ctx: PanelsCtx, box: HTMLElement): ProjectPanel {
     build(store, projects, projectId, levels);
   }
 
-  return { render: () => { void render(); } };
+  return { render: () => { runOp(render()); } };
 }

@@ -2,7 +2,9 @@ import './styles.css';
 import { createLevel, levelUsedChars } from './core/level';
 import { parseProject } from './core/project';
 import { openIdbStore } from './core/idb';
-import { KvJsonStore, ensureSeed, type Kv, type LevelRecord, type WorkspaceStore } from './core/store';
+import {
+  KvJsonStore, WORKSPACE_KEY, ensureSeed, type Kv, type LevelRecord, type WorkspaceStore,
+} from './core/store';
 import { Renderer, centerView, paperRect } from './ui/renderer';
 import { InputController } from './ui/input';
 import { activeGrid, applyLevelToState, bumpContent, type EditorState } from './core/editorState';
@@ -18,6 +20,8 @@ const SIDEBAR_OFFSET = 140;
 const LEGACY_KEY = 'ascii-level-editor-v2';
 /** Po migracji stary wpis dostaje te nazwe - dane uzytkownika kasujemy dopiero na jego zyczenie. */
 const LEGACY_BACKUP_KEY = 'ascii-level-editor-v2-backup';
+/** Po tylu ms uznajemy otwarcie IndexedDB za wiszace i schodzimy na fallback. */
+const IDB_OPEN_TIMEOUT_MS = 3000;
 
 export type { EditorState };
 
@@ -55,14 +59,55 @@ const localStorageKv: Kv = {
   setItem: (key, value) => { localStorage.setItem(key, value); },
 };
 
-/** IndexedDB, a gdy niedostepne (tryb prywatny, blokada) - caly workspace w jednym wpisie localStorage. */
-async function openStore(): Promise<WorkspaceStore> {
+/** Jedyne miejsce tworzace magazyn fallback - boot uzywa go i do zapisu, i do odczytu porzuconej kopii. */
+function fallbackStore(): KvJsonStore {
+  return new KvJsonStore(localStorageKv, undefined, reportSaveError);
+}
+
+/**
+ * IndexedDB, a gdy niedostepne (tryb prywatny, blokada) - caly workspace w jednym wpisie localStorage.
+ * Otwarcie bazy potrafi tez nigdy nie odpowiedziec (blokada przez inna karte, uszkodzony profil),
+ * wiec scigamy je z timeoutem - bez tego caly boot stalby w miejscu i edytor zostalby bez paneli.
+ * Spozniony wynik jest ignorowany (przegral wyscig) i od razu zamykamy jego polaczenie, zeby nie
+ * trzymalo blokady wersji bazy; ewentualne pozne odrzucenie polykamy, bo fallback juz dziala.
+ */
+async function openStore(): Promise<{ store: WorkspaceStore; idb: boolean }> {
+  const opening = openIdbStore();
+  const timeout = new Promise<null>((resolve) => {
+    window.setTimeout(() => resolve(null), IDB_OPEN_TIMEOUT_MS);
+  });
   try {
-    return await openIdbStore();
+    const store = await Promise.race([opening, timeout]);
+    if (store) return { store, idb: true };
   } catch {
-    toast('Storage fallback: browser storage limited', 'info');
-    return new KvJsonStore(localStorageKv, undefined, reportSaveError);
+    // blad otwarcia idzie ta sama sciezka co timeout - fallback nizej
   }
+  opening.then((late) => late.close?.()).catch(() => {});
+  toast('Storage fallback: browser storage limited', 'info');
+  return { store: fallbackStore(), idb: false };
+}
+
+/**
+ * Praca osierocona przez fallback: sesja bez IndexedDB zapisala caly workspace do localStorage,
+ * a teraz baza dziala i jest pusta. Bez przepisania uzytkownik zobaczylby pusty edytor, majac
+ * dane tuz obok. Id zostaja bez zmian (wskaznik biezacego poziomu dalej pasuje), a klucz
+ * kasujemy dopiero po udanym przepisaniu calosci.
+ */
+async function promoteFallbackWorkspace(store: WorkspaceStore): Promise<void> {
+  if ((await store.listProjects()).length > 0) return;
+  const fallback = fallbackStore();
+  const projects = await fallback.listProjects();
+  if (projects.length === 0) return;
+  for (const project of projects) {
+    await store.putProject(project);
+    for (const level of await fallback.listLevels(project.id)) await store.putLevel(level);
+  }
+  try {
+    localStorage.removeItem(WORKSPACE_KEY);
+  } catch {
+    // brak dostepu do localStorage - dane sa juz w bazie, wiec kopia moze zostac
+  }
+  toast('Recovered workspace from browser storage', 'info');
 }
 
 /** Rekord do otwarcia: wskaznik z poprzedniej sesji, a gdy go nie ma (albo znikl) - poziom z ensureSeed. */
@@ -77,8 +122,18 @@ async function pickLevel(store: WorkspaceStore, seedLevelId: string): Promise<Le
 
 /** Otwarcie magazynu, migracja starego autozapisu i wczytanie biezacego poziomu. */
 async function restoreWorkspace(): Promise<void> {
-  const store = await openStore();
+  const { store, idb } = await openStore();
   setStore(store);
+
+  if (idb) {
+    try {
+      await promoteFallbackWorkspace(store);
+    } catch (e) {
+      // niepelne przepisanie: klucz fallbacku zostaje (kasujemy go dopiero po calosci),
+      // wiec dane sa nadal pod reka - boot leci dalej z tym, co juz wpadlo do bazy
+      reportSaveError(e);
+    }
+  }
 
   const legacy = readLocal(LEGACY_KEY);
   const seed = await ensureSeed(store, Date.now(), legacy);

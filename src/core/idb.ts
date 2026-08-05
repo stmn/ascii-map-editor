@@ -100,6 +100,11 @@ class IndexedDbStore implements WorkspaceStore {
     tx.objectStore(LEVELS).delete(id);
     await txDone(tx);
   }
+
+  /** Dla spoznionego otwarcia bazy (caller zdazyl zejsc na fallback) - zeby nie trzymalo blokady. */
+  close(): void {
+    this.db.close();
+  }
 }
 
 export async function openIdbStore(): Promise<WorkspaceStore> {

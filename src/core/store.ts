@@ -29,6 +29,8 @@ export interface WorkspaceStore {
   getLevel(id: string): Promise<LevelRecord | null>;
   putLevel(l: LevelRecord): Promise<void>;
   deleteLevel(id: string): Promise<void>;
+  /** Zwolnienie polaczenia; ma je tylko IndexedDB, KvJsonStore nie trzyma zadnego zasobu. */
+  close?(): void;
 }
 
 export interface Kv {
@@ -41,7 +43,8 @@ interface WorkspaceData {
   levels: LevelRecord[];
 }
 
-const DEFAULT_KEY = 'ascii-level-editor-workspace';
+/** Klucz calego workspace w Kv (localStorage) - takze dla boota, ktory sprzata po fallbacku. */
+export const WORKSPACE_KEY = 'ascii-level-editor-workspace';
 // limit na zapisywany JSON - localStorage ma zwykle ~5MB limit na origin,
 // wiec zostawiamy margines (ten sam limit co stary autosave)
 const MAX_WRITE_BYTES = 4.5 * 1024 * 1024;
@@ -62,7 +65,7 @@ export class KvJsonStore implements WorkspaceStore {
   private readonly key: string;
   private readonly onWriteError?: (e: unknown) => void;
 
-  constructor(kv: Kv, key: string = DEFAULT_KEY, onWriteError?: (e: unknown) => void) {
+  constructor(kv: Kv, key: string = WORKSPACE_KEY, onWriteError?: (e: unknown) => void) {
     this.kv = kv;
     this.key = key;
     this.onWriteError = onWriteError;

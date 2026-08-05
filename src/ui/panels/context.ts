@@ -200,12 +200,21 @@ let saveTimer = 0;
 /** Czy od ostatniego zapisu byla mutacja - bez tego flush przy kazdym schowaniu karty klamalby updatedAt. */
 let pendingSave = false;
 let lastSaveErrorAt = 0;
+let saveErrorCount = 0;
+
+/**
+ * Licznik WSZYSTKICH bledow zapisu, takze tych, ktorych toast nie pokazal przez limit czestosci.
+ * Operacje wsadowe (import workspace) porownuja go przed i po, zeby nie chwalic sie sukcesem,
+ * gdy magazyn fallback po cichu polknal czesc zapisow.
+ */
+export function getSaveErrorCount(): number { return saveErrorCount; }
 
 /**
  * Toast o nieudanym zapisie - z limitem czestosci, bo blad (brak miejsca, zamknieta baza)
  * powtarza sie przy KAZDEJ komorce malowania. Tu trafiaja tez bledy zapisu KvJsonStore.
  */
 export function reportSaveError(e: unknown): void {
+  saveErrorCount++;
   const now = Date.now();
   if (now - lastSaveErrorAt < SAVE_ERROR_TOAST_MS) return;
   lastSaveErrorAt = now;
