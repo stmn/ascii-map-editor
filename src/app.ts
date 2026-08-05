@@ -1,14 +1,23 @@
 import './styles.css';
-import { createLevel, levelUsedChars } from './core/level';
+import { createLevel, levelUsedChars, type Level } from './core/level';
 import { parseProject } from './core/project';
+import { openIdbStore } from './core/idb';
+import { KvJsonStore, ensureSeed, type Kv, type LevelRecord, type WorkspaceStore } from './core/store';
 import { Renderer, centerView, paperRect } from './ui/renderer';
 import { InputController } from './ui/input';
 import { activeGrid, bumpContent, trimLayers, type EditorState } from './core/editorState';
 // panele nie importuja app.ts - stan i callbacki dostaja przez initPanels, wiec nie ma cyklu
-import { STORAGE_KEY, initPanels } from './ui/panels';
+import { initPanels } from './ui/panels';
+import {
+  errorMessage, readCurrentRef, reportSaveError, setCurrentLevel, setStore, toast,
+} from './ui/panels/context';
 
 /** Przesuniecie startowego widoku w lewo, bo prawa krawedz zajmuje panel (jak +140 w v1). */
 const SIDEBAR_OFFSET = 140;
+/** Autozapis sprzed workspace: pojedyncza mapa w localStorage. Czytany raz, przy migracji. */
+const LEGACY_KEY = 'ascii-level-editor-v2';
+/** Po migracji stary wpis dostaje te nazwe - dane uzytkownika kasujemy dopiero na jego zyczenie. */
+const LEGACY_BACKUP_KEY = 'ascii-level-editor-v2-backup';
 
 export type { EditorState };
 
@@ -31,63 +40,129 @@ function centerOnPaper(): void {
   centerView(state.view, paperRect(state.level), canvas.clientWidth, canvas.clientHeight, SIDEBAR_OFFSET);
 }
 
-/**
- * Odtworzenie autozapisu. Czytamy tylko wpisy wygladajace na nasz projekt (JSON z app === ...),
- * zeby obcy albo uszkodzony wpis pod tym kluczem nie wywracal startu edytora.
- */
-function restoreSaved(): void {
-  let saved: string | null = null;
+/** localStorage potrafi rzucac (tryb prywatny) - blad odczytu traktujemy jak brak wpisu. */
+function readLocal(key: string): string | null {
   try {
-    saved = localStorage.getItem(STORAGE_KEY);
+    return localStorage.getItem(key);
   } catch {
-    return; // storage zablokowany (tryb prywatny) - autozapis jest opcjonalny
+    return null;
   }
-  if (!saved || !saved.startsWith('{')) return;
+}
+
+/** Kv na localStorage dla magazynu fallback; blad zapisu obsluguje KvJsonStore przez onWriteError. */
+const localStorageKv: Kv = {
+  getItem: readLocal,
+  setItem: (key, value) => { localStorage.setItem(key, value); },
+};
+
+/** IndexedDB, a gdy niedostepne (tryb prywatny, blokada) - caly workspace w jednym wpisie localStorage. */
+async function openStore(): Promise<WorkspaceStore> {
   try {
-    const data = JSON.parse(saved) as { app?: unknown };
-    if (data?.app !== 'ascii-level-editor') return;
-    state.level = parseProject(saved);
-    state.activeLayer = 0;
-    // wpis moze byc podmieniony recznie - limit warstw obowiazuje tak samo jak przy imporcie
-    trimLayers(state.level);
-    state.level.legend.syncWith(levelUsedChars(state.level));
-    bumpContent(state);
+    return await openIdbStore();
   } catch {
-    // uszkodzony zapis - startujemy od pustego poziomu
+    toast('Storage fallback: browser storage limited', 'info');
+    return new KvJsonStore(localStorageKv, undefined, reportSaveError);
+  }
+}
+
+/**
+ * Wstawienie wczytanego poziomu do stanu. Wpis moze byc podmieniony recznie albo pochodzic
+ * z obcego pliku, wiec limit warstw i synchronizacja legendy obowiazuja tak samo jak przy imporcie.
+ */
+function applyLevel(level: Level): void {
+  state.level = level;
+  state.activeLayer = 0;
+  trimLayers(state.level);
+  state.level.legend.syncWith(levelUsedChars(state.level));
+  bumpContent(state);
+}
+
+/** Rekord do otwarcia: wskaznik z poprzedniej sesji, a gdy go nie ma (albo znikl) - poziom z ensureSeed. */
+async function pickLevel(store: WorkspaceStore, seedLevelId: string): Promise<LevelRecord | null> {
+  const ref = readCurrentRef();
+  if (ref) {
+    const record = await store.getLevel(ref.levelId);
+    if (record) return record;
+  }
+  return store.getLevel(seedLevelId);
+}
+
+/** Otwarcie magazynu, migracja starego autozapisu i wczytanie biezacego poziomu. */
+async function restoreWorkspace(): Promise<void> {
+  const store = await openStore();
+  setStore(store);
+
+  const legacy = readLocal(LEGACY_KEY);
+  const seed = await ensureSeed(store, Date.now(), legacy);
+  if (seed.migrated && legacy !== null) {
+    try {
+      // stary klucz zmienia nazwe, a nie znika: gdyby migracja wyszla krzywo, dane wciaz sa pod reka.
+      // Powtorki nie ma, bo przy niepustym magazynie ensureSeed juz nie migruje.
+      localStorage.setItem(LEGACY_BACKUP_KEY, legacy);
+      localStorage.removeItem(LEGACY_KEY);
+    } catch {
+      // brak miejsca na kopie - dane sa juz w magazynie, wiec tylko zostaje stary wpis
+    }
+    toast('Migrated your map to My project / Level 1', 'info');
+  }
+
+  const record = await pickLevel(store, seed.levelId);
+  if (!record) return; // magazyn zgubil wlasnie zapisany rekord - startujemy od pustego poziomu
+  setCurrentLevel(record);
+  try {
+    applyLevel(parseProject(record.data));
+  } catch (e) {
+    toast(errorMessage(e), 'error');
+    // uszkodzony rekord: pusty poziom, ale rekord zostaje biezacy - pierwszy zapis go naprawi
+    applyLevel(createLevel());
   }
 }
 
 renderer.resize();
-restoreSaved();
 centerOnPaper();
 
-// panele dostaja stan i callbacki - nie importuja app.ts, wiec nie ma cyklu
-const panels = initPanels({ state, markDirty, centerOnPaper });
+async function boot(): Promise<void> {
+  try {
+    await restoreWorkspace();
+  } catch (e) {
+    // awaria magazynu nie moze zabrac edytora - startujemy bez autozapisu
+    toast(errorMessage(e), 'error');
+  }
+  centerOnPaper();
 
-new InputController(canvas, {
-  paint(x, y) {
-    activeGrid(state).set(x, y, state.brush);
-    // syncWith zbiera i sortuje wszystkie znaki - wolamy tylko gdy pedzel nie ma jeszcze wpisu
-    if (!state.level.legend.get(state.brush)) state.level.legend.syncWith(levelUsedChars(state.level));
-    bumpContent(state);
-    markDirty();
-    panels.onMutate();
-  },
-  erase(x, y) {
-    activeGrid(state).set(x, y, ' ');
-    bumpContent(state);
-    markDirty();
-    panels.onMutate();
-  },
-  hover(x, y, erasing) {
-    const h = renderer.hover;
-    if (h && h.x === x && h.y === y && renderer.eraseHover === erasing) return;
-    renderer.hover = { x, y };
-    renderer.eraseHover = erasing;
-    markDirty();
-  },
-  viewChanged: markDirty,
-}, state.view);
+  // panele dostaja stan i callbacki - nie importuja app.ts, wiec nie ma cyklu
+  const panels = initPanels({ state, markDirty, centerOnPaper });
+
+  new InputController(canvas, {
+    paint(x, y) {
+      activeGrid(state).set(x, y, state.brush);
+      // syncWith zbiera i sortuje wszystkie znaki - wolamy tylko gdy pedzel nie ma jeszcze wpisu
+      if (!state.level.legend.get(state.brush)) state.level.legend.syncWith(levelUsedChars(state.level));
+      bumpContent(state);
+      markDirty();
+      panels.onMutate();
+    },
+    erase(x, y) {
+      activeGrid(state).set(x, y, ' ');
+      bumpContent(state);
+      markDirty();
+      panels.onMutate();
+    },
+    hover(x, y, erasing) {
+      const h = renderer.hover;
+      if (h && h.x === x && h.y === y && renderer.eraseHover === erasing) return;
+      renderer.hover = { x, y };
+      renderer.eraseHover = erasing;
+      markDirty();
+    },
+    viewChanged: markDirty,
+  }, state.view);
+
+  markDirty();
+}
+
+// magazyn jest asynchroniczny; do czasu jego otwarcia (kilkadziesiat ms) rysujemy pusty papier
+void boot();
 
 canvas.addEventListener('pointerleave', () => {
   if (!renderer.hover) return;

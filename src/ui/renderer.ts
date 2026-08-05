@@ -7,11 +7,13 @@ export interface View { panX: number; panY: number; scale: number }
 export const DEFAULT_PAPER: Bounds = { minX: 0, minY: 0, maxX: 23, maxY: 15 };
 
 // Paleta v1 (patrz style-guide.md) - kremowy papier na brazowym biurku.
+// COLOR_PAPER i COLOR_INK_FALLBACK sa eksportowane, bo miniatury (thumb.ts) maja
+// wygladac jak zmniejszony canvas - jedno zrodlo kolorow zamiast kopii literalow.
 const COLOR_DESK = '#665A4F';
-const COLOR_PAPER = '#F0EAD2';
+export const COLOR_PAPER = '#F0EAD2';
 const COLOR_OUTLINE = '#000000';
 const COLOR_GRID = '#ADC178';
-const COLOR_INK_FALLBACK = '#1a1c2c';
+export const COLOR_INK_FALLBACK = '#1a1c2c';
 const COLOR_HOVER = 'rgba(173,193,120,0.5)';
 const COLOR_HOVER_ERASE = 'rgba(250,50,50,0.5)';
 const OUTLINE_WIDTH = 4;

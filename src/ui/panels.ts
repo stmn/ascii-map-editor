@@ -15,7 +15,7 @@ const LEGEND_REFRESH_MS = 150;
 
 // Re-eksporty dla zgodnosci: stara nazwa typu i helpery, ktore mieszkaja juz w innych modulach.
 export type PanelsState = EditorState;
-export { STORAGE_KEY, toast } from './panels/context';
+export { toast } from './panels/context';
 export { activeGrid, trimLayers } from '../core/editorState';
 
 export interface PanelsContext {

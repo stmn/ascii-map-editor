@@ -2,16 +2,18 @@
 // oraz drobne narzedzia UI (toast, dzwiek, autozapis). Jedno miejsce zamiast kopii w kazdym module.
 import type { EditorState } from '../../core/editorState';
 import { serializeProject } from '../../core/project';
+import type { LevelRecord, WorkspaceStore } from '../../core/store';
 import { el } from '../dom';
+import { renderThumb } from '../thumb';
 // import assetu przez Vite - bundler podmienia URL na wersje z hashem i relatywna baza
 import popUrl from '../../assets/pop.wav';
 
-/** Klucz autozapisu w localStorage - app.ts czyta go przy starcie. */
-export const STORAGE_KEY = 'ascii-level-editor-v2';
+/** Wskaznik ostatnio otwartego poziomu w localStorage: {"projectId":"...","levelId":"..."}. */
+const CURRENT_KEY = 'ascii-level-editor-current';
 /** Autozapis jest debounce'owany - malowanie sypie mutacjami co komorke. */
 const SAVE_DEBOUNCE_MS = 500;
-/** Powyzej tego rozmiaru JSON-a nie zapisujemy - localStorage ma zwykle limit ~5MB. */
-const MAX_SAVE_BYTES = 4.5 * 1024 * 1024;
+/** Blad zapisu przy malowaniu powtarza sie co komorke - toast pokazujemy najwyzej raz na tyle ms. */
+const SAVE_ERROR_TOAST_MS = 10_000;
 const TOAST_MS = 3000;
 
 /**
@@ -79,21 +81,90 @@ export function playPop(): void {
   pop.play().catch(() => {});
 }
 
+// --- workspace store i biezacy poziom -----------------------------------------
+
+/** Wskaznik na rekord poziomu; tyle trafia do localStorage pod CURRENT_KEY. */
+export interface CurrentRef { projectId: string; levelId: string }
+
+// Jedyne miejsce trzymajace uchwyt magazynu i biezacy rekord - autozapis (nizej)
+// i panel projektow (Task 5) czytaja stad, zeby nie powstala druga kopia prawdy.
+let store: WorkspaceStore | null = null;
+let currentRecord: LevelRecord | null = null;
+
+/** Uchwyt magazynu; null gdy bootstrap w app.ts sie nie powiodl (edytor dziala wtedy bez zapisu). */
+export function getStore(): WorkspaceStore | null { return store; }
+
+export function setStore(s: WorkspaceStore): void { store = s; }
+
+/**
+ * Rekord biezacego poziomu - trzymamy caly (nie samo id), bo autozapis musi odtworzyc
+ * name/order/projectId bez dodatkowego odczytu z magazynu przy kazdym pociagnieciu pedzla.
+ */
+export function getCurrentLevel(): LevelRecord | null { return currentRecord; }
+
+/**
+ * Podmiana biezacego rekordu (boot, przelaczenie poziomu, zmiana nazwy). Wolaj PRZED
+ * podmiana state.level, bo domykamy tu zawieszony autozapis - inaczej debounce zapisalby
+ * tresc nowego poziomu pod stary rekord.
+ */
+export function setCurrentLevel(record: LevelRecord): void {
+  flushSave();
+  currentRecord = record;
+  try {
+    localStorage.setItem(CURRENT_KEY, JSON.stringify({ projectId: record.projectId, levelId: record.id }));
+  } catch {
+    // wskaznik to tylko wygoda (boot ma fallback na pierwszy poziom) - blad ignorujemy
+  }
+}
+
+/** Odczyt wskaznika z poprzedniej sesji; null gdy brak, uszkodzony albo storage zablokowany. */
+export function readCurrentRef(): CurrentRef | null {
+  let raw: string | null = null;
+  try {
+    raw = localStorage.getItem(CURRENT_KEY);
+  } catch {
+    return null;
+  }
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as Partial<CurrentRef>;
+    if (typeof parsed?.projectId !== 'string' || typeof parsed?.levelId !== 'string') return null;
+    return { projectId: parsed.projectId, levelId: parsed.levelId };
+  } catch {
+    return null;
+  }
+}
+
 // --- autozapis ----------------------------------------------------------------
 
 /** Referencja na obiekt stanu (nie na level - import go podmienia). */
 let saveState: EditorState | null = null;
 let saveTimer = 0;
+let lastSaveErrorAt = 0;
+
+/**
+ * Toast o nieudanym zapisie - z limitem czestosci, bo blad (brak miejsca, zamknieta baza)
+ * powtarza sie przy KAZDEJ komorce malowania. Tu trafiaja tez bledy zapisu KvJsonStore.
+ */
+export function reportSaveError(e: unknown): void {
+  const now = Date.now();
+  if (now - lastSaveErrorAt < SAVE_ERROR_TOAST_MS) return;
+  lastSaveErrorAt = now;
+  toast(errorMessage(e), 'error');
+}
 
 function saveNow(): void {
-  if (!saveState) return;
-  try {
-    const json = serializeProject(saveState.level);
-    if (json.length > MAX_SAVE_BYTES) return; // za duza mapa - pomijamy zapis
-    localStorage.setItem(STORAGE_KEY, json);
-  } catch {
-    // brak miejsca albo zablokowany storage - autozapis jest opcjonalny
-  }
+  if (!saveState || !store || !currentRecord) return;
+  const record: LevelRecord = {
+    ...currentRecord,
+    data: serializeProject(saveState.level),
+    thumb: renderThumb(saveState.level),
+    updatedAt: Date.now(),
+  };
+  currentRecord = record;
+  // fire-and-forget: zapis nie moze blokowac malowania. Transakcja IndexedDB startuje
+  // synchronicznie w putLevel, wiec flush z pagehide zdazy ja otworzyc przed zamknieciem karty.
+  store.putLevel(record).catch(reportSaveError);
 }
 
 export function scheduleSave(): void {
