@@ -3,6 +3,7 @@
 // - store 'levels' (keyPath 'id', index 'projectId')
 // Kazda operacja promisyfikuje request; blad/odrzucenie otwarcia bazy odrzuca promise
 // z openIdbStore - caller (patrz Task 4) decyduje o fallbacku na KvJsonStore.
+import { byOrder } from './store';
 import type { LevelRecord, ProjectMeta, WorkspaceStore } from './store';
 
 const DB_NAME = 'ascii-level-editor';
@@ -78,7 +79,7 @@ class IndexedDbStore implements WorkspaceStore {
       tx.objectStore(LEVELS).index(PROJECT_ID_INDEX).getAll(projectId),
     );
     await txDone(tx);
-    return result.sort((a, b) => a.order - b.order);
+    return result.sort(byOrder);
   }
 
   async getLevel(id: string): Promise<LevelRecord | null> {

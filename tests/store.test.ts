@@ -62,4 +62,41 @@ describe('workspace store', () => {
     const s = new KvJsonStore(memKv());
     await expect(importWorkspace(s, '{"foo":1}', 1)).rejects.toThrow('Unrecognized workspace file');
   });
+
+  it('KvJsonStore.write: przekroczony limit albo wyjatek z setItem nie wywala operacji', async () => {
+    const errors: unknown[] = [];
+    const badKv: Kv = {
+      getItem: () => null,
+      setItem: () => { throw new Error('QuotaExceededError'); },
+    };
+    const s = new KvJsonStore(badKv, undefined, (e) => errors.push(e));
+    await expect(
+      s.putLevel({ id: 'l1', projectId: 'p1', name: 'A', order: 1, data: '{}', thumb: null, updatedAt: 1 }),
+    ).resolves.toBeUndefined();
+    expect(errors).toHaveLength(1);
+  });
+
+  it('importWorkspace odrzuca pojedyncze niepoprawne rekordy, reszta importuje sie normalnie', async () => {
+    const s = new KvJsonStore(memKv());
+    const json = JSON.stringify({
+      app: 'ascii-level-editor-workspace',
+      version: 1,
+      projects: [
+        { id: 'p1', name: 'A', createdAt: 1, updatedAt: 1 },
+        { id: 'p2', name: 7, createdAt: 1, updatedAt: 1 },
+      ],
+      levels: [
+        { id: 'l1', projectId: 'p1', name: 'L1', order: 1, data: '{}', thumb: null, updatedAt: 1 },
+        { id: 'l2', projectId: 'p1', name: 'L2', order: '2', data: '{}', thumb: null, updatedAt: 1 },
+      ],
+    });
+    const res = await importWorkspace(s, json, 99);
+    expect(res).toEqual({ projects: 1, levels: 1 });
+    const projs = await s.listProjects();
+    expect(projs).toHaveLength(1);
+    expect(projs[0]!.name).toBe('A');
+    const lvls = await s.listLevels(projs[0]!.id);
+    expect(lvls).toHaveLength(1);
+    expect(lvls[0]!.name).toBe('L1');
+  });
 });

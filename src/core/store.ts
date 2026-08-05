@@ -42,9 +42,17 @@ interface WorkspaceData {
 }
 
 const DEFAULT_KEY = 'ascii-level-editor-workspace';
+// limit na zapisywany JSON - localStorage ma zwykle ~5MB limit na origin,
+// wiec zostawiamy margines (ten sam limit co stary autosave)
+const MAX_WRITE_BYTES = 4.5 * 1024 * 1024;
 
 function emptyData(): WorkspaceData {
   return { projects: [], levels: [] };
+}
+
+// pomocnicze sortowanie poziomow po polu order (wspolne dla KvJsonStore i idb.ts)
+export function byOrder(a: LevelRecord, b: LevelRecord): number {
+  return a.order - b.order;
 }
 
 // caly workspace jako jeden JSON pod kluczem key; odczyt-modyfikacja-zapis calosci
@@ -52,10 +60,12 @@ function emptyData(): WorkspaceData {
 export class KvJsonStore implements WorkspaceStore {
   private readonly kv: Kv;
   private readonly key: string;
+  private readonly onWriteError?: (e: unknown) => void;
 
-  constructor(kv: Kv, key: string = DEFAULT_KEY) {
+  constructor(kv: Kv, key: string = DEFAULT_KEY, onWriteError?: (e: unknown) => void) {
     this.kv = kv;
     this.key = key;
+    this.onWriteError = onWriteError;
   }
 
   private read(): WorkspaceData {
@@ -72,8 +82,20 @@ export class KvJsonStore implements WorkspaceStore {
     }
   }
 
+  // miekki blad zapisu: to jest sciezka fallback (bez IndexedDB), wiec przekroczenie
+  // limitu rozmiaru albo wyjatek z kv.setItem (np. QuotaExceededError) NIE moze wywalic
+  // aplikacji - tylko zglaszamy przez onWriteError i pomijamy zapis, bez rethrow
   private write(data: WorkspaceData): void {
-    this.kv.setItem(this.key, JSON.stringify(data));
+    const serialized = JSON.stringify(data);
+    if (serialized.length > MAX_WRITE_BYTES) {
+      this.onWriteError?.(new Error('Workspace too large to save'));
+      return;
+    }
+    try {
+      this.kv.setItem(this.key, serialized);
+    } catch (e) {
+      this.onWriteError?.(e);
+    }
   }
 
   async listProjects(): Promise<ProjectMeta[]> {
@@ -98,7 +120,7 @@ export class KvJsonStore implements WorkspaceStore {
   async listLevels(projectId: string): Promise<LevelRecord[]> {
     return this.read()
       .levels.filter((l) => l.projectId === projectId)
-      .sort((a, b) => a.order - b.order);
+      .sort(byOrder);
   }
 
   async getLevel(id: string): Promise<LevelRecord | null> {
@@ -253,21 +275,27 @@ export async function importWorkspace(
   const importedProjects = o.projects as ProjectMeta[];
   const importedLevels = o.levels as LevelRecord[];
 
-  // merge-add: wszystko dostaje nowe id, kolidujace nazwy projektow dostaja nextName
+  // merge-add: wszystko dostaje nowe id, kolidujace nazwy projektow dostaja nextName;
+  // rekordy z niepoprawnymi polami (obcy/uszkodzony plik) sa pomijane po cichu,
+  // tak samo jak poziomy bez zaimportowanego projektu
   const existingNames = (await store.listProjects()).map((p) => p.name);
   const idMap = new Map<string, string>(); // stare projectId -> nowe id
 
+  let projectCount = 0;
   for (const p of importedProjects) {
+    if (typeof p.name !== 'string') continue;
     const newId = crypto.randomUUID();
     idMap.set(p.id, newId);
     let name = p.name;
     if (existingNames.includes(name)) name = nextName(name, existingNames);
     existingNames.push(name);
     await store.putProject({ id: newId, name, createdAt: p.createdAt, updatedAt: now });
+    projectCount++;
   }
 
   let levelCount = 0;
   for (const l of importedLevels) {
+    if (typeof l.name !== 'string' || typeof l.data !== 'string' || !Number.isFinite(l.order)) continue;
     const newProjectId = idMap.get(l.projectId);
     if (!newProjectId) continue; // poziom bez zaimportowanego projektu - pomijamy (obcy/uszkodzony plik)
     await store.putLevel({
@@ -282,5 +310,5 @@ export async function importWorkspace(
     levelCount++;
   }
 
-  return { projects: importedProjects.length, levels: levelCount };
+  return { projects: projectCount, levels: levelCount };
 }
