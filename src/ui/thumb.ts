@@ -8,10 +8,13 @@ import { COLOR_INK_FALLBACK, COLOR_PAPER } from './renderer';
 const THUMB_W = 120;
 const THUMB_H = 80;
 
-/** Miniatura jako dataURL (jpeg 0.6) albo null gdy wszystkie warstwy sa puste. */
+/** Miniatura jako dataURL (jpeg 0.6) albo null gdy nie ma nic widocznego do pokazania. */
 export function renderThumb(level: Level): string | null {
-  const b = unionBounds(level.layers);
-  if (!b) return null; // pusty poziom - lista pokaze placeholder zamiast obrazka
+  // kadrujemy po warstwach WIDOCZNYCH - inaczej jedna ukryta komorka gdzies daleko
+  // scisnelaby i przesunela cala miniature. Przy okazji: same ukryte warstwy daja null
+  const visible = level.layers.filter((l) => l.visible);
+  const b = unionBounds(visible);
+  if (!b) return null; // pusty (albo caly ukryty) poziom - lista pokaze placeholder zamiast obrazka
 
   const canvas = document.createElement('canvas');
   canvas.width = THUMB_W;
@@ -30,7 +33,7 @@ export function renderThumb(level: Level): string | null {
   const offX = Math.round((THUMB_W - cols * cell) / 2);
   const offY = Math.round((THUMB_H - rows * cell) / 2);
 
-  for (const { x, y, ch } of flattenLayers(level.layers).cells()) {
+  for (const { x, y, ch } of flattenLayers(visible).cells()) {
     ctx.fillStyle = level.legend.get(ch)?.color ?? COLOR_INK_FALLBACK;
     ctx.fillRect(offX + (x - b.minX) * cell, offY + (y - b.minY) * cell, cell, cell);
   }

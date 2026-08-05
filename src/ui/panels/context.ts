@@ -99,22 +99,42 @@ export function setStore(s: WorkspaceStore): void { store = s; }
 /**
  * Rekord biezacego poziomu - trzymamy caly (nie samo id), bo autozapis musi odtworzyc
  * name/order/projectId bez dodatkowego odczytu z magazynu przy kazdym pociagnieciu pedzla.
+ * To ZYWY obiekt: modyfikuj go wylacznie przez updateCurrentLevel, nigdy przez wlasna kopie.
  */
 export function getCurrentLevel(): LevelRecord | null { return currentRecord; }
 
-/**
- * Podmiana biezacego rekordu (boot, przelaczenie poziomu, zmiana nazwy). Wolaj PRZED
- * podmiana state.level, bo domykamy tu zawieszony autozapis - inaczej debounce zapisalby
- * tresc nowego poziomu pod stary rekord.
- */
-export function setCurrentLevel(record: LevelRecord): void {
-  flushSave();
-  currentRecord = record;
+function writePointer(record: LevelRecord): void {
   try {
     localStorage.setItem(CURRENT_KEY, JSON.stringify({ projectId: record.projectId, levelId: record.id }));
   } catch {
     // wskaznik to tylko wygoda (boot ma fallback na pierwszy poziom) - blad ignorujemy
   }
+}
+
+/**
+ * Podmiana biezacego rekordu - TYLKO przy prawdziwym przelaczeniu poziomu (boot, wybor
+ * innego poziomu). Wolaj PRZED podmiana state.level, bo domykamy tu zawieszony autozapis:
+ * inaczej debounce zapisalby tresc nowego poziomu pod stary rekord.
+ */
+export function setCurrentLevel(record: LevelRecord): void {
+  flushSave();
+  currentRecord = record;
+  writePointer(record);
+}
+
+/**
+ * Zmiana pol biezacego rekordu w miejscu (nazwa, order, dane). Task 5 MUSI puszczac tedy
+ * kazda zmiane nazwy i kolejnosci biezacego poziomu - autozapis czyta ten sam zywy obiekt,
+ * wiec wlasna kopia z getCurrentLevel() zostalaby nadpisana przy najblizszym pociagnieciu pedzla.
+ * Zapis do magazynu nalezy do wolajacego (putLevel albo scheduleSave).
+ */
+export function updateCurrentLevel(patch: Partial<LevelRecord>): void {
+  if (!currentRecord) return;
+  // wskaznik przepisujemy tylko gdy zmienia sie tozsamosc rekordu - nazwa go nie dotyczy
+  const identityChanged = (patch.id !== undefined && patch.id !== currentRecord.id)
+    || (patch.projectId !== undefined && patch.projectId !== currentRecord.projectId);
+  Object.assign(currentRecord, patch);
+  if (identityChanged) writePointer(currentRecord);
 }
 
 /** Odczyt wskaznika z poprzedniej sesji; null gdy brak, uszkodzony albo storage zablokowany. */
@@ -140,6 +160,8 @@ export function readCurrentRef(): CurrentRef | null {
 /** Referencja na obiekt stanu (nie na level - import go podmienia). */
 let saveState: EditorState | null = null;
 let saveTimer = 0;
+/** Czy od ostatniego zapisu byla mutacja - bez tego flush przy kazdym schowaniu karty klamalby updatedAt. */
+let pendingSave = false;
 let lastSaveErrorAt = 0;
 
 /**
@@ -155,25 +177,30 @@ export function reportSaveError(e: unknown): void {
 
 function saveNow(): void {
   if (!saveState || !store || !currentRecord) return;
-  const record: LevelRecord = {
-    ...currentRecord,
+  pendingSave = false;
+  updateCurrentLevel({
     data: serializeProject(saveState.level),
     thumb: renderThumb(saveState.level),
     updatedAt: Date.now(),
-  };
-  currentRecord = record;
-  // fire-and-forget: zapis nie moze blokowac malowania. Transakcja IndexedDB startuje
+  });
+  // kopia do magazynu, zeby dalsze edycje zywego rekordu nie ruszaly tego, co poszlo do zapisu.
+  // Fire-and-forget: zapis nie moze blokowac malowania, a transakcja IndexedDB startuje
   // synchronicznie w putLevel, wiec flush z pagehide zdazy ja otworzyc przed zamknieciem karty.
-  store.putLevel(record).catch(reportSaveError);
+  store.putLevel({ ...currentRecord }).catch(reportSaveError);
 }
 
 export function scheduleSave(): void {
+  pendingSave = true;
   window.clearTimeout(saveTimer);
   saveTimer = window.setTimeout(saveNow, SAVE_DEBOUNCE_MS);
 }
 
-/** Debounce gubi ostatnie pociagniecia przy natychmiastowym zamknieciu karty - domykamy zapis od razu. */
+/**
+ * Debounce gubi ostatnie pociagniecia przy natychmiastowym zamknieciu karty - domykamy zapis od razu.
+ * Bez zawieszonej mutacji nie robimy nic: pusty zapis podbijalby updatedAt przy kazdym schowaniu karty.
+ */
 export function flushSave(): void {
+  if (!pendingSave) return;
   window.clearTimeout(saveTimer);
   saveNow();
 }
