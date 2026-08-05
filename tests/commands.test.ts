@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   layerAddCommand, layerMoveCommand, layerRenameCommand, layerVisibilityCommand,
-  replaceCommand, snapshotLevel, strokeCommand,
+  remapCommand, replaceCommand, snapshotLevel, strokeCommand,
 } from '../src/core/commands';
 import type { EditorState } from '../src/core/editorState';
 import { Grid } from '../src/core/grid';
-import { createLevel, makeLayer, type Level } from '../src/core/level';
+import { createLevel, levelUsedChars, makeLayer, type Level } from '../src/core/level';
 
 function makeState(level: Level = createLevel()): EditorState {
   return { level, activeLayer: 0, view: { panX: 0, panY: 0, scale: 32 }, brush: '#', contentRev: 0 };
@@ -58,6 +58,36 @@ describe('replaceCommand', () => {
 
     cmd.redo();
     expect(state.level.layers[0]!.grid.toLines()).toEqual(['...']);
+  });
+});
+
+describe('remapCommand', () => {
+  it('cofa remap mimo pustego wpisu legendy odtworzonego w miedzyczasie', () => {
+    const state = makeState();
+    const layer = state.level.layers[0]!;
+    layer.grid.set(0, 0, '#');
+    state.level.legend.upsert('#', { name: 'bricks', color: '#ff0000' });
+
+    const cmd = remapCommand(state, '#', 'W');
+    cmd.redo(); // panel legendy: '#' -> 'W' na mapie i w legendzie
+
+    // pedzel '#' wraca na mape, wiec syncWith odtwarza wpis '#' (domyslna nazwa i kolor)
+    layer.grid.set(1, 0, '#');
+    state.level.legend.syncWith(levelUsedChars(state.level));
+    // ...a cofniecie tego pociagniecia zabiera komorke, ale wpisu legendy nie kasuje
+    layer.grid.set(1, 0, ' ');
+    expect(state.level.legend.get('#')).not.toBeNull();
+    expect(levelUsedChars(state.level)).toEqual(['W']);
+
+    expect(() => cmd.undo()).not.toThrow();
+    expect(layer.grid.get(0, 0)).toBe('#');
+    expect(state.level.legend.get('W')).toBeNull();
+    // wraca ORYGINALNY wpis (przeniesiony przez 'W'), nie ta pusta skorupa z syncWith
+    expect(state.level.legend.get('#')).toMatchObject({ name: 'bricks', color: '#ff0000' });
+
+    // prawdziwa kolizja dalej rzuca: 'W' jest teraz na mapie, wiec nie ma jej czym nadpisac
+    layer.grid.set(2, 0, 'W');
+    expect(() => cmd.redo()).toThrow('Character already in use');
   });
 });
 

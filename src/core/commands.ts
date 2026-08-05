@@ -3,7 +3,7 @@
 // trzymanie referencji do warstwy czy legendy z chwili tworzenia komendy byloby pulapka.
 import { clampedActive, type EditorState } from './editorState';
 import type { Command } from './history';
-import type { Layer, Level } from './level';
+import { levelUsedChars, type Layer, type Level } from './level';
 import { parseProject, serializeProject } from './project';
 import { remapChar } from './remap';
 
@@ -155,13 +155,30 @@ export function legendEditCommand(
 }
 
 /**
- * Zmiana znaku wpisu legendy. Inwersja jest symetryczna (remap w druga strone), ale moze rzucic
- * 'Character already in use', gdy stary znak zdazyl wrocic na mape - wolajacy lapie to wyzej.
+ * Wpis legendy bez ANI JEDNEJ komorki na mapie to pusta skorupa - kasujemy go przed remapem.
+ * Scenariusz: remap '#'->'W', potem pedzel '#' (syncWith odtwarza wpis '#'), potem cofniecie
+ * tego pociagniecia (komorki znikaja, wpis zostaje z licznikiem 0). Bez tego sprzatania
+ * cofniecie remapu odbijaloby sie od 'Character already in use' o wlasnego ducha.
+ * Znak faktycznie uzyty na mapie zostaje nietkniety - to prawdziwa kolizja i ma rzucic.
+ */
+function pruneUnusedEntry(level: Level, ch: string): void {
+  if (!level.legend.get(ch)) return;
+  if (levelUsedChars(level).includes(ch)) return;
+  level.legend.remove(ch);
+}
+
+/**
+ * Zmiana znaku wpisu legendy. Inwersja jest symetryczna (remap w druga strone) i moze rzucic
+ * 'Character already in use', gdy docelowy znak zdazyl wrocic na mape - wolajacy lapie to wyzej.
  */
 export function remapCommand(state: EditorState, from: string, to: string): Command {
+  function run(a: string, b: string): void {
+    pruneUnusedEntry(state.level, b);
+    remapChar(state.level, a, b);
+  }
   return {
     label: 'Change character',
-    undo: () => { remapChar(state.level, to, from); },
-    redo: () => { remapChar(state.level, from, to); },
+    undo: () => run(to, from),
+    redo: () => run(from, to),
   };
 }

@@ -39,11 +39,8 @@ export function initLegend(ctx: PanelsCtx, legendBox: HTMLElement): LegendPanel 
     bumpContent(state);
     ctx.markDirty();
     scheduleSave();
-    // po zamknieciu modala fokus wraca na klikniety przycisk edycji (wewnatrz legendBox) -
-    // bez zdjecia fokusu straznik "nie przerywaj edycji w toku" w renderLegend przerwalby odswiezenie
-    if (document.activeElement instanceof HTMLElement && legendBox.contains(document.activeElement)) {
-      document.activeElement.blur();
-    }
+    // fokus wraca po modalu na przycisk edycji, ale straznik renderLegend patrzy juz tylko na
+    // pola tekstowe, wiec odswiezenie idzie normalnie - zdejmowanie fokusu nie jest potrzebne
     renderLegend();
     ctx.hooks.renderLayers();
     playPop();
@@ -51,8 +48,11 @@ export function initLegend(ctx: PanelsCtx, legendBox: HTMLElement): LegendPanel 
   }
 
   function renderLegend(): void {
-    // nie przerywamy edycji nazwy/koloru przez podmiane DOM pod palcami
-    if (legendBox.contains(document.activeElement)) return;
+    // Nie przerywamy pisania w nazwie przez podmiane DOM pod palcami. Straznik celowo obejmuje
+    // TYLKO pole tekstowe: przycisk (znak, edycja znaku) nie trzyma zadnego stanu edycji, a fokus
+    // na nim po zamknieciu modala blokowalby odswiezenie karty po undo/redo.
+    const focused = document.activeElement;
+    if (focused instanceof HTMLInputElement && focused.type === 'text' && legendBox.contains(focused)) return;
     const counts = usageCounts();
     const entries = state.level.legend.entries();
     legendBox.replaceChildren();

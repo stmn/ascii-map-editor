@@ -60,7 +60,8 @@ export function initHistory(ctx: PanelsCtx, drawBox: HTMLElement): void {
   // odpada juz na pierwszym warunku, gdy wcisniety jest Ctrl/Cmd/Alt, wiec 'z' i 'y' z
   // modyfikatorem nigdy nie zmienia pedzla i oba nasluchy sie nie gryza.
   window.addEventListener('keydown', (e) => {
-    if (!(e.ctrlKey || e.metaKey)) return;
+    // Alt w komplecie to juz inny skrot (i modyfikator gumki) - nie porywamy go na undo
+    if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
     if (isTypingTarget(e.target) || isModalOpen()) return;
     const key = e.key.toLowerCase();
     if (key === 'z') {
