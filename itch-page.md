@@ -1,0 +1,143 @@
+# itch.io page copy
+
+Ready to paste text for <https://stmn.itch.io/ascii-map-editor>. Everything above the
+"How to update the itch page" checklist is page content, the checklist is for you only.
+
+---
+
+## Title
+
+ASCII Level Editor - export to KaPlay, Tiled, Godot, REXPaint
+
+## Short description (the one line under the title, max 120 characters)
+
+Draw levels with ASCII characters and export them to your engine. Free in the browser, no
+account, no upload.
+
+---
+
+## Page body
+
+Draw a level the fastest way there is: type characters on a grid. `#` is a wall, `.` is
+floor, `@` is the player. When the map looks right, hit one button and take it to your
+engine.
+
+No account, no upload, no server. Everything happens in your browser and your work is saved
+locally as you draw.
+
+### What you get
+
+- Paint with any ASCII character. Press a key, that character becomes your brush.
+- A legend that turns characters into real tiles: give each one a name and a color, and see
+  how many times it is used.
+- Maze and dungeon generators when you need a starting point instead of a blank page.
+- Autosave. Close the tab, come back, your map is still there.
+- Exports: TXT, CSV, KaPlay snippet, Godot GDScript, Tiled `.tmx`, REXPaint `.xp`, plus a
+  project `.json` that keeps the legend.
+- Import back: project files, plain text and REXPaint `.xp`.
+- Mouse wheel zoom, drag to pan, Alt or Ctrl to erase.
+
+### Works with your engine
+
+**KaPlay.** Copy and paste, it is the level format KaPlay already speaks:
+
+```js
+addLevel([
+  "####",
+  "#@.#",
+  "####",
+], {
+  tileWidth: 16,
+  tileHeight: 16,
+  tiles: {
+    "#": () => [sprite("wall")],
+    ".": () => [sprite("floor")],
+    "@": () => [sprite("player")],
+  },
+});
+```
+
+Legend names become sprite names, so name the entries after the sprites you already load.
+
+**Tiled.** Download a `.tmx` with an orthogonal CSV layer. Every tile keeps its legend name
+and its original character as properties, then you point it at your own tileset image.
+
+**Godot 4.** Copy GDScript that drops into any `TileMapLayer`:
+
+```gdscript
+const LEVEL = [
+	"####",
+	"#@.#",
+	"####",
+]
+
+const TILES = {
+	"#": Vector2i(0, 0), # wall
+	".": Vector2i(1, 0), # floor
+	"@": Vector2i(2, 0), # player
+}
+
+func load_level(tile_map: TileMapLayer, source_id: int = 0) -> void:
+	for y in LEVEL.size():
+		for x in LEVEL[y].length():
+			var ch := LEVEL[y][x]
+			if TILES.has(ch):
+				tile_map.set_cell(Vector2i(x, y), source_id, TILES[ch])
+```
+
+**REXPaint.** Download a real gzipped `.xp` file with your legend colors as foreground and
+magenta as transparency, and load it in REXPaint or in any roguelike library that reads
+`.xp`. The editor reads `.xp` back in too.
+
+**Anything else.** TXT and CSV are one character per cell, so a five line loader handles
+them in whatever engine you are using.
+
+### Bringing your old maps
+
+Made maps in the old ASCII Map Editor? Load them straight into v2. Import understands all
+three shapes v1 ever saved: the JSON array of lines, the array of arrays of characters, and
+plain text. Legend names and colors are rebuilt from the characters on the map.
+
+### Free in the browser, or take it offline
+
+The editor is free and always will be. Click "Run game" and start drawing.
+
+If you want it on your disk, grab the offline download: a single HTML file with the fonts,
+cursors and sound baked in. Double click it, no install, no internet, no browser extension.
+It is pay what you want, and $2 is a fair nudge if the tool saved you an afternoon.
+
+### Changelog
+
+**v2** - full rewrite with engine exports. New: KaPlay, Godot, Tiled TMX and REXPaint `.xp`
+export, a legend with names and colors, maze and dungeon generators, autosave and a proper
+offline standalone build. Maps from v1 import directly.
+
+---
+
+## How to update the itch page (checklist for Darek)
+
+Update the existing project rather than creating a new one, so the views, ratings and
+inbound links survive.
+
+1. `npm run zip` in the repo root. It builds `dist/`, generates `dist/standalone.html` and
+   packs `ascii-level-editor.zip`.
+2. Edit project on itch.io, keep Kind of project as **HTML**.
+3. Uploads: replace the old game zip with `ascii-level-editor.zip`, tick **"This file will
+   be played in the browser"**. itch.io picks `index.html` at the archive root as the entry
+   point automatically. If it asks, choose `index.html`.
+4. Embed options: **manual size 1280 x 720**, enable **fullscreen button** and **mobile
+   friendly** is optional (the editor wants a mouse). Leave "Automatically start on page
+   load" off if you prefer the click to run button.
+5. Add the same `ascii-level-editor.zip` a second time as a **downloadable** file (untick
+   the play in browser box on that copy) and label it "Offline version - open
+   standalone.html". It contains `standalone.html`, the single file build that works from
+   `file://`.
+6. Pricing: **$2 or more, pay what you want** with **"No payments"** allowed, so the browser
+   version stays free and the download stays optional.
+7. Update the title and the short description from the top of this file, paste the page
+   body, then bump the changelog.
+8. Tags worth having: `ascii`, `level-editor`, `gamedev`, `tools`, `tilemap`, `roguelike`,
+   `godot`, `tiled`.
+9. Save, open the public page in a private window, run the game and confirm the paper and
+   the pixel font render. Then download the zip and double click `standalone.html` to check
+   the offline copy.

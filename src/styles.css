@@ -2,7 +2,7 @@
 
 @font-face {
   font-family: 'Press Start 2P';
-  src: url('/assets/PressStart2P-Regular.ttf') format('truetype');
+  src: url('./assets/PressStart2P-Regular.ttf') format('truetype');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -26,7 +26,7 @@ body {
   -webkit-user-select: none;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  cursor: url('/assets/cursor.png'), default;
+  cursor: url('./assets/cursor.png'), default;
 }
 
 /* Kursor "klikalny" na elementach interaktywnych - hotspot 14 0 jak w v1. */
@@ -37,7 +37,7 @@ input[type='radio'],
 select,
 summary,
 a {
-  cursor: url('/assets/cursor-click.png') 14 0, pointer;
+  cursor: url('./assets/cursor-click.png') 14 0, pointer;
 }
 
 #map {
@@ -48,7 +48,7 @@ a {
   height: 100vh;
   display: block;
   touch-action: none;
-  cursor: url('/assets/cursor.png'), default;
+  cursor: url('./assets/cursor.png'), default;
 }
 
 /* user-select: none z body nie moze blokowac zaznaczania w polach formularza */

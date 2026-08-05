@@ -12,6 +12,8 @@ import { exportTmx } from '../export/tiled';
 import { exportXp, importXp } from '../export/rexpaint';
 import { isTypingTarget } from './input';
 import type { View } from './renderer';
+// import assetu przez Vite - bundler podmienia URL na wersje z hashem i relatywna baza
+import popUrl from '../assets/pop.wav';
 
 /** Klucz autozapisu w localStorage. */
 const STORAGE_KEY = 'ascii-level-editor-v2';
@@ -109,7 +111,7 @@ let pop: HTMLAudioElement | null = null;
 /** Krotki "pop" przy akcjach; blad odtwarzania ignorujemy (autoplay policy). */
 function playPop(): void {
   if (!pop) {
-    pop = new Audio('assets/pop.wav');
+    pop = new Audio(popUrl);
     pop.volume = 0.5;
   }
   pop.currentTime = 0;
