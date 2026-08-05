@@ -5,8 +5,9 @@ one shared legend, then export the result straight into your engine: KaPlay, Til
 REXPaint.
 
 It is a single static page: no backend, no accounts, no network calls. Everything runs in
-the browser, the current level is autosaved to `localStorage`, and the build also ships as a
-one-file `standalone.html` that works offline from `file://`.
+the browser, your work is organized into projects and levels and autosaved to `IndexedDB`
+(with a `localStorage` fallback, see Projects and levels below), and the build also ships as
+a one-file `standalone.html` that works offline from `file://`.
 
 This is v2 of the original [ASCII Map Editor](https://stmn.itch.io/ascii-map-editor): a full
 rewrite in TypeScript that keeps the look and feel of v1 and reads all of its map formats.
@@ -45,6 +46,72 @@ itch.io-ready HTML project (`index.html` as the entry point) and it also contain
   button per format, and a Legacy (v1) section with its own format picker and preview.
 - Import opens a dialog: load a `.json`, `.txt` or REXPaint `.xp` file, or paste text
   directly - both routes run through the same tolerant parser.
+
+## Projects and levels
+
+Your work is organized as a workspace: one or more **projects**, each holding one or more
+**levels**. The Project panel has a project selector with New / Rename / Delete, and below it
+a list of the current project's levels, each with a small thumbnail, an editable name, and
+Duplicate / Delete buttons. Click a level (or its name field) to switch to it; New level adds
+a blank one. The last project cannot be deleted, and neither can a project's last level - there
+is always at least one of each.
+
+Thumbnails are rendered offscreen at 120x80 as flat color rectangles, one per legend color
+(at that size, drawing the actual characters would be unreadable, so shapes and colors carry
+the map instead), encoded as a JPEG data URL and shown at 48x32 in a bordered frame in the
+level list. A level with nothing painted on a visible layer shows no thumbnail, just the
+frame.
+
+### Storage
+
+The whole workspace (project and level metadata, level JSON, thumbnails) lives in
+**IndexedDB**, database `ascii-level-editor`, with a `projects` object store and a `levels`
+object store indexed by `projectId`. When IndexedDB is unavailable (private browsing in some
+browsers, or a blocked/disabled database) the editor falls back to a single JSON blob in
+**`localStorage`** holding the same projects and levels, and shows an info toast the first
+time this happens. Everything else - project/level panel, autosave, export/import - works the
+same either way; the fallback only changes where the bytes end up.
+
+A separate, tiny pointer (`{"projectId": ..., "levelId": ...}`) always stays in `localStorage`
+under its own key regardless of which store backs the data, so the next launch reopens the
+same level you had open last.
+
+Editing a level (painting, renaming a layer, changing the legend, and so on) schedules an
+autosave debounced by 500 ms; the save also regenerates that level's thumbnail. A failed save
+(storage full, database closed) is a soft failure: it does not interrupt editing, it shows a
+red toast instead, rate-limited so it cannot spam a toast per brush stroke.
+
+### Migration from the old single-map autosave
+
+Versions before the project/level workspace kept one autosaved map directly under a
+`localStorage` key. The first time the workspace store is empty, that old autosave (if
+present and if it still parses) is migrated once into a new project called "My project" with
+one level called "Level 1", and an info toast confirms it. The old key is not deleted, only
+renamed to a `-backup` suffix, so the original data stays recoverable on disk even if the
+migrated copy turns out wrong. There is no second migration: once the workspace store holds
+anything, this path never runs again.
+
+### Workspace backup
+
+The Project panel's "Export workspace" button downloads a `workspace.json` with every project
+and level (thumbnails are dropped to keep the file small; they regenerate on the next save).
+"Import workspace" reads that file back and merge-adds it into whatever is already open:
+every imported project and level gets a fresh id, a project name that collides with an
+existing one gets a "Name N" suffix instead of overwriting it, and the import never deletes or
+replaces anything already in the workspace. An unrecognized file (wrong shape, foreign JSON)
+is rejected up front with a red toast; inside an otherwise valid file, individual malformed
+records are skipped silently while the rest of the file still imports.
+
+### Multi-tab and other caveats
+
+There is no cross-tab locking: if the same level is open and edited in two tabs, the last
+autosave to land wins and silently overwrites the other tab's version. Keep one tab per level
+open at a time. Exports of very large maps fail fast instead of freezing the tab: any export
+that would flatten more than 4,000,000 cells raises "Map bounds too large to export" as a red
+toast rather than hanging the browser. The Export and Import dialogs, and the New
+project/rename/delete confirmations, are proper modal dialogs (`role="dialog"` or
+`role="alertdialog"`, `aria-modal`) with a keyboard focus trap while open and focus returned
+to whatever triggered them once closed.
 
 ## Layers
 
@@ -111,28 +178,44 @@ src/
   core/             pure model, no DOM
     grid.ts         sparse Map "x,y" -> char, bounds, fromLines/toLines(bounds?)
     legend.ts       char -> {name, color}, auto names and palette, shared by a whole level
-    level.ts        Layer/Level model, MAX_LAYERS = 8, unionBounds, flattenLayers
+    level.ts        Layer/Level model, MAX_LAYERS = 8, unionBounds, flattenLayers, export bounds cap
     project.ts      v3 layered JSON serialize plus a tolerant parser for v2, v1 and foreign formats
     generators.ts   seeded RNG (mulberry32), maze and dungeon generators
+    editorState.ts  EditorState type, activeLayer/activeGrid helpers, applyLevelToState
+    store.ts        WorkspaceStore interface, ProjectMeta/LevelRecord, KvJsonStore fallback,
+                     ensureSeed (bootstrap + migration), export/importWorkspace (backup JSON)
+    idb.ts          IndexedDB WorkspaceStore, db 'ascii-level-editor', stores projects/levels
   export/           pure functions Level (or Grid + Legend) -> string or bytes
     text.ts         TXT and CSV, given a grid and optional bounds
     legacy.ts       v1 legacy text / array-text / array-array formats, used by the Export modal
     kaplay.ts       addLevel(...) snippet, one block per visible layer
-    godot.ts        GDScript LEVELS dict + load_layer(...) helper
+    godot.ts        GDScript LEVELS dict + load_layer(...) helper, layer name key dedupe
     tiled.ts        TMX with one <layer> element per level layer
     rexpaint.ts     native multi-layer .xp binary layout plus gzip, both write and read
   ui/               thin DOM layer
     renderer.ts     canvas drawing, view maths (pan, zoom, centring)
     input.ts        pointer, wheel and keyboard gestures, Bresenham stroke interpolation
-    modal.ts        generic modal dialog + confirm() replacement, stacked overlay
-    panels.ts       sidebar: brush, layers, legend, generators, export/import dialogs, autosave, toasts
+    modal.ts        generic modal dialog + confirm() replacement, stacked overlay, a11y + focus trap
+    thumb.ts        level thumbnail: flat-color 120x80 canvas -> JPEG data URL
+    dom.ts          tiny element builder helpers shared by every panel
+    panels.ts       composition root: wires the panels/ modules together through initPanels(ctx)
+    panels/         one module per sidebar card, all fed state and callbacks by panels.ts
+      context.ts    shared PanelsCtx/hooks, toast, workspace store handle, autosave scheduling
+      project.ts    Project card: project select, New/Rename/Delete, level list, backup JSON
+      draw.ts       brush and recent chips
+      layers.ts     Layers card: add/reorder/rename/hide/delete
+      legend.ts     Legend card: name/color/usage per character
+      generate.ts   maze/dungeon generator card
+      exportModal.ts   Export dialog
+      importModal.ts   Import dialog
 tests/              Vitest specs for core/ and export/ only
 scripts/
   build-standalone.mjs   inlines dist/ into a single offline HTML file
 ```
 
 `panels.ts` never imports `app.ts`. It receives the state and callbacks through
-`initPanels(ctx)`, so the import graph stays acyclic.
+`initPanels(ctx)`, so the import graph stays acyclic; the same rule holds one level down, from
+`panels.ts` into each module under `panels/`.
 
 There are no runtime dependencies. The dev dependencies are TypeScript, Vite and Vitest,
 and `scripts/build-standalone.mjs` is plain Node with no packages at all.

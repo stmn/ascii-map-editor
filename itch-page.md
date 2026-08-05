@@ -33,7 +33,11 @@ locally as you draw.
 - A legend that turns characters into real tiles: give each one a name and a color, and see
   how many times it is used.
 - Maze and dungeon generators when you need a starting point instead of a blank page.
+- Projects and levels: organize your maps into projects, each holding as many levels as you
+  want, with a thumbnail per level so you can find the one you need at a glance.
 - Autosave. Close the tab, come back, your level is still there.
+- A one-click workspace backup: export every project and level to a single JSON file, import
+  it back into another browser or another machine.
 - An Export dialog: TXT, CSV, KaPlay snippet, Godot GDScript, Tiled `.tmx`, REXPaint `.xp`
   and a project `.json` that keeps every layer and the legend - plus a Legacy (v1) tab with
   the three formats the original editor used to save.
@@ -124,6 +128,8 @@ cursors and sound baked in. Double click it, no install, no internet, no browser
 It is pay what you want, and $2 is a fair nudge if the tool saved you an afternoon.
 
 ### Changelog
+
+**v2.2** - projects and levels with thumbnails, IndexedDB persistence, workspace backup.
 
 **v2.1** - named map layers, layered engine exports, export/import dialogs with v1 legacy
 formats and paste import.
