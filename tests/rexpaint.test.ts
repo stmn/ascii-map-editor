@@ -56,5 +56,10 @@ describe('rexpaint xp', () => {
     v2.setInt32(0, -1, true); v2.setInt32(4, 1, true);
     v2.setInt32(8, 1000, true); v2.setInt32(12, 1000, true); // deklaruje wiecej niz bufor
     expect(() => parseXpBytes(trunc)).toThrow('Not a valid .xp file');
+    const dims = new Uint8Array(8 + 8);
+    const v3 = new DataView(dims.buffer);
+    v3.setInt32(0, -1, true); v3.setInt32(4, 1, true);
+    v3.setInt32(8, 0, true); v3.setInt32(12, -5, true); // zerowa szerokosc, ujemna wysokosc
+    expect(() => parseXpBytes(dims)).toThrow('Not a valid .xp file');
   });
 });
