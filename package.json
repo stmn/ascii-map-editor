@@ -8,7 +8,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "zip": "npm run build && node scripts/build-standalone.mjs && cd dist && zip -r ../ascii-level-editor.zip ."
+    "zip": "npm run build && node scripts/build-standalone.mjs && cd dist && zip -r -FS ../ascii-level-editor.zip ."
   },
   "devDependencies": {
     "typescript": "^7.0.2",
