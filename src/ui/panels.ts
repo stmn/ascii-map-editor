@@ -1,9 +1,11 @@
 // Panele boczne: kompozytor modulow z katalogu panels/.
 // Modul celowo NIE importuje app.ts - stan i callbacki dostaje przez initPanels(ctx),
 // dzieki czemu nie powstaje cykl importow (app.ts -> panels.ts, nigdy odwrotnie).
+import type { Command } from '../core/history';
 import type { EditorState } from '../core/editorState';
 import { PanelHooks, PanelsCtx, initAutosave, requireEl, scheduleSave } from './panels/context';
 import { initDraw } from './panels/draw';
+import { initHistory } from './panels/history';
 import { initLayers } from './panels/layers';
 import { initLegend } from './panels/legend';
 import { initGenerate } from './panels/generate';
@@ -30,6 +32,8 @@ export interface PanelsContext {
 export interface Panels {
   /** Wolane przez app po kazdej mutacji mapy (malowanie, gumka). */
   onMutate(): void;
+  /** Wpis do historii - app pcha tedy komende calego pociagniecia pedzla. */
+  pushHistory(cmd: Command): void;
 }
 
 export function initPanels(ctx: PanelsContext): Panels {
@@ -57,6 +61,8 @@ export function initPanels(ctx: PanelsContext): Panels {
   const hooks: PanelHooks = { renderLegend: () => {}, renderLayers: () => {}, setBrush: () => {} };
   const panelsCtx: PanelsCtx = { ...ctx, onMutate, hooks };
 
+  // przed initDraw: oba dokladaja do #panel-draw, wiec rzad Undo/Redo laduje na gorze karty
+  initHistory(panelsCtx, drawBox);
   const draw = initDraw(panelsCtx, drawBox);
   const layers = initLayers(panelsCtx, layersBox);
   const legend = initLegend(panelsCtx, legendBox);
@@ -76,5 +82,5 @@ export function initPanels(ctx: PanelsContext): Panels {
   legend.render();
   project.render();
 
-  return { onMutate };
+  return { onMutate, pushHistory: (cmd) => hooks.pushHistory?.(cmd) };
 }

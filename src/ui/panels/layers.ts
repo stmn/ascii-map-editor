@@ -1,4 +1,7 @@
 // Panel Layers: karta warstw (widocznosc, nazwa, kolejnosc, usuwanie) i dodawanie nowych.
+import {
+  layerAddCommand, layerMoveCommand, layerRemoveCommand, layerRenameCommand, layerVisibilityCommand,
+} from '../../core/commands';
 import { bumpContent, clampedActive } from '../../core/editorState';
 import { Layer, MAX_LAYERS, makeLayer } from '../../core/level';
 import { button, el, iconButton } from '../dom';
@@ -46,10 +49,14 @@ export function initLayers(ctx: PanelsCtx, layersBox: HTMLElement): LayersPanel 
     if (layers.length >= MAX_LAYERS) return;
     // nowa warstwa laduje NAD aktywna, czyli o jeden dalej w tablicy
     const index = clampedActive(state) + 1;
-    layers.splice(index, 0, makeLayer(nextLayerName(layers)));
+    // ten SAM obiekt warstwy wraca przy redo - dzieki temu jego id (a wiec i komendy
+    // pociagniec, ktore juz na nie wskazuja) przezywa cofniecie dodania
+    const layer = makeLayer(nextLayerName(layers));
+    layers.splice(index, 0, layer);
     state.activeLayer = index;
     afterLayerChange();
     playPop();
+    ctx.hooks.pushHistory?.(layerAddCommand(state, index, layer));
   }
 
   async function removeLayer(index: number): Promise<void> {
@@ -66,6 +73,7 @@ export function initLayers(ctx: PanelsCtx, layersBox: HTMLElement): LayersPanel 
     afterLayerChange();
     ctx.hooks.renderLegend(); // znikniete komorki zmieniaja liczniki uzyc
     playPop();
+    ctx.hooks.pushHistory?.(layerRemoveCommand(state, index, layer));
   }
 
   /** dir = +1 przesuwa warstwe w gore listy (dalej w tablicy = blizej wierzchu). */
@@ -80,6 +88,7 @@ export function initLayers(ctx: PanelsCtx, layersBox: HTMLElement): LayersPanel 
     else if (state.activeLayer === target) state.activeLayer = index;
     afterLayerChange();
     playPop();
+    ctx.hooks.pushHistory?.(layerMoveCommand(state, index, target));
   }
 
   function layerButton(label: string, title: string, onClick: () => void): HTMLButtonElement {
@@ -94,7 +103,11 @@ export function initLayers(ctx: PanelsCtx, layersBox: HTMLElement): LayersPanel 
     const eye = layerButton(
       'o',
       layer.visible ? `Hide layer "${layer.name}"` : `Show layer "${layer.name}"`,
-      () => { layer.visible = !layer.visible; afterLayerChange(); },
+      () => {
+        layer.visible = !layer.visible;
+        afterLayerChange();
+        ctx.hooks.pushHistory?.(layerVisibilityCommand(state, layer.id));
+      },
     );
     eye.classList.add('layer-eye');
     if (!layer.visible) eye.classList.add('off');
@@ -108,12 +121,21 @@ export function initLayers(ctx: PanelsCtx, layersBox: HTMLElement): LayersPanel 
     name.addEventListener('input', () => { layer.name = name.value; scheduleSave(); });
     // pointerdown leci przed fokusem, a aktywacja nie przebudowuje karty - klik w nazwe robi obie rzeczy
     name.addEventListener('pointerdown', () => setActiveLayer(index));
-    // pusta nazwa psulaby TMX i klucze slownika w Godot - wracamy do domyslnej z pozycji
+    // nazwa sprzed edycji: historia dostaje JEDEN wpis na cala sesje pisania, nie na kazdy znak
+    let nameBefore = layer.name;
+    name.addEventListener('focus', () => { nameBefore = layer.name; });
+    // blur, a nie change: pusta nazwa dostaje tu jeszcze domyslna wartosc, wiec komenda
+    // zapisuje to, co naprawde zostalo, a nie chwilowy pusty string
     name.addEventListener('blur', () => {
-      if (name.value.trim()) return;
-      layer.name = `layer ${index + 1}`;
-      name.value = layer.name;
-      scheduleSave();
+      // pusta nazwa psulaby TMX i klucze slownika w Godot - wracamy do domyslnej z pozycji
+      if (!name.value.trim()) {
+        layer.name = `layer ${index + 1}`;
+        name.value = layer.name;
+        scheduleSave();
+      }
+      if (layer.name === nameBefore) return;
+      ctx.hooks.pushHistory?.(layerRenameCommand(state, layer.id, nameBefore, layer.name));
+      nameBefore = layer.name;
     });
 
     const up = layerButton('^', `Move layer "${layer.name}" up`, () => moveLayer(index, 1));

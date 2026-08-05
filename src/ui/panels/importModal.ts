@@ -1,4 +1,5 @@
 // Modal Import: wczytanie pliku (.json/.txt/.xp) albo wklejonego tekstu przez wspolny parser.
+import { replaceCommand, snapshotLevel } from '../../core/commands';
 import { Grid } from '../../core/grid';
 import { Legend } from '../../core/legend';
 import { Level, MAX_LAYERS, makeLayer } from '../../core/level';
@@ -34,6 +35,9 @@ export function initImportModal(ctx: PanelsCtx, importBox: HTMLElement): void {
 
   /** Podmiana poziomu po udanym imporcie - wspolna sciezka pliku i wklejonego tekstu. */
   function applyImported(level: Level): void {
+    // import POZIOMU jest odwracalny (inaczej niz przelaczenie poziomu czy import workspace),
+    // wiec zanim podmienimy stan, robimy migawke tego, co uzytkownik wlasnie traci
+    const before = snapshotLevel(state.level);
     // wspolny helper podmiany poziomu; importowi dokladamy zapis, pop i podsumowanie
     const trimmed = applyLevelToPanels(ctx, level);
     scheduleSave();
@@ -44,6 +48,9 @@ export function initImportModal(ctx: PanelsCtx, importBox: HTMLElement): void {
     if (trimmed) toast(`Imported ${cells} cells, trimmed to ${MAX_LAYERS} layers`, 'info');
     else toast(`Imported ${cells} cells`);
     importModal?.close();
+    ctx.hooks.pushHistory?.(replaceCommand(
+      'Import', before, snapshotLevel(state.level), (imported) => { applyLevelToPanels(ctx, imported); },
+    ));
   }
 
   async function importFile(file: File): Promise<void> {

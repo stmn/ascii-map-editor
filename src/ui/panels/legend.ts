@@ -1,6 +1,6 @@
 // Panel Legend: znak, nazwa, kolor i licznik uzyc dla kazdego wpisu legendy.
+import { legendEditCommand, remapCommand } from '../../core/commands';
 import { bumpContent } from '../../core/editorState';
-import type { Command } from '../../core/history';
 import type { LegendEntry } from '../../core/legend';
 import { remapChar } from '../../core/remap';
 import { button, el, iconButton } from '../dom';
@@ -47,12 +47,7 @@ export function initLegend(ctx: PanelsCtx, legendBox: HTMLElement): LegendPanel 
     renderLegend();
     ctx.hooks.renderLayers();
     playPop();
-    const cmd: Command = {
-      label: 'Change character',
-      undo: () => { remapChar(state.level, answer, entry.ch); },
-      redo: () => { remapChar(state.level, entry.ch, answer); },
-    };
-    ctx.hooks.pushHistory?.(cmd);
+    ctx.hooks.pushHistory?.(remapCommand(state, entry.ch, answer));
   }
 
   function renderLegend(): void {
@@ -81,6 +76,15 @@ export function initLegend(ctx: PanelsCtx, legendBox: HTMLElement): LegendPanel 
         state.level.legend.upsert(entry.ch, { name: name.value });
         scheduleSave();
       });
+      // wartosc sprzed edycji lapiemy na fokusie, a komende pchamy na change (blur/Enter):
+      // jeden wpis w historii na cala sesje pisania zamiast wpisu na kazdy znak
+      let nameBefore = entry.name;
+      name.addEventListener('focus', () => { nameBefore = entry.name; });
+      name.addEventListener('change', () => {
+        if (name.value === nameBefore) return;
+        ctx.hooks.pushHistory?.(legendEditCommand(state, entry.ch, 'name', nameBefore, name.value));
+        nameBefore = name.value;
+      });
 
       const color = el('input', 'legend-color');
       color.type = 'color';
@@ -93,6 +97,13 @@ export function initLegend(ctx: PanelsCtx, legendBox: HTMLElement): LegendPanel 
         charBtn.style.color = color.value;
         ctx.markDirty();
         scheduleSave();
+      });
+      // input leci przy kazdym ruchu w probniku - do historii idzie dopiero zatwierdzony kolor
+      let colorBefore = entry.color;
+      color.addEventListener('change', () => {
+        if (color.value === colorBefore) return;
+        ctx.hooks.pushHistory?.(legendEditCommand(state, entry.ch, 'color', colorBefore, color.value));
+        colorBefore = color.value;
       });
 
       row.append(charBtn, editBtn, name, color, el('span', 'legend-count', String(counts.get(entry.ch) ?? 0)));

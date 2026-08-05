@@ -6,6 +6,8 @@ export interface InputCallbacks {
   erase(x: number, y: number): void;
   /** erasing = modyfikator gumki (Alt/Ctrl/Meta) jest wcisniety lub trwa wymazywanie */
   hover(x: number, y: number, erasing: boolean): void;
+  /** Koniec gestu malowania/gumki (pointerup, pointercancel) - czas domknac wpis historii. */
+  strokeEnd(): void;
   viewChanged(): void;
 }
 
@@ -56,8 +58,11 @@ export class InputController {
   }
 
   private endGesture(): void {
+    // strokeEnd tylko po gescie malowania/gumki - pan i puste pointerupy nie tworza wpisu historii
+    const painted = this.painting || this.erasing;
     this.painting = this.erasing = this.panning = false;
     this.lastCell = null;
+    if (painted) this.cb.strokeEnd();
   }
 
   /** Maluje/wymazuje z interpolacja od poprzedniej komorki, zeby pociagniecie bylo ciagle. */

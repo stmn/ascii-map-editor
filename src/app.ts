@@ -7,7 +7,8 @@ import {
 } from './core/store';
 import { Renderer, centerView, paperRect } from './ui/renderer';
 import { InputController } from './ui/input';
-import { activeGrid, applyLevelToState, bumpContent, type EditorState } from './core/editorState';
+import { strokeCommand, type CellChange } from './core/commands';
+import { activeLayerOf, applyLevelToState, bumpContent, type EditorState } from './core/editorState';
 // panele nie importuja app.ts - stan i callbacki dostaja przez initPanels, wiec nie ma cyklu
 import { initPanels } from './ui/panels';
 import {
@@ -42,6 +43,31 @@ export function markDirty(): void { dirty = true; }
 
 function centerOnPaper(): void {
   centerView(state.view, paperRect(state.level), canvas.clientWidth, canvas.clientHeight, SIDEBAR_OFFSET);
+}
+
+// --- pociagniecie pedzla jako jedna komenda historii ---------------------------
+
+/**
+ * Komorki zmienione w TRWAJACYM gescie, klucz "id warstwy + pozycja". Powtorne przejscie
+ * pedzla po tej samej komorce ma zostawic PIERWSZE before i OSTATNIE after, wiec wpis
+ * dopisujemy raz, a potem tylko podmieniamy after.
+ */
+const strokeCells = new Map<string, CellChange>();
+
+/**
+ * Zapis jednej komorki aktywnej warstwy z odnotowaniem zmiany. Wartosc po zapisie czytamy
+ * z siatki, bo Grid normalizuje wejscie (spacja to brak wpisu, z dluzszego stringa zostaje
+ * pierwszy znak) - bez tego undo probowaloby wracac do wartosci, ktorej nigdy tam nie bylo.
+ */
+function strokeSet(x: number, y: number, ch: string): void {
+  const layer = activeLayerOf(state);
+  const before = layer.grid.get(x, y) ?? ' ';
+  layer.grid.set(x, y, ch);
+  const after = layer.grid.get(x, y) ?? ' ';
+  const key = `${layer.id} ${x},${y}`;
+  const seen = strokeCells.get(key);
+  if (seen) seen.after = after;
+  else strokeCells.set(key, { layerId: layer.id, x, y, before, after });
 }
 
 /** localStorage potrafi rzucac (tryb prywatny) - blad odczytu traktujemy jak brak wpisu. */
@@ -178,7 +204,7 @@ async function boot(): Promise<void> {
 
   new InputController(canvas, {
     paint(x, y) {
-      activeGrid(state).set(x, y, state.brush);
+      strokeSet(x, y, state.brush);
       // syncWith zbiera i sortuje wszystkie znaki - wolamy tylko gdy pedzel nie ma jeszcze wpisu
       if (!state.level.legend.get(state.brush)) state.level.legend.syncWith(levelUsedChars(state.level));
       bumpContent(state);
@@ -186,10 +212,18 @@ async function boot(): Promise<void> {
       panels.onMutate();
     },
     erase(x, y) {
-      activeGrid(state).set(x, y, ' ');
+      strokeSet(x, y, ' ');
       bumpContent(state);
       markDirty();
       panels.onMutate();
+    },
+    strokeEnd() {
+      // gest, ktory niczego nie zmienil (malowanie po tym samym znaku, gumka po pustym),
+      // nie zasluguje na wpis w historii - inaczej Ctrl+Z zjadalby "puste" kroki
+      const cells = [...strokeCells.values()].filter((c) => c.before !== c.after);
+      strokeCells.clear();
+      if (cells.length === 0) return;
+      panels.pushHistory(strokeCommand(state, cells));
     },
     hover(x, y, erasing) {
       const h = renderer.hover;

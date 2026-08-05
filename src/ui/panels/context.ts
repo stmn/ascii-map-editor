@@ -27,7 +27,7 @@ export interface PanelHooks {
   renderLegend(): void;
   renderLayers(): void;
   setBrush(ch: string): void;
-  /** Opcjonalny - Task 3 podpina prawdziwa historie; bez niej wywolania sa cichym no-op. */
+  /** Podpina panels/history.ts; do jego zlozenia (i w testach bez paneli) wywolania sa cichym no-op. */
   pushHistory?(cmd: Command): void;
 }
 
@@ -48,6 +48,8 @@ export interface PanelsCtx {
  * i przelaczania poziomow. Zapis zostawiamy wolajacemu: import musi zapisac nowa tresc,
  * przelaczenie poziomu nie ma czego zapisywac (tresc wlasnie przyszla z magazynu).
  * Zwraca true gdy warstwy zostaly przyciete.
+ * Historii tu NIE czyscimy - ta sama sciezka wstawia stan cofniety przez komende migawki;
+ * kasuje ja wylacznie setCurrentLevel, czyli faktyczne przelaczenie poziomu.
  */
 export function applyLevelToPanels(ctx: PanelsCtx, level: Level): boolean {
   const trimmed = applyLevelToState(ctx.state, level);
@@ -152,6 +154,15 @@ function writePointer(record: LevelRecord): void {
 }
 
 /**
+ * Zaczep przelaczenia poziomu - rejestruje go panels/history.ts, zeby wyczyscic historie.
+ * Ten sam wzorzec co setOnSaved: setCurrentLevel jest funkcja modulu (wola ja tez boot
+ * w app.ts, jeszcze przed zlozeniem paneli), wiec nie ma dostepu do hookow z PanelsCtx.
+ */
+let levelSwitchHook: (() => void) | null = null;
+
+export function setOnLevelSwitch(fn: () => void): void { levelSwitchHook = fn; }
+
+/**
  * Podmiana biezacego rekordu - TYLKO przy prawdziwym przelaczeniu poziomu (boot, wybor
  * innego poziomu). Wolaj PRZED podmiana state.level, bo domykamy tu zawieszony autozapis:
  * inaczej debounce zapisalby tresc nowego poziomu pod stary rekord.
@@ -160,6 +171,8 @@ export function setCurrentLevel(record: LevelRecord): void {
   flushSave();
   currentRecord = record;
   writePointer(record);
+  // komendy dotycza poziomu, ktory wlasnie opuszczamy - ich cofniecie nie mialoby juz sensu
+  levelSwitchHook?.();
 }
 
 /**

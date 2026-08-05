@@ -252,6 +252,21 @@ button:disabled:active {
   background: #d1d5db;
 }
 
+/* Historia: Undo/Redo na gorze karty Draw - biale jak chipy, zeby nie krzyczaly kolorem.
+   Regula ma nizsza specyficznosc niz button:disabled, wiec wylaczony przycisk zostaje szary. */
+.history-btn {
+  color: #1a1c2c;
+  background: #ffffff;
+}
+
+.history-btn:hover {
+  background: #e5e7eb;
+}
+
+.history-btn:active {
+  background: #d1d5db;
+}
+
 .chip.active,
 .chip.active:hover {
   color: #ffffff;

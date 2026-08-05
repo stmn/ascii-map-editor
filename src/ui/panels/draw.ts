@@ -1,9 +1,10 @@
 // Panel Draw: pasek ostatnich znakow, pole pedzla, skrot klawiszowy i czyszczenie warstwy.
+import { replaceCommand, snapshotLevel } from '../../core/commands';
 import { activeLayerOf, bumpContent } from '../../core/editorState';
 import { button, el, labeled } from '../dom';
 import { confirmModal, isModalOpen } from '../modal';
 import { isTypingTarget } from '../input';
-import { PanelsCtx, playPop, scheduleSave } from './context';
+import { PanelsCtx, applyLevelToPanels, playPop, scheduleSave } from './context';
 
 const MAX_RECENT = 14;
 /** Znaki startowe w pasku "recent" - typowe kafle poziomu. */
@@ -71,12 +72,18 @@ export function initDraw(ctx: PanelsCtx, drawBox: HTMLElement): DrawPanel {
     if (!await confirmModal(`Clear layer "${layer.name}"?`, 'Clear')) return;
     // stan mogl sie zmienic w trakcie potwierdzania - druga kontrola jest tania
     if (layer.grid.isEmpty()) return;
+    // migawka calego poziomu (nie samej warstwy): czyszczenie zmienia tez liczniki legendy,
+    // a wspolna sciezka podmiany poziomu odtwarza jedno i drugie
+    const before = snapshotLevel(state.level);
     layer.grid.clear();
     bumpContent(state);
     ctx.markDirty();
     ctx.hooks.renderLegend();
     scheduleSave();
     playPop();
+    ctx.hooks.pushHistory?.(replaceCommand(
+      'Clear layer', before, snapshotLevel(state.level), (level) => { applyLevelToPanels(ctx, level); },
+    ));
   }
 
   const clearRow = el('div', 'btn-row');

@@ -1,10 +1,11 @@
 // Panel Generate: rozmiar mapy i dwa generatory (labirynt, loch) na aktywnej warstwie.
+import { replaceCommand, snapshotLevel } from '../../core/commands';
 import { activeLayerOf, bumpContent } from '../../core/editorState';
 import { levelUsedChars } from '../../core/level';
 import { generateDungeon, generateMaze } from '../../core/generators';
 import { button, el, labeled } from '../dom';
 import { confirmModal } from '../modal';
-import { PanelsCtx, playPop, scheduleSave, toast } from './context';
+import { PanelsCtx, applyLevelToPanels, playPop, scheduleSave, toast } from './context';
 
 const MIN_SIZE = 5;
 const MAX_SIZE = 199;
@@ -41,6 +42,8 @@ export function initGenerate(ctx: PanelsCtx, generateBox: HTMLElement): void {
     if (!layer.grid.isEmpty() && !await confirmModal(`Replace layer "${layer.name}"?`, 'Replace')) return;
     const w = readSize(widthInput, DEFAULT_W);
     const h = readSize(heightInput, DEFAULT_H);
+    // migawka przed podmiana siatki - generator zasypuje warstwe bezpowrotnie
+    const before = snapshotLevel(state.level);
     // generator podmienia siatke tylko aktywnej warstwy - reszta stosu zostaje nietknieta
     layer.grid = kind === 'maze' ? generateMaze(w, h) : generateDungeon(w, h);
     state.level.legend.syncWith(levelUsedChars(state.level));
@@ -51,6 +54,10 @@ export function initGenerate(ctx: PanelsCtx, generateBox: HTMLElement): void {
     scheduleSave();
     playPop();
     toast(`Generated ${kind} ${w}x${h}`);
+    ctx.hooks.pushHistory?.(replaceCommand(
+      kind === 'maze' ? 'Generate maze' : 'Generate dungeon',
+      before, snapshotLevel(state.level), (level) => { applyLevelToPanels(ctx, level); },
+    ));
   }
 
   const sizes = el('div', 'field-row');
