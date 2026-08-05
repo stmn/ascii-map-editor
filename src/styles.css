@@ -58,35 +58,37 @@ textarea {
   -webkit-user-select: text;
 }
 
+/* Sam sidebar jest przezroczystym stosem - "papierem" sa dopiero pojedyncze karty sekcji.
+   pointer-events: none sprawia, ze przerwy miedzy kartami nie lapia klikniec z mapy. */
 #sidebar {
   position: fixed;
-  right: 0;
+  right: 12px;
   top: 50%;
   transform: translateY(-50%);
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   width: 300px;
-  max-height: 100vh;
+  max-height: calc(100vh - 24px);
   overflow-y: auto;
+  pointer-events: none;
+}
+
+/* Karta sekcji: biale tlo, gruba czarna ramka 4px jak panele w v1. */
+#sidebar details {
+  flex: none;
   background: #ffffff;
   border: 4px solid #000000;
-  padding: 16px;
-}
-
-#sidebar details {
-  border: 2px solid #000000;
   border-radius: 4px;
-  background: #ffffff;
-}
-
-#sidebar details + details {
-  margin-top: 12px;
+  overflow: hidden;
+  pointer-events: auto;
 }
 
 #sidebar summary {
   font-size: 13px;
   padding: 8px 10px;
   background: #e5e7eb;
-  border-radius: 2px;
   list-style: none;
 }
 
@@ -103,12 +105,12 @@ textarea {
 }
 
 #sidebar details[open] > summary {
-  border-bottom: 2px solid #000000;
+  border-bottom: 4px solid #000000;
 }
 
 .section-body {
   font-size: 11px;
-  padding: 12px 10px;
+  padding: 12px;
 }
 
 .section-body:empty {
