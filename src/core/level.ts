@@ -30,21 +30,12 @@ export function unionBounds(layers: Layer[]): Bounds | null {
   return out;
 }
 
-// splaszczenie widocznych warstw: iterujemy od dolu, gorne nadpisuja
-export function flattenLayers(layers: Layer[]): Grid {
-  const flat = new Grid();
-  for (const l of layers) {
-    if (!l.visible) continue;
-    for (const { x, y, ch } of l.grid.cells()) flat.set(x, y, ch);
-  }
-  return flat;
-}
-
 /**
- * Jak flattenLayers, ale kazda komorka niesie tez indeks warstwy zrodlowej (pozycja w oryginalnej
- * tablicy layers, NIE w kolejnosci malowania). Renderer uzywa tego do przyciemniania komorek
- * spoza aktywnej warstwy - bez indeksu nie dalby rady odroznic, z ktorej warstwy pochodzi znak
- * po splaszczeniu.
+ * Splaszczenie widocznych warstw do jednej mapy "x,y" -> komorka, kazda niesie tez indeks
+ * warstwy zrodlowej (pozycja w oryginalnej tablicy layers, NIE w kolejnosci malowania).
+ * Iterujemy od dolu, gorna widoczna warstwa nadpisuje dolne. Renderer uzywa indeksu do
+ * przyciemniania komorek spoza aktywnej warstwy - bez niego nie dalby rady odroznic, z ktorej
+ * warstwy pochodzi znak po splaszczeniu.
  */
 export function flattenWithSource(layers: Layer[]): Map<string, { ch: string; layerIndex: number }> {
   const flat = new Map<string, { ch: string; layerIndex: number }>();
@@ -52,6 +43,16 @@ export function flattenWithSource(layers: Layer[]): Map<string, { ch: string; la
     const l = layers[layerIndex]!;
     if (!l.visible) continue;
     for (const { x, y, ch } of l.grid.cells()) flat.set(`${x},${y}`, { ch, layerIndex });
+  }
+  return flat;
+}
+
+// cienki wrapper nad flattenWithSource - ten sam przebieg warstw, tylko bez indeksu (patrz nizej)
+export function flattenLayers(layers: Layer[]): Grid {
+  const flat = new Grid();
+  for (const [key, { ch }] of flattenWithSource(layers)) {
+    const [x, y] = key.split(',').map(Number);
+    flat.set(x, y, ch);
   }
   return flat;
 }

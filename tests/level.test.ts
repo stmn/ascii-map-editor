@@ -43,6 +43,13 @@ describe('Level', () => {
     expect(flat.get('1,0')).toEqual({ ch: 'b', layerIndex: 0 });
     expect(flat.get('2,0')).toBeUndefined();
     expect(flattenWithSource([])).toEqual(new Map());
+    // warstwa ukryta W SRODKU stosu (miedzy dwoma widocznymi) nie przesuwa indeksow sasiadow -
+    // layerIndex to POZYCJA W TABLICY layers, nie numer porzadkowy samych widocznych warstw
+    const bottom = makeLayer('bottom', Grid.fromLines(['b']));
+    const hiddenMid = makeLayer('hiddenMid', Grid.fromLines(['h']));
+    hiddenMid.visible = false;
+    const top = makeLayer('top', Grid.fromLines(['t']));
+    expect(flattenWithSource([bottom, hiddenMid, top]).get('0,0')).toEqual({ ch: 't', layerIndex: 2 });
   });
 
   it('levelUsedChars sumuje warstwy', () => {
