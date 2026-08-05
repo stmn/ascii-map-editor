@@ -68,6 +68,13 @@ const ICONS: Record<IconName, IconShape[]> = {
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
+// Grubszy obrys na wyrazna prosbe usera ("ikonki zrob troche grubsze", plan v2.4 zaktualizowany
+// 2026-08-05, patrz task-1-brief.md). Sprawdzone wizualnie w CDP (zoom 10x na eye-off i copy -
+// kandydaci na "zalewanie sie" przy 14px z wiekszym obrysem): przy grubosci 3 obie ikony
+// zostaja czytelne, przekatna eye-off i podwojny kwadrat copy maja wyrazny prezwit, wiec
+// wyjatek 2.5 okazal sie niepotrzebny - jedna stala grubosc dla calego zestawu.
+const STROKE_WIDTH = '3';
+
 /**
  * Buduje inline <svg> ikony Lucide: natywny viewBox 24x24, obrys currentColor (dziedziczy kolor
  * tekstu przycisku - biale na czerwonym trashu, czarne na bialym), klasa CSS `icon` skaluje do
@@ -78,7 +85,7 @@ export function icon(name: IconName): SVGElement {
   svg.setAttribute('viewBox', '0 0 24 24');
   svg.setAttribute('fill', 'none');
   svg.setAttribute('stroke', 'currentColor');
-  svg.setAttribute('stroke-width', '2');
+  svg.setAttribute('stroke-width', STROKE_WIDTH);
   svg.setAttribute('stroke-linecap', 'round');
   svg.setAttribute('stroke-linejoin', 'round');
   svg.setAttribute('class', 'icon');
