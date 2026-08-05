@@ -34,12 +34,15 @@ src/export/tiled.ts      # MOD: exportTmx(level, tileSize?) - <layer> per warstw
 src/export/rexpaint.ts   # MOD: multi-layer build/parse/export/import
 src/ui/renderer.ts       # MOD: draw(level, view), paper na union bounds
 src/ui/panels.ts         # MOD: karta Layers, scope dropdown, import/generate/clear per model warstw
+src/ui/modal.ts          # NOWY (Task 9): infrastruktura modali + confirmModal
+src/export/legacy.ts     # NOWY (Task 9): eksport formatow v1 (text / array-text / array-array)
 src/app.ts               # MOD: stan {level, activeLayer, view, brush}
 tests/level.test.ts      # NOWY
+tests/legacy.test.ts     # NOWY (Task 9)
 tests/{grid,project,text,kaplay,godot,tiled,rexpaint}.test.ts  # MOD
 ```
 
-Zadania 1-6: czysta logika TDD. Zadania 7-8: UI. Zadanie 9: docs + pakowanie.
+Zadania 1-6: czysta logika TDD. Zadania 7-9: UI (Task 9 = modale, dodany na prosbe usera w trakcie realizacji). Zadanie 10: docs + pakowanie.
 
 ---
 
@@ -927,10 +930,90 @@ export async function importXp(gzipped: Uint8Array): Promise<{ layers: { name: s
 
 ---
 
-### Task 9: Docs + wersja + pakowanie
+### Task 9: Modale - custom confirm, Export modal z Legacy v1, Import modal (user request)
 
 **Files:**
-- Modify: `README.md` (sekcja Layers: model, limit 8, union bounds, mapowanie eksportow; nota ze .xp import nadaje nazwy "layer N"), `itch-page.md` (feature list + changelog "v2.1: named map layers, layered exports"), `package.json` (`"version": "2.1.0"`)
+- Create: `src/ui/modal.ts`, `src/export/legacy.ts`
+- Modify: `src/ui/panels.ts` (karty Export/Import -> pojedyncze przyciski otwierajace modale; wymiana confirm()), `src/styles.css` (style modali)
+- Test: `tests/legacy.test.ts` (TDD dla legacy.ts; modal.ts i panele bez testow jednostkowych - weryfikacja manualna + CDP)
+
+**Interfaces:**
+- Produces:
+  - `openModal(title: string, body: HTMLElement): { close(): void }` - overlay `rgba(0,0,0,0.5)`, wycentrowana biala karta (ramka 4px czarna, radius 4px, Press Start 2P, max-width ~420px, max-height 80vh ze scrollem), naglowek jak naglowki sekcji (szary pasek + tytul + przycisk X po prawej); zamykanie: X, Esc, klik w overlay; jeden modal glowny na raz
+  - `confirmModal(message: string, okLabel?: string): Promise<boolean>` - maly modal potwierdzenia NAD ewentualnym modalem glownym (wyzszy z-index): tekst + rzad przyciskow [Cancel (bialy, ramka 2px)] [OK/okLabel (czerwony .danger)]; resolve(false) przy Esc/overlay/Cancel, resolve(true) przy OK
+  - `type LegacyFormat = 'text' | 'array-text' | 'array-array'`
+  - `exportLegacy(grid: Grid, format: LegacyFormat, bounds?: Bounds): string` - formaty IDENTYCZNE jak w v1: `text` = linie joinowane `\n` (kazda linia bez trailing spaces); `array-text` = `JSON.stringify(lines, null, '  ')` (linie bez trailing spaces); `array-array` = `JSON.stringify` tablicy tablic znakow, prostokat DOKLADNY (z paddingiem spacjami do bounds - jak v1). Bounds domyslnie wlasne grida.
+
+- [ ] **Step 1: Failing test legacy**
+
+```ts
+// tests/legacy.test.ts
+import { describe, expect, it } from 'vitest';
+import { Grid } from '../src/core/grid';
+import { exportLegacy } from '../src/export/legacy';
+
+describe('legacy export', () => {
+  const g = Grid.fromLines(['#@', '# ']);
+  it('text: linie joinowane, bez trailing spaces', () => {
+    expect(exportLegacy(g, 'text')).toBe('#@\n#');
+  });
+  it('array-text: JSON tablicy stringow z wcieciem jak v1', () => {
+    expect(exportLegacy(g, 'array-text')).toBe(JSON.stringify(['#@', '#'], null, '  '));
+  });
+  it('array-array: dokladny prostokat z paddingiem', () => {
+    expect(exportLegacy(g, 'array-array')).toBe(JSON.stringify([['#', '@'], ['#', ' ']]));
+  });
+  it('jawny bounds rozszerza prostokat', () => {
+    expect(exportLegacy(g, 'array-array', { minX: 0, minY: 0, maxX: 2, maxY: 0 }))
+      .toBe(JSON.stringify([['#', '@', ' ']]));
+  });
+});
+```
+
+- [ ] **Step 2: FAIL.** `npx vitest run tests/legacy.test.ts`
+
+- [ ] **Step 3: Implementacja legacy.ts**
+
+```ts
+// src/export/legacy.ts
+// Formaty eksportu z ASCII Map Editor v1: text / array-text / array-array
+// (uzywane w modalu Export w sekcji Legacy; parseProject czyta wszystkie trzy)
+import { Bounds, Grid } from '../core/grid';
+
+export type LegacyFormat = 'text' | 'array-text' | 'array-array';
+
+export function exportLegacy(grid: Grid, format: LegacyFormat, bounds?: Bounds): string {
+  const b = bounds ?? grid.bounds();
+  if (!b) return format === 'text' ? '' : '[]';
+  const exact = grid.toLines(b);
+  if (format === 'array-array') return JSON.stringify(exact.map((l) => [...l]));
+  const trimmed = exact.map((l) => l.replace(/ +$/, ''));
+  if (format === 'text') return trimmed.join('\n');
+  return JSON.stringify(trimmed, null, '  ');
+}
+```
+
+- [ ] **Step 4: PASS legacy.** `npx vitest run tests/legacy.test.ts`, potem pelny `npm test`.
+
+- [ ] **Step 5: modal.ts + style** - wg Interfaces powyzej. Estetyka v1: bez gradientow/shadow, overlay pol-przezroczysty czarny, karta biala. `confirmModal` zwraca Promise - wymien WSZYSTKIE wywolania `confirm(...)` w panels.ts na `await confirmModal(...)` (funkcje obslugi staja sie async; Clear, Generate-replace, usuwanie warstwy z Taska 8). Esc w modalu nie moze wyciekac do skrotow globalnych (stopPropagation).
+
+- [ ] **Step 6: Przebudowa kart Export/Import na modale:**
+  - Karta **Export**: JEDEN przycisk `Export...` (niebieski, full width). Modal "Export" zawiera: (a) rzad Scope (select Active layer / Flattened - przeniesiony z karty, jesli Task 8 juz go tam dodal), (b) przyciski: Copy TXT, Copy CSV, Copy KaPlay, Copy Godot, Download .tmx, Download .xp, Download .json (te same akcje co dotad; copy/download NIE zamyka modalu; toast + pop jak dotad, toast nad modalem), (c) sekcja **Legacy (v1)**: select formatu (Text / Array of strings / Array of arrays), readonly textarea z podgladem (11px, ~120px wysokosci, aktualizowana przy otwarciu modalu i kazdej zmianie formatu/scope; zrodlo: exportLegacy na gridzie wynikajacym ze Scope) + przycisk Copy legacy.
+  - Karta **Import**: JEDEN przycisk `Import...` (zielony, full width). Modal "Import" zawiera: (a) przycisk Load file... (dotychczasowy file input .json/.txt/.xp), (b) separator, (c) textarea `Paste map here` (~120px) + przycisk Load (zielony): `parseProject(tekst)` -> ta sama sciezka co import pliku (zastapienie levelu, syncWith, centerowanie, autosave, toast "Imported N cells"); sukces ZAMYKA modal; blad: czerwony toast, modal zostaje.
+  - Teksty UI po angielsku. Focus trap nie jest wymagany; wystarczy autofocus pierwszego interaktywnego elementu.
+
+- [ ] **Step 7: Weryfikacja manualna:** otwarcie/zamkniecie obu modali (X/Esc/overlay), confirm przy Clear i Generate (Cancel przerywa), legacy roundtrip: Copy legacy array-array -> Import modal -> paste -> Load -> mapa wraca; import bledny tekst -> czerwony toast, modal otwarty.
+
+- [ ] **Step 8: CDP smoke:** klik Export... otwiera modal, textarea legacy niepusta przy niepustej mapie, Esc zamyka; klik Import... otwiera modal; brak bledow konsoli.
+
+- [ ] **Step 9: Commit.** `git add -A && git commit -m "Add modal dialogs with legacy v1 export and paste import"`
+
+---
+
+### Task 10: Docs + wersja + pakowanie
+
+**Files:**
+- Modify: `README.md` (sekcja Layers: model, limit 8, union bounds, mapowanie eksportow; nota ze .xp import nadaje nazwy "layer N"; nota o modalach Export/Import i formatach Legacy v1), `itch-page.md` (feature list + changelog "v2.1: named map layers, layered exports, export/import dialogs with v1 legacy formats"), `package.json` (`"version": "2.1.0"`)
 
 - [ ] **Step 1:** Aktualizacje docs wg powyzszego. Czysty ASCII, bez dlugich myslnikow.
 - [ ] **Step 2:** `npm run zip` - swiezy `ascii-level-editor.zip` (index + standalone + LICENSES.md); otworz `dist/standalone.html` headlessem - brak bledow konsoli.
