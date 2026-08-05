@@ -1,0 +1,165 @@
+/* Styl wierny oryginalowi ASCII Map Editor v1: kremowy papier na brazowym biurku. */
+
+@font-face {
+  font-family: 'Press Start 2P';
+  src: url('/assets/PressStart2P-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: #665a4f;
+  color: #1a1c2c;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  cursor: url('/assets/cursor.png'), default;
+}
+
+/* Kursor "klikalny" na elementach interaktywnych - hotspot 14 0 jak w v1. */
+button,
+label,
+input[type='checkbox'],
+input[type='radio'],
+select,
+summary,
+a {
+  cursor: url('/assets/cursor-click.png') 14 0, pointer;
+}
+
+#map {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  display: block;
+  cursor: url('/assets/cursor.png'), default;
+}
+
+#sidebar {
+  position: fixed;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  box-sizing: border-box;
+  width: 300px;
+  max-height: 100vh;
+  overflow-y: auto;
+  background: #ffffff;
+  border: 4px solid #000000;
+  padding: 16px;
+}
+
+#sidebar details {
+  border: 2px solid #000000;
+  border-radius: 4px;
+  background: #ffffff;
+}
+
+#sidebar details + details {
+  margin-top: 12px;
+}
+
+#sidebar summary {
+  font-size: 13px;
+  padding: 8px 10px;
+  background: #e5e7eb;
+  border-radius: 2px;
+  list-style: none;
+}
+
+#sidebar summary::-webkit-details-marker {
+  display: none;
+}
+
+#sidebar summary::before {
+  content: '+ ';
+}
+
+#sidebar details[open] > summary::before {
+  content: '- ';
+}
+
+#sidebar details[open] > summary {
+  border-bottom: 2px solid #000000;
+}
+
+.section-body {
+  font-size: 11px;
+  padding: 12px 10px;
+}
+
+.section-body:empty {
+  padding: 0;
+}
+
+/* Formularze i przyciski - wygladem zgodne z v1 (grube czarne ramki, bez cieni). */
+input[type='text'],
+input[type='number'],
+textarea,
+select {
+  box-sizing: border-box;
+  font-family: inherit;
+  font-size: 11px;
+  background: #ffffff;
+  color: #1a1c2c;
+  border: 2px solid #000000;
+  border-radius: 4px;
+  padding: 6px;
+}
+
+button {
+  font-family: inherit;
+  font-size: 11px;
+  color: #ffffff;
+  background: #3b82f6;
+  border: 2px solid #000000;
+  border-radius: 4px;
+  padding: 6px 10px;
+}
+
+button:hover {
+  background: #2563eb;
+}
+
+button:active {
+  background: #1d4ed8;
+}
+
+button.danger {
+  background: #ef4444;
+}
+
+button.danger:hover {
+  background: #dc2626;
+}
+
+button.danger:active {
+  background: #b91c1c;
+}
+
+button.success {
+  background: #22c55e;
+}
+
+button.success:hover {
+  background: #16a34a;
+}
+
+button.success:active {
+  background: #15803d;
+}

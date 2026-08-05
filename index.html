@@ -7,7 +7,28 @@
   </head>
   <body>
     <canvas id="map"></canvas>
-    <aside id="sidebar"></aside>
+    <aside id="sidebar">
+      <details open>
+        <summary>Draw</summary>
+        <div class="section-body" id="panel-draw"></div>
+      </details>
+      <details open>
+        <summary>Legend</summary>
+        <div class="section-body" id="panel-legend"></div>
+      </details>
+      <details open>
+        <summary>Generate</summary>
+        <div class="section-body" id="panel-generate"></div>
+      </details>
+      <details open>
+        <summary>Export</summary>
+        <div class="section-body" id="panel-export"></div>
+      </details>
+      <details open>
+        <summary>Import</summary>
+        <div class="section-body" id="panel-import"></div>
+      </details>
+    </aside>
     <script type="module" src="/src/app.ts"></script>
   </body>
 </html>
