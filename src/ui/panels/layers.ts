@@ -1,7 +1,7 @@
 // Panel Layers: karta warstw (widocznosc, nazwa, kolejnosc, usuwanie) i dodawanie nowych.
 import { bumpContent, clampedActive } from '../../core/editorState';
 import { Layer, MAX_LAYERS, makeLayer } from '../../core/level';
-import { button, el } from '../dom';
+import { button, el, iconButton } from '../dom';
 import { confirmModal } from '../modal';
 import { PanelsCtx, playPop, scheduleSave } from './context';
 
@@ -83,10 +83,7 @@ export function initLayers(ctx: PanelsCtx, layersBox: HTMLElement): LayersPanel 
   }
 
   function layerButton(label: string, title: string, onClick: () => void): HTMLButtonElement {
-    const b = button(label, 'layer-btn', onClick);
-    b.title = title;
-    b.setAttribute('aria-label', title);
-    return b;
+    return iconButton(label, 'layer-btn', title, onClick);
   }
 
   function layerRow(layer: Layer, index: number): HTMLElement {

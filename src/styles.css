@@ -266,8 +266,27 @@ button:disabled:active {
   width: 64px;
 }
 
-/* Layers: wiersz per warstwa, gora listy = wierzch stosu. */
-.layer-row {
+/* Bialy przycisk drugorzednej akcji - ten sam wyglad co Cancel w modalach. */
+.btn-plain,
+.modal-cancel {
+  color: #1a1c2c;
+  background: #ffffff;
+}
+
+.btn-plain:hover,
+.modal-cancel:hover {
+  background: #e5e7eb;
+}
+
+.btn-plain:active,
+.modal-cancel:active {
+  background: #d1d5db;
+}
+
+/* Layers: wiersz per warstwa, gora listy = wierzch stosu.
+   Wiersz poziomu (karta Project) korzysta z tego samego wygladu. */
+.layer-row,
+.level-row {
   display: flex;
   align-items: center;
   gap: 4px;
@@ -284,23 +303,27 @@ button:disabled:active {
 
 /* Aktywny wiersz czyta sie jako niebieski razem z polem nazwy - przyciski zostaja biale,
    zeby dalej wygladaly na kontrolki. */
-.layer-row.active {
+.layer-row.active,
+.level-row.active {
   color: #ffffff;
   background: #3b82f6;
 }
 
-.layer-name {
+.layer-name,
+.level-name {
   flex: 1;
   min-width: 0;
   padding: 5px 4px;
 }
 
-.layer-row.active .layer-name {
+.layer-row.active .layer-name,
+.level-row.active .level-name {
   color: #ffffff;
   background: #3b82f6;
 }
 
-.layer-btn {
+.layer-btn,
+.level-btn {
   flex: none;
   width: 24px;
   padding: 5px 0;
@@ -309,16 +332,20 @@ button:disabled:active {
   background: #ffffff;
 }
 
-.layer-btn:hover {
+.layer-btn:hover,
+.level-btn:hover {
   background: #e5e7eb;
 }
 
-.layer-btn:active {
+.layer-btn:active,
+.level-btn:active {
   background: #d1d5db;
 }
 
 .layer-btn:disabled,
-.layer-btn:disabled:hover {
+.layer-btn:disabled:hover,
+.level-btn:disabled,
+.level-btn:disabled:hover {
   color: #9ca3af;
   background: #e5e7eb;
 }
@@ -330,21 +357,26 @@ button:disabled:active {
   text-decoration: line-through;
 }
 
-.layer-del {
+.layer-del,
+.level-del {
   color: #ffffff;
   background: #ef4444;
 }
 
-.layer-del:hover {
+.layer-del:hover,
+.level-del:hover {
   background: #dc2626;
 }
 
-.layer-del:active {
+.layer-del:active,
+.level-del:active {
   background: #b91c1c;
 }
 
 .layer-del:disabled,
-.layer-del:disabled:hover {
+.layer-del:disabled:hover,
+.level-del:disabled,
+.level-del:disabled:hover {
   color: #9ca3af;
   background: #e5e7eb;
 }
@@ -352,6 +384,55 @@ button:disabled:active {
 .scope-select {
   flex: 1;
   min-width: 0;
+}
+
+/* Project: wybor projektu, lista poziomow z miniaturami i kopia workspace. */
+.project-select {
+  display: block;
+  width: 100%;
+}
+
+/* New i Rename dziela szerokosc rzedu, czerwony X zostaje waski jak w wierszach warstw. */
+.project-actions .level-del {
+  flex: none;
+  width: 26px;
+  padding: 6px 0;
+  text-align: center;
+}
+
+/* Kolumna, nie grid: sciezka grid dawalaby sciezke o szerokosci max-content pola nazwy,
+   przez co wiersz (i przyciski na jego koncu) wychodzilby poza karte. */
+.level-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Miniatura 48x32 w czarnej ramce; pusty poziom zostawia samo szare tlo. */
+.level-thumb {
+  flex: none;
+  box-sizing: border-box;
+  width: 48px;
+  height: 32px;
+  background: #e5e7eb;
+  border: 2px solid #000000;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+/* Miniatura ma te sama proporcje 3:2 co ramka, wiec cover jej nie przycina. */
+.level-thumb-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Pole nazwy w modalu z pytaniem - pelna szerokosc karty. */
+.prompt-input {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
 }
 
 /* Legend: znak, nazwa, kolor, licznik uzyc. */
@@ -537,19 +618,6 @@ input[type='color'] {
 .btn-full {
   display: block;
   width: 100%;
-}
-
-.modal-cancel {
-  color: #1a1c2c;
-  background: #ffffff;
-}
-
-.modal-cancel:hover {
-  background: #e5e7eb;
-}
-
-.modal-cancel:active {
-  background: #d1d5db;
 }
 
 /* Toast: pigulka na dole ekranu, znika po 3 s. */

@@ -1,6 +1,7 @@
 // Wspolny kontekst modulow panelu: stan, callbacki do app.ts, hooki miedzymodulowe
 // oraz drobne narzedzia UI (toast, dzwiek, autozapis). Jedno miejsce zamiast kopii w kazdym module.
-import type { EditorState } from '../../core/editorState';
+import { applyLevelToState, type EditorState } from '../../core/editorState';
+import type { Level } from '../../core/level';
 import { serializeProject } from '../../core/project';
 import type { LevelRecord, WorkspaceStore } from '../../core/store';
 import { el } from '../dom';
@@ -36,6 +37,22 @@ export interface PanelsCtx {
   /** Wolane przez app po kazdej mutacji mapy (malowanie, gumka). */
   onMutate(): void;
   hooks: PanelHooks;
+}
+
+/**
+ * Wstawienie poziomu do stanu wraz z odswiezeniem widoku i kart - warstwa UI nad
+ * applyLevelToState (jedyna implementacja podmiany level). Wspolna sciezka importu pliku
+ * i przelaczania poziomow. Zapis zostawiamy wolajacemu: import musi zapisac nowa tresc,
+ * przelaczenie poziomu nie ma czego zapisywac (tresc wlasnie przyszla z magazynu).
+ * Zwraca true gdy warstwy zostaly przyciete.
+ */
+export function applyLevelToPanels(ctx: PanelsCtx, level: Level): boolean {
+  const trimmed = applyLevelToState(ctx.state, level);
+  ctx.centerOnPaper();
+  ctx.markDirty();
+  ctx.hooks.renderLayers();
+  ctx.hooks.renderLegend();
+  return trimmed;
 }
 
 // --- male helpery DOM ---------------------------------------------------------
@@ -79,6 +96,26 @@ export function playPop(): void {
   }
   pop.currentTime = 0;
   pop.play().catch(() => {});
+}
+
+// --- pobieranie pliku ---------------------------------------------------------
+
+/**
+ * Zapis danych na dysk uzytkownika przez sztuczny <a download>. Jedna implementacja dla
+ * modalu Export (mapa) i karty Project (kopia workspace) - z popem i toastem o nazwie pliku.
+ */
+export function download(data: BlobPart, filename: string, type: string): void {
+  const url = URL.createObjectURL(new Blob([data], { type }));
+  const a = el('a');
+  a.href = url;
+  a.download = filename;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  // revoke dopiero po starcie pobierania - natychmiastowy potrafi je anulowac
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  playPop();
+  toast(`Saved ${filename}`);
 }
 
 // --- workspace store i biezacy poziom -----------------------------------------
@@ -175,6 +212,14 @@ export function reportSaveError(e: unknown): void {
   toast(errorMessage(e), 'error');
 }
 
+/**
+ * Jedyny punkt rejestracji obserwatora zapisu - karta Project odswieza nim miniature
+ * biezacego poziomu (bez przebudowy listy, wiec nie zabiera fokusu z pola nazwy).
+ */
+let savedHook: (() => void) | null = null;
+
+export function setOnSaved(fn: () => void): void { savedHook = fn; }
+
 function saveNow(): void {
   if (!saveState || !store || !currentRecord) return;
   pendingSave = false;
@@ -187,6 +232,7 @@ function saveNow(): void {
   // Fire-and-forget: zapis nie moze blokowac malowania, a transakcja IndexedDB startuje
   // synchronicznie w putLevel, wiec flush z pagehide zdazy ja otworzyc przed zamknieciem karty.
   store.putLevel({ ...currentRecord }).catch(reportSaveError);
+  savedHook?.();
 }
 
 export function scheduleSave(): void {

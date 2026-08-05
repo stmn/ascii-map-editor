@@ -11,7 +11,7 @@ import { exportXp } from '../../export/rexpaint';
 import { LegacyFormat, exportLegacy } from '../../export/legacy';
 import { button, el, labeled } from '../dom';
 import { openModal } from '../modal';
-import { PanelsCtx, errorMessage, playPop, toast } from './context';
+import { PanelsCtx, download, errorMessage, playPop, toast } from './context';
 
 /**
  * Wspolna oslona akcji eksportu. Kazdy format potrafi rzucic (np. cap bounds z assertExportableBounds),
@@ -33,20 +33,6 @@ async function copyToClipboard(text: string): Promise<void> {
   await navigator.clipboard.writeText(text);
   playPop();
   toast('Copied');
-}
-
-function download(data: BlobPart, filename: string, type: string): void {
-  const url = URL.createObjectURL(new Blob([data], { type }));
-  const a = el('a');
-  a.href = url;
-  a.download = filename;
-  document.body.append(a);
-  a.click();
-  a.remove();
-  // revoke dopiero po starcie pobierania - natychmiastowy potrafi je anulowac
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-  playPop();
-  toast(`Saved ${filename}`);
 }
 
 export function initExportModal(ctx: PanelsCtx, exportBox: HTMLElement): void {

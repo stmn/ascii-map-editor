@@ -1,7 +1,7 @@
 // Stan edytora: typ wspolny dla app.ts i paneli plus helpery indeksujace warstwy.
 // Modul nie dotyka DOM - trzyma wylacznie model i jego bezpieczne odczyty.
 import { Grid } from './grid';
-import { Layer, Level, MAX_LAYERS } from './level';
+import { Layer, Level, MAX_LAYERS, levelUsedChars } from './level';
 // import TYPU (nie wartosci) - View mieszka przy rendererze, wiec runtime nie dostaje tu zadnej zaleznosci
 import type { View } from '../ui/renderer';
 
@@ -51,4 +51,19 @@ export function trimLayers(level: Level): boolean {
   if (level.layers.length <= MAX_LAYERS) return false;
   level.layers = level.layers.slice(0, MAX_LAYERS);
   return true;
+}
+
+/**
+ * Wstawienie wczytanego poziomu do stanu - JEDYNA implementacja podmiany level.
+ * Uzywa jej boot (app.ts), import pliku i przelaczanie poziomow w panelu projektow; poziom moze
+ * pochodzic z obcego pliku albo recznie podmienionego rekordu, wiec limit warstw i synchronizacja
+ * legendy obowiazuja zawsze tak samo. Zwraca true gdy warstwy zostaly przyciete do MAX_LAYERS.
+ */
+export function applyLevelToState(state: EditorState, level: Level): boolean {
+  state.level = level;
+  state.activeLayer = 0;
+  const trimmed = trimLayers(level);
+  level.legend.syncWith(levelUsedChars(level));
+  bumpContent(state);
+  return trimmed;
 }

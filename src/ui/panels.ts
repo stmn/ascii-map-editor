@@ -9,6 +9,7 @@ import { initLegend } from './panels/legend';
 import { initGenerate } from './panels/generate';
 import { initExportModal } from './panels/exportModal';
 import { initImportModal } from './panels/importModal';
+import { initProject } from './panels/project';
 
 /** Odswiezenie legendy debounce'ujemy - pelny re-render przy kazdej komorce byloby marnotrawstwem. */
 const LEGEND_REFRESH_MS = 150;
@@ -33,6 +34,7 @@ export interface Panels {
 
 export function initPanels(ctx: PanelsContext): Panels {
   const { state } = ctx;
+  const projectBox = requireEl('panel-project');
   const drawBox = requireEl('panel-draw');
   const layersBox = requireEl('panel-layers');
   const legendBox = requireEl('panel-legend');
@@ -65,10 +67,14 @@ export function initPanels(ctx: PanelsContext): Panels {
   initGenerate(panelsCtx, generateBox);
   initExportModal(panelsCtx, exportBox);
   initImportModal(panelsCtx, importBox);
+  // karta projektow czyta magazyn asynchronicznie i sama rejestruje sie na zdarzenie zapisu
+  // (odswiezanie miniatury biezacego poziomu) - nie potrzebuje wpisu w hookach miedzypanelowych
+  const project = initProject(panelsCtx, projectBox);
 
   draw.render();
   layers.render();
   legend.render();
+  project.render();
 
   return { onMutate };
 }

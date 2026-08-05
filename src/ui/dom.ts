@@ -16,6 +16,19 @@ export function button(label: string, className: string, onClick: () => void): H
   return b;
 }
 
+/**
+ * Kwadratowy przycisk-ikona w wierszu listy (warstwy, poziomy): sam znak w srodku,
+ * a pelny opis w tooltipie i dla czytnika ekranu.
+ */
+export function iconButton(
+  label: string, className: string, title: string, onClick: () => void,
+): HTMLButtonElement {
+  const b = button(label, className, onClick);
+  b.title = title;
+  b.setAttribute('aria-label', title);
+  return b;
+}
+
 export function labeled(text: string, control: HTMLElement): HTMLLabelElement {
   const l = el('label', 'field');
   l.append(el('span', undefined, text), control);

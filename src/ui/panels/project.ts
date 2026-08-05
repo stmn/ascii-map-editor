@@ -1,0 +1,385 @@
+// Panel Project: wybor projektu, lista jego poziomow (miniatura, nazwa, duplikat, usuniecie)
+// i kopia zapasowa calego workspace. To jedyne miejsce UI, ktore tworzy i kasuje rekordy
+// magazynu - reszta paneli zna tylko biezacy poziom.
+import { createLevel } from '../../core/level';
+import { parseProject, serializeProject } from '../../core/project';
+import {
+  exportWorkspace, importWorkspace, nextName,
+  type LevelRecord, type ProjectMeta, type WorkspaceStore,
+} from '../../core/store';
+import { button, el, iconButton } from '../dom';
+import { confirmModal, promptModal } from '../modal';
+import {
+  PanelsCtx, applyLevelToPanels, download, errorMessage, flushSave, getCurrentLevel, getStore,
+  playPop, reportSaveError, scheduleSave, setCurrentLevel, setOnSaved, toast, updateCurrentLevel,
+} from './context';
+
+export interface ProjectPanel {
+  render(): void;
+}
+
+/** Pusty poziom gotowy do zapisu - wspolny ksztalt dla "New level", nowego projektu i pustego projektu. */
+function makeLevelRecord(projectId: string, name: string, order: number): LevelRecord {
+  return {
+    id: crypto.randomUUID(),
+    projectId,
+    name,
+    order,
+    data: serializeProject(createLevel()),
+    thumb: null,
+    updatedAt: Date.now(),
+  };
+}
+
+export function initProject(ctx: PanelsCtx, box: HTMLElement): ProjectPanel {
+  /** Wiersze listy po id poziomu - pozwalaja odswiezyc miniature i podswietlenie BEZ przebudowy DOM. */
+  const rows = new Map<string, { row: HTMLElement; thumb: HTMLElement }>();
+  /** Numer ostatniego zamowionego renderu - starszy (wolniejszy odczyt) nie moze nadpisac nowszego. */
+  let renderSeq = 0;
+
+  // --- odswiezanie w miejscu ---------------------------------------------------
+
+  function setRowThumb(id: string, src: string | null): void {
+    const entry = rows.get(id);
+    if (!entry) return;
+    entry.thumb.replaceChildren();
+    if (!src) return; // pusty poziom - zostaje szare tlo ramki
+    const img = el('img', 'level-thumb-img');
+    img.src = src;
+    img.alt = '';
+    entry.thumb.append(img);
+  }
+
+  function setActiveRow(id: string): void {
+    for (const [rowId, entry] of rows) entry.row.classList.toggle('active', rowId === id);
+  }
+
+  /**
+   * Po kazdym autozapisie odswiezamy miniature biezacego wiersza. Celowo bez przebudowy karty:
+   * zapis leci tez w trakcie pisania w polu nazwy, a podmiana DOM zabralaby wtedy fokus.
+   */
+  setOnSaved(() => {
+    const current = getCurrentLevel();
+    if (current) setRowThumb(current.id, current.thumb);
+  });
+
+  // --- operacje na poziomach ---------------------------------------------------
+
+  /**
+   * Swieza kopia rekordu z magazynu. Najpierw domykamy zawieszony autozapis, bo tresc
+   * biezacego poziomu moze wisiec w debounce - inaczej duplikat albo powrot do poziomu
+   * przyniosly stan sprzed ostatnich pociagniec pedzla.
+   */
+  async function freshRecord(store: WorkspaceStore, record: LevelRecord): Promise<LevelRecord> {
+    flushSave();
+    return (await store.getLevel(record.id)) ?? record;
+  }
+
+  /**
+   * Przelaczenie biezacego poziomu. KOLEJNOSC jest tu cala trescia: najpierw parsujemy dane,
+   * dopiero potem ruszamy wskaznik i stan. Blad parsowania konczy sie czerwonym toastem i
+   * powrotem false - wskaznik current, state.level i widok zostaja dokladnie takie jak byly.
+   * setCurrentLevel domyka autozapis POPRZEDNIEGO poziomu, gdy state.level to jeszcze jego tresc.
+   */
+  async function switchTo(store: WorkspaceStore, record: LevelRecord): Promise<boolean> {
+    const previous = getCurrentLevel();
+    if (previous && previous.id === record.id) return true;
+    const fresh = await freshRecord(store, record);
+    let level;
+    try {
+      level = parseProject(fresh.data);
+    } catch (e) {
+      toast(errorMessage(e), 'error');
+      return false;
+    }
+    setCurrentLevel(fresh);
+    applyLevelToPanels(ctx, level);
+    // flushSave w setCurrentLevel odswiezyl miniature poprzedniego rekordu - pokazujemy ja od razu
+    if (previous) setRowThumb(previous.id, previous.thumb);
+    setActiveRow(fresh.id);
+    playPop();
+    return true;
+  }
+
+  /**
+   * Zmiana nazwy poziomu. Biezacy rekord jest ZYWY (czyta go autozapis), wiec zmiana musi isc
+   * przez updateCurrentLevel + scheduleSave - bez tego najblizszy zapis nadpisalby nowa nazwe
+   * stara wartoscia, a bez scheduleSave zmiana przezylaby tylko do przeladowania strony.
+   * Poziom spoza biezacego zapisujemy wprost.
+   */
+  function renameLevel(store: WorkspaceStore, record: LevelRecord, name: string): void {
+    record.name = name; // rekord z listy zostaje aktualny dla duplikatu i przelaczenia
+    const current = getCurrentLevel();
+    if (current && current.id === record.id) {
+      updateCurrentLevel({ name });
+      scheduleSave();
+      return;
+    }
+    store.putLevel({ ...record, updatedAt: Date.now() }).catch(reportSaveError);
+  }
+
+  /**
+   * Przepisanie kolejnosci poziomow projektu na 1..N. Duplikat wchodzi z order .5 (tuz za
+   * oryginalem), a tu wraca do liczb calkowitych - dzieki temu nie potrzeba osobnego UI kolejnosci.
+   */
+  async function normalizeOrders(store: WorkspaceStore, projectId: string): Promise<void> {
+    const list = await store.listLevels(projectId);
+    const current = getCurrentLevel();
+    const now = Date.now();
+    for (let i = 0; i < list.length; i++) {
+      const record = list[i]!;
+      const order = i + 1;
+      if (record.order === order) continue;
+      if (current && current.id === record.id) {
+        updateCurrentLevel({ order }); // ten sam kontrakt co przy nazwie - zywy rekord i zapis
+        scheduleSave();
+      } else {
+        await store.putLevel({ ...record, order, updatedAt: now });
+      }
+    }
+  }
+
+  async function newLevel(store: WorkspaceStore, projectId: string, levels: LevelRecord[]): Promise<void> {
+    const order = levels.reduce((max, l) => Math.max(max, l.order), 0) + 1;
+    const record = makeLevelRecord(projectId, nextName('Level', levels.map((l) => l.name)), order);
+    await store.putLevel(record);
+    await switchTo(store, record);
+    await render();
+  }
+
+  async function duplicateLevel(
+    store: WorkspaceStore, source: LevelRecord, levels: LevelRecord[],
+  ): Promise<void> {
+    const fresh = await freshRecord(store, source);
+    const copy: LevelRecord = {
+      id: crypto.randomUUID(),
+      projectId: fresh.projectId,
+      name: nextName(source.name, levels.map((l) => l.name)),
+      order: fresh.order + 0.5, // tuz za oryginalem; normalizacja nizej robi z tego liczby calkowite
+      data: fresh.data,
+      thumb: fresh.thumb,
+      updatedAt: Date.now(),
+    };
+    await store.putLevel(copy);
+    await normalizeOrders(store, copy.projectId);
+    await switchTo(store, copy);
+    await render();
+  }
+
+  async function deleteLevel(
+    store: WorkspaceStore, target: LevelRecord, levels: LevelRecord[],
+  ): Promise<void> {
+    if (levels.length <= 1) return; // ostatniego poziomu projektu nie usuwamy
+    if (!await confirmModal(`Delete level "${target.name}"?`, 'Delete')) return;
+    const current = getCurrentLevel();
+    if (current && current.id === target.id) {
+      // NAJPIERW schodzimy na sasiada: przelaczenie domyka autozapis, a flush po skasowaniu
+      // rekordu wskrzesilby go w magazynie. Gdy sasiad sie nie wczytal - nie kasujemy niczego.
+      const index = levels.findIndex((l) => l.id === target.id);
+      const next = levels[index + 1] ?? levels[index - 1];
+      if (!next || !await switchTo(store, next)) return;
+    }
+    await store.deleteLevel(target.id);
+    playPop();
+    await render();
+  }
+
+  // --- operacje na projektach --------------------------------------------------
+
+  /** Wejscie w projekt: otwieramy jego pierwszy poziom (po order); pusty projekt dostaje "Level 1". */
+  async function openProject(store: WorkspaceStore, projectId: string): Promise<boolean> {
+    const levels = await store.listLevels(projectId);
+    let first = levels[0];
+    if (!first) {
+      // projekt bez poziomow moze przyjsc z obcej kopii workspace - nie zostawiamy pustej listy
+      first = makeLevelRecord(projectId, 'Level 1', 1);
+      await store.putLevel(first);
+    }
+    const ok = await switchTo(store, first);
+    // render takze po nieudanym przelaczeniu - select wraca wtedy do faktycznie otwartego projektu
+    await render();
+    return ok;
+  }
+
+  async function newProject(store: WorkspaceStore, projects: ProjectMeta[]): Promise<void> {
+    const name = await promptModal('New project', nextName('Project', projects.map((p) => p.name)));
+    if (name === null) return;
+    const now = Date.now();
+    const meta: ProjectMeta = { id: crypto.randomUUID(), name, createdAt: now, updatedAt: now };
+    await store.putProject(meta);
+    const level = makeLevelRecord(meta.id, 'Level 1', 1);
+    await store.putLevel(level);
+    await switchTo(store, level);
+    await render();
+  }
+
+  async function renameProject(store: WorkspaceStore, meta: ProjectMeta): Promise<void> {
+    const name = await promptModal('Rename project', meta.name);
+    if (name === null || name === meta.name) return;
+    await store.putProject({ ...meta, name, updatedAt: Date.now() });
+    await render();
+  }
+
+  async function deleteProject(
+    store: WorkspaceStore, target: ProjectMeta, projects: ProjectMeta[],
+  ): Promise<void> {
+    if (projects.length <= 1) return; // ostatniego projektu nie usuwamy
+    if (!await confirmModal(`Delete project "${target.name}" and all its levels?`, 'Delete')) return;
+    const current = getCurrentLevel();
+    if (current && current.projectId === target.id) {
+      // ta sama zasada co przy poziomie: najpierw wychodzimy, potem kasujemy - inaczej
+      // flush autozapisu wskrzesilby poziom skasowanego projektu
+      const index = projects.findIndex((p) => p.id === target.id);
+      const next = projects[index + 1] ?? projects[index - 1];
+      if (!next || !await openProject(store, next.id)) return;
+    }
+    await store.deleteProject(target.id);
+    playPop();
+    await render();
+  }
+
+  // --- kopia zapasowa workspace ------------------------------------------------
+
+  async function exportWorkspaceFile(store: WorkspaceStore): Promise<void> {
+    try {
+      download(await exportWorkspace(store), 'workspace.json', 'application/json');
+    } catch (e) {
+      toast(errorMessage(e), 'error');
+    }
+  }
+
+  async function importWorkspaceFile(store: WorkspaceStore, file: File): Promise<void> {
+    try {
+      const added = await importWorkspace(store, await file.text(), Date.now());
+      playPop();
+      toast(`Imported ${added.projects} projects, ${added.levels} levels`);
+      await render();
+    } catch (e) {
+      toast(errorMessage(e), 'error');
+    }
+  }
+
+  // --- budowa karty ------------------------------------------------------------
+
+  function levelRow(
+    store: WorkspaceStore, record: LevelRecord, index: number, levels: LevelRecord[],
+  ): HTMLElement {
+    const current = getCurrentLevel();
+    const active = current?.id === record.id;
+    const row = el('div', active ? 'level-row active' : 'level-row');
+
+    const thumb = el('div', 'level-thumb');
+
+    const name = el('input', 'level-name');
+    name.type = 'text';
+    name.value = record.name;
+    name.setAttribute('aria-label', `Name of level ${index + 1}`);
+    name.addEventListener('input', () => renameLevel(store, record, name.value));
+    // pointerdown leci przed fokusem - klik w nazwe przelacza poziom i zostawia kursor w polu
+    name.addEventListener('pointerdown', () => { void switchTo(store, record); });
+    // pusta nazwa nic nie mowi na liscie - wracamy do pierwszej wolnej "Level N"
+    name.addEventListener('blur', () => {
+      if (name.value.trim()) return;
+      name.value = nextName('Level', levels.filter((l) => l.id !== record.id).map((l) => l.name));
+      renameLevel(store, record, name.value);
+    });
+
+    const dup = iconButton('D', 'level-btn', `Duplicate level "${record.name}"`, () => {
+      void duplicateLevel(store, record, levels);
+    });
+    const del = iconButton('X', 'level-btn level-del', `Delete level "${record.name}"`, () => {
+      void deleteLevel(store, record, levels);
+    });
+    del.disabled = levels.length <= 1;
+
+    // klik w tlo wiersza przelacza poziom; klikniecia w kontrolki zostawiamy im
+    row.addEventListener('click', (e) => {
+      if ((e.target as HTMLElement).closest('button, input')) return;
+      void switchTo(store, record);
+    });
+
+    row.append(thumb, name, dup, del);
+    rows.set(record.id, { row, thumb });
+    // biezacy poziom ma swiezsza miniature w zywym rekordzie niz kopia z magazynu
+    setRowThumb(record.id, active ? current!.thumb : record.thumb);
+    return row;
+  }
+
+  function build(
+    store: WorkspaceStore, projects: ProjectMeta[], projectId: string | null, levels: LevelRecord[],
+  ): void {
+    rows.clear();
+    box.replaceChildren();
+
+    const select = el('select', 'project-select');
+    select.setAttribute('aria-label', 'Project');
+    for (const meta of projects) {
+      const option = el('option', undefined, meta.name);
+      option.value = meta.id;
+      option.selected = meta.id === projectId;
+      select.append(option);
+    }
+    select.addEventListener('change', () => { void openProject(store, select.value); });
+
+    const meta = projects.find((p) => p.id === projectId) ?? null;
+    const actions = el('div', 'btn-row project-actions');
+    const rename = button('Rename', 'btn-plain', () => { if (meta) void renameProject(store, meta); });
+    rename.disabled = !meta;
+    const del = iconButton('X', 'level-btn level-del', 'Delete project', () => {
+      if (meta) void deleteProject(store, meta, projects);
+    });
+    del.disabled = !meta || projects.length <= 1;
+    actions.append(button('New', '', () => { void newProject(store, projects); }), rename, del);
+
+    box.append(select, actions);
+
+    if (!projectId) {
+      box.append(el('p', 'hint', 'No projects yet - create one to start.'));
+      return;
+    }
+
+    const list = el('div', 'level-list');
+    levels.forEach((record, index) => list.append(levelRow(store, record, index, levels)));
+    box.append(list, button('New level', 'btn-full', () => { void newLevel(store, projectId, levels); }));
+
+    const fileInput = el('input', 'file-input');
+    fileInput.type = 'file';
+    fileInput.accept = '.json';
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files?.[0];
+      // reset od razu, zeby ponowny wybor tego samego pliku znowu wywolal change
+      fileInput.value = '';
+      if (file) void importWorkspaceFile(store, file);
+    });
+
+    const backup = el('div', 'btn-row');
+    backup.append(
+      button('Export workspace', 'btn-plain', () => { void exportWorkspaceFile(store); }),
+      button('Import workspace', 'btn-plain', () => fileInput.click()),
+    );
+    box.append(backup, fileInput);
+  }
+
+  /**
+   * Pelna przebudowa karty po kazdej zmianie danych. Przebudowe pomijamy, gdy fokus siedzi
+   * w polu nazwy w tej karcie - podmiana DOM przerwalaby uzytkownikowi pisanie (ten sam
+   * straznik co w karcie Legend). Zmiany nazw i tak sa juz zapisane, wiec nic nie ginie.
+   */
+  async function render(): Promise<void> {
+    const seq = ++renderSeq;
+    const store = getStore();
+    if (!store) {
+      box.replaceChildren(el('p', 'hint', 'Storage unavailable - projects cannot be saved.'));
+      return;
+    }
+    const projects = (await store.listProjects()).sort((a, b) => a.createdAt - b.createdAt);
+    const projectId = getCurrentLevel()?.projectId ?? projects[0]?.id ?? null;
+    const levels = projectId ? await store.listLevels(projectId) : [];
+    if (seq !== renderSeq) return; // w trakcie odczytu przyszedl nowszy render
+    const focused = document.activeElement;
+    if (focused instanceof HTMLInputElement && box.contains(focused)) return;
+    build(store, projects, projectId, levels);
+  }
+
+  return { render: () => { void render(); } };
+}

@@ -1,13 +1,12 @@
 // Modal Import: wczytanie pliku (.json/.txt/.xp) albo wklejonego tekstu przez wspolny parser.
 import { Grid } from '../../core/grid';
-import { bumpContent, trimLayers } from '../../core/editorState';
 import { Legend } from '../../core/legend';
-import { Level, MAX_LAYERS, levelUsedChars, makeLayer } from '../../core/level';
+import { Level, MAX_LAYERS, makeLayer } from '../../core/level';
 import { parseProject } from '../../core/project';
 import { importXp } from '../../export/rexpaint';
 import { button, el } from '../dom';
 import { ModalHandle, openModal } from '../modal';
-import { PanelsCtx, errorMessage, playPop, scheduleSave, toast } from './context';
+import { PanelsCtx, applyLevelToPanels, errorMessage, playPop, scheduleSave, toast } from './context';
 
 function countCells(grid: Grid): number {
   let n = 0;
@@ -35,15 +34,8 @@ export function initImportModal(ctx: PanelsCtx, importBox: HTMLElement): void {
 
   /** Podmiana poziomu po udanym imporcie - wspolna sciezka pliku i wklejonego tekstu. */
   function applyImported(level: Level): void {
-    state.level = level;
-    state.activeLayer = 0;
-    const trimmed = trimLayers(state.level);
-    state.level.legend.syncWith(levelUsedChars(state.level));
-    bumpContent(state);
-    ctx.centerOnPaper();
-    ctx.markDirty();
-    ctx.hooks.renderLayers();
-    ctx.hooks.renderLegend();
+    // wspolny helper podmiany poziomu; importowi dokladamy zapis, pop i podsumowanie
+    const trimmed = applyLevelToPanels(ctx, level);
     scheduleSave();
     playPop();
     let cells = 0;

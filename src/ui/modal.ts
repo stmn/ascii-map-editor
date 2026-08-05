@@ -81,8 +81,17 @@ export function openModal(title: string, body: HTMLElement): ModalHandle {
 }
 
 /**
- * Male potwierdzenie NAD modalem glownym (wyzszy z-index). Esc, klik w overlay i Cancel
- * daja false, przycisk akcji true.
+ * Maly modal NAD modalem glownym (wyzszy z-index): sama karta z trescia, bez naglowka.
+ * Wspolny szkielet potwierdzenia i pytania o nazwe - rozni je tylko zawartosc body.
+ */
+function overModal(body: HTMLElement, onClose: () => void): ModalHandle {
+  const card = el('div', 'modal-card');
+  card.append(body);
+  return mount(card, 'modal-overlay modal-confirm', onClose);
+}
+
+/**
+ * Potwierdzenie: Esc, klik w overlay i Cancel daja false, przycisk akcji true.
  */
 export function confirmModal(message: string, okLabel = 'OK'): Promise<boolean> {
   return new Promise((resolve) => {
@@ -94,8 +103,43 @@ export function confirmModal(message: string, okLabel = 'OK'): Promise<boolean> 
       button(okLabel, 'danger', () => { answer = true; handle.close(); }),
     );
     body.append(el('p', 'modal-message', message), row);
-    const card = el('div', 'modal-card');
-    card.append(body);
-    const handle = mount(card, 'modal-overlay modal-confirm', () => resolve(answer));
+    const handle = overModal(body, () => resolve(answer));
+  });
+}
+
+/**
+ * Pytanie o nazwe: pole z zaznaczona wartoscia poczatkowa. OK (albo Enter) daje wpisany tekst,
+ * Esc / klik w overlay / Cancel daja null. Pusta nazwa nie ma sensu dla projektu ani poziomu,
+ * wiec sam bialy znak traktujemy jak anulowanie.
+ */
+export function promptModal(title: string, initial: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    let answer: string | null = null;
+    const body = el('div', 'modal-body');
+    const input = el('input', 'prompt-input');
+    input.type = 'text';
+    input.value = initial;
+    input.setAttribute('aria-label', title);
+
+    function accept(): void {
+      answer = input.value.trim() || null;
+      handle.close();
+    }
+
+    // Enter zatwierdza; keydown nie moze wyciec do skrotow globalnych edytora
+    input.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      e.stopPropagation();
+      accept();
+    });
+
+    const row = el('div', 'btn-row');
+    row.append(button('Cancel', 'modal-cancel', () => handle.close()), button('OK', '', accept));
+    body.append(el('p', 'modal-message', title), input, row);
+    const handle = overModal(body, () => resolve(answer));
+    // mount ustawia fokus na pierwszej kontrolce (tym polu) - zostaje zaznaczenie tekstu,
+    // zeby wpisanie wlasnej nazwy nie wymagalo kasowania podpowiedzi
+    input.select();
   });
 }

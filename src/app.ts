@@ -1,11 +1,11 @@
 import './styles.css';
-import { createLevel, levelUsedChars, type Level } from './core/level';
+import { createLevel, levelUsedChars } from './core/level';
 import { parseProject } from './core/project';
 import { openIdbStore } from './core/idb';
 import { KvJsonStore, ensureSeed, type Kv, type LevelRecord, type WorkspaceStore } from './core/store';
 import { Renderer, centerView, paperRect } from './ui/renderer';
 import { InputController } from './ui/input';
-import { activeGrid, bumpContent, trimLayers, type EditorState } from './core/editorState';
+import { activeGrid, applyLevelToState, bumpContent, type EditorState } from './core/editorState';
 // panele nie importuja app.ts - stan i callbacki dostaja przez initPanels, wiec nie ma cyklu
 import { initPanels } from './ui/panels';
 import {
@@ -65,18 +65,6 @@ async function openStore(): Promise<WorkspaceStore> {
   }
 }
 
-/**
- * Wstawienie wczytanego poziomu do stanu. Wpis moze byc podmieniony recznie albo pochodzic
- * z obcego pliku, wiec limit warstw i synchronizacja legendy obowiazuja tak samo jak przy imporcie.
- */
-function applyLevel(level: Level): void {
-  state.level = level;
-  state.activeLayer = 0;
-  trimLayers(state.level);
-  state.level.legend.syncWith(levelUsedChars(state.level));
-  bumpContent(state);
-}
-
 /** Rekord do otwarcia: wskaznik z poprzedniej sesji, a gdy go nie ma (albo znikl) - poziom z ensureSeed. */
 async function pickLevel(store: WorkspaceStore, seedLevelId: string): Promise<LevelRecord | null> {
   const ref = readCurrentRef();
@@ -110,11 +98,11 @@ async function restoreWorkspace(): Promise<void> {
   if (!record) return; // magazyn zgubil wlasnie zapisany rekord - startujemy od pustego poziomu
   setCurrentLevel(record);
   try {
-    applyLevel(parseProject(record.data));
+    applyLevelToState(state, parseProject(record.data));
   } catch (e) {
     toast(errorMessage(e), 'error');
     // uszkodzony rekord: pusty poziom, ale rekord zostaje biezacy - pierwszy zapis go naprawi
-    applyLevel(createLevel());
+    applyLevelToState(state, createLevel());
   }
 }
 
