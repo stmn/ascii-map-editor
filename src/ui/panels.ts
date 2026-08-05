@@ -11,6 +11,9 @@ import { exportKaplay } from '../export/kaplay';
 import { exportGodot } from '../export/godot';
 import { exportTmx } from '../export/tiled';
 import { exportXp, importXp } from '../export/rexpaint';
+import { LegacyFormat, exportLegacy } from '../export/legacy';
+import { button, el, labeled } from './dom';
+import { ModalHandle, confirmModal, isModalOpen, openModal } from './modal';
 import { isTypingTarget } from './input';
 import type { View } from './renderer';
 // import assetu przez Vite - bundler podmienia URL na wersje z hashem i relatywna baza
@@ -81,28 +84,6 @@ export interface Panels {
 }
 
 // --- male helpery DOM ---------------------------------------------------------
-
-function el<K extends keyof HTMLElementTagNameMap>(
-  tag: K, className?: string, text?: string,
-): HTMLElementTagNameMap[K] {
-  const node = document.createElement(tag);
-  if (className) node.className = className;
-  if (text !== undefined) node.textContent = text;
-  return node;
-}
-
-function button(label: string, className: string, onClick: () => void): HTMLButtonElement {
-  const b = el('button', className, label);
-  b.type = 'button';
-  b.addEventListener('click', onClick);
-  return b;
-}
-
-function labeled(text: string, control: HTMLElement): HTMLLabelElement {
-  const l = el('label', 'field');
-  l.append(el('span', undefined, text), control);
-  return l;
-}
 
 function requireEl(id: string): HTMLElement {
   const node = document.getElementById(id);
@@ -261,16 +242,18 @@ export function initPanels(ctx: PanelsContext): Panels {
   // dowolny drukowalny klawisz ustawia pedzel - poza polami tekstowymi i skrotami z modyfikatorem
   window.addEventListener('keydown', (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
-    if (isTypingTarget(e.target)) return;
+    if (isTypingTarget(e.target) || isModalOpen()) return;
     if (e.key.length !== 1 || e.key === ' ') return;
     setBrush(e.key);
   });
 
   /** Czysci aktywna warstwe, ale zostawia legende - nazwy i kolory znakow przezywaja. */
-  function clearLayer(): void {
+  async function clearLayer(): Promise<void> {
     const layer = activeLayerOf(state);
     if (layer.grid.isEmpty()) return;
-    if (!window.confirm(`Clear layer "${layer.name}"?`)) return;
+    if (!await confirmModal(`Clear layer "${layer.name}"?`, 'Clear')) return;
+    // stan mogl sie zmienic w trakcie potwierdzania - druga kontrola jest tania
+    if (layer.grid.isEmpty()) return;
     layer.grid.clear();
     ctx.markDirty();
     renderLegend();
@@ -279,7 +262,7 @@ export function initPanels(ctx: PanelsContext): Panels {
   }
 
   const clearRow = el('div', 'btn-row');
-  clearRow.append(button('Clear layer', 'danger', clearLayer));
+  clearRow.append(button('Clear layer', 'danger', () => void clearLayer()));
 
   drawBox.append(
     chips,
@@ -319,11 +302,13 @@ export function initPanels(ctx: PanelsContext): Panels {
     playPop();
   }
 
-  function removeLayer(index: number): void {
+  async function removeLayer(index: number): Promise<void> {
     const { layers } = state.level;
     if (layers.length <= 1) return; // ostatniej warstwy nie usuwamy
     const layer = layers[index]!;
-    if (!layer.grid.isEmpty() && !window.confirm(`Delete layer "${layer.name}"?`)) return;
+    if (!layer.grid.isEmpty() && !await confirmModal(`Delete layer "${layer.name}"?`, 'Delete')) return;
+    // po awaicie sklad warstw moze byc inny - kasujemy tylko gdy wiersz dalej wskazuje ta sama warstwe
+    if (layers.length <= 1 || layers[index] !== layer) return;
     layers.splice(index, 1);
     // aktywna zostaje ta sama warstwa; gdy zniknela - schodzimy na sasiada
     if (state.activeLayer === index) state.activeLayer = Math.min(index, layers.length - 1);
@@ -388,7 +373,7 @@ export function initPanels(ctx: PanelsContext): Panels {
     const down = layerButton('v', `Move layer "${layer.name}" down`, () => moveLayer(index, -1));
     down.disabled = index === 0;
 
-    const del = layerButton('X', `Delete layer "${layer.name}"`, () => removeLayer(index));
+    const del = layerButton('X', `Delete layer "${layer.name}"`, () => void removeLayer(index));
     del.classList.add('layer-del');
     del.disabled = layers.length <= 1;
 
@@ -495,9 +480,9 @@ export function initPanels(ctx: PanelsContext): Panels {
     return value;
   }
 
-  function generate(kind: 'maze' | 'dungeon'): void {
+  async function generate(kind: 'maze' | 'dungeon'): Promise<void> {
     const layer = activeLayerOf(state);
-    if (!layer.grid.isEmpty() && !window.confirm(`Replace layer "${layer.name}"?`)) return;
+    if (!layer.grid.isEmpty() && !await confirmModal(`Replace layer "${layer.name}"?`, 'Replace')) return;
     const w = readSize(widthInput, DEFAULT_W);
     const h = readSize(heightInput, DEFAULT_H);
     // generator podmienia siatke tylko aktywnej warstwy - reszta stosu zostaje nietknieta
@@ -515,8 +500,8 @@ export function initPanels(ctx: PanelsContext): Panels {
   sizes.append(labeled('W', widthInput), labeled('H', heightInput));
   const genButtons = el('div', 'btn-row');
   genButtons.append(
-    button('Maze', '', () => generate('maze')),
-    button('Dungeon', '', () => generate('dungeon')),
+    button('Maze', '', () => void generate('maze')),
+    button('Dungeon', '', () => void generate('dungeon')),
   );
   generateBox.append(sizes, genButtons, el('p', 'hint', 'Generating replaces the active layer.'));
 
@@ -551,11 +536,45 @@ export function initPanels(ctx: PanelsContext): Panels {
       serializeProject(state.level), 'project.json', 'application/json',
     )),
   );
-  exportBox.append(
+
+  // Legacy (v1): ten sam zestaw formatow co pole SWITCH FORMAT w pierwszym edytorze.
+  const legacySelect = el('select', 'scope-select');
+  for (const [value, label] of [
+    ['text', 'Text'], ['array-text', 'Array of strings'], ['array-array', 'Array of arrays'],
+  ] as const) {
+    const option = el('option', undefined, label);
+    option.value = value;
+    legacySelect.append(option);
+  }
+  legacySelect.setAttribute('aria-label', 'Legacy format');
+
+  const legacyText = el('textarea', 'modal-text');
+  legacyText.readOnly = true;
+  legacyText.setAttribute('aria-label', 'Legacy export preview');
+
+  /** Podglad zalezy od Scope i formatu - odswiezamy przy otwarciu modalu i kazdej zmianie. */
+  function refreshLegacy(): void {
+    legacyText.value = exportLegacy(scopeGrid(), legacySelect.value as LegacyFormat, scopeBounds());
+  }
+
+  scopeSelect.addEventListener('change', refreshLegacy);
+  legacySelect.addEventListener('change', refreshLegacy);
+
+  const exportBody = el('div');
+  exportBody.append(
     labeled('Scope', scopeSelect),
     exportButtons,
-    el('p', 'hint', 'Scope applies to TXT and CSV. .json keeps every layer and the legend for later import.'),
+    el('p', 'hint', 'Scope applies to TXT, CSV and Legacy. .json keeps every layer and the legend for later import.'),
+    el('p', 'modal-heading', 'Legacy (v1)'),
+    labeled('Format', legacySelect),
+    legacyText,
+    button('Copy legacy', 'btn-full', () => void copyToClipboard(legacyText.value)),
   );
+
+  exportBox.append(button('Export...', 'btn-full', () => {
+    refreshLegacy();
+    openModal('Export', exportBody);
+  }));
 
   async function downloadXp(): Promise<void> {
     try {
@@ -580,37 +599,73 @@ export function initPanels(ctx: PanelsContext): Panels {
     if (file) void importFile(file);
   });
 
+  /** Uchwyt otwartego modalu Import - udany import go zamyka, blad zostawia otwarty. */
+  let importModal: ModalHandle | null = null;
+
+  /** Podmiana poziomu po udanym imporcie - wspolna sciezka pliku i wklejonego tekstu. */
+  function applyImported(level: Level): void {
+    state.level = level;
+    state.activeLayer = 0;
+    const trimmed = trimLayers(state.level);
+    state.level.legend.syncWith(levelUsedChars(state.level));
+    ctx.centerOnPaper();
+    ctx.markDirty();
+    renderLayers();
+    renderLegend();
+    scheduleSave();
+    playPop();
+    let cells = 0;
+    for (const layer of state.level.layers) cells += countCells(layer.grid);
+    // jeden toast na raz - ostrzezenie o przycieciu doklejamy do komunikatu importu
+    if (trimmed) toast(`Imported ${cells} cells, trimmed to ${MAX_LAYERS} layers`, 'info');
+    else toast(`Imported ${cells} cells`);
+    importModal?.close();
+  }
+
   async function importFile(file: File): Promise<void> {
     try {
       if (file.name.toLowerCase().endsWith('.xp')) {
         const { layers, colors } = await importXp(new Uint8Array(await file.arrayBuffer()));
         // .xp niesie same warstwy i kolory - legende budujemy od zera
-        state.level = { layers: layers.map((l) => makeLayer(l.name, l.grid)), legend: new Legend() };
-        state.activeLayer = 0;
-        for (const [ch, hex] of colors) state.level.legend.upsert(ch, { color: hex });
+        const level: Level = { layers: layers.map((l) => makeLayer(l.name, l.grid)), legend: new Legend() };
+        for (const [ch, hex] of colors) level.legend.upsert(ch, { color: hex });
+        applyImported(level);
       } else {
-        state.level = parseProject(await file.text());
-        state.activeLayer = 0;
+        applyImported(parseProject(await file.text()));
       }
-      const trimmed = trimLayers(state.level);
-      state.level.legend.syncWith(levelUsedChars(state.level));
-      ctx.centerOnPaper();
-      ctx.markDirty();
-      renderLayers();
-      renderLegend();
-      scheduleSave();
-      playPop();
-      let cells = 0;
-      for (const layer of state.level.layers) cells += countCells(layer.grid);
-      // jeden toast na raz - ostrzezenie o przycieciu doklejamy do komunikatu importu
-      if (trimmed) toast(`Imported ${cells} cells, trimmed to ${MAX_LAYERS} layers`, 'info');
-      else toast(`Imported ${cells} cells`);
     } catch (e) {
       toast(errorMessage(e), 'error');
     }
   }
 
-  importBox.append(fileLabel, el('p', 'hint', 'Accepts .json, .txt and REXPaint .xp files.'));
+  const pasteArea = el('textarea', 'modal-text');
+  pasteArea.placeholder = 'Paste map here';
+  pasteArea.setAttribute('aria-label', 'Map to import');
+
+  /** Wklejony tekst idzie przez ten sam parser co pliki - .json, plain text i obie tablice z v1. */
+  function importPasted(): void {
+    try {
+      applyImported(parseProject(pasteArea.value));
+      pasteArea.value = '';
+    } catch (e) {
+      // blad zostawia modal otwarty, zeby dalo sie poprawic wklejona tresc
+      toast(errorMessage(e), 'error');
+    }
+  }
+
+  const importBody = el('div');
+  importBody.append(
+    fileLabel,
+    el('p', 'hint', 'Accepts .json, .txt and REXPaint .xp files.'),
+    el('hr', 'modal-sep'),
+    pasteArea,
+    button('Load', 'success btn-full', importPasted),
+    el('p', 'hint', 'Accepts project .json, plain text and both v1 array formats.'),
+  );
+
+  importBox.append(button('Import...', 'success btn-full', () => {
+    importModal = openModal('Import', importBody);
+  }));
 
   // --- start ---
   let legendTimer = 0;
