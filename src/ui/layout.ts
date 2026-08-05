@@ -65,6 +65,16 @@ export function sidebarWidths(): { left: number; right: number } {
   return { left: columnWidth(leftBox()), right: columnWidth(rightBox()) };
 }
 
+/**
+ * Przesuniecie srodka wolnego obszaru wzgledem srodka okna, w tej samej konwencji co offsetX
+ * w centerView (dodatni = mapa idzie w lewo). Roznica sprzed i po zmianie ukladu wystarcza,
+ * by przesunac widok w poziomie bez ruszania przewiniecia w pionie.
+ */
+function viewOffset(): number {
+  const { left, right } = sidebarWidths();
+  return (right - left) / 2;
+}
+
 // --- persystencja --------------------------------------------------------------
 
 function idsOf(box: HTMLElement | null): string[] {
@@ -127,11 +137,23 @@ function applyLayout(saved: SidebarLayout): void {
   }
 }
 
+/**
+ * Ustawienie kart wedlug zapisu - synchroniczne, bez podpinania czegokolwiek.
+ * app.ts wola to PRZED pierwszym malowaniem: boot czeka na magazyn (IndexedDB nawet kilka
+ * sekund), a uzytkownik z wlasnym ukladem nie moze w tym czasie ogladac ukladu domyslnego
+ * i skoku kart po zaladowaniu. Wywolanie jest idempotentne, wiec initLayout moze je powtorzyc.
+ */
+export function applySavedLayout(): void {
+  const saved = readLayout();
+  if (saved) applyLayout(saved);
+  syncEmpty();
+}
+
 // --- przeciaganie kart ---------------------------------------------------------
 
 let dragged: HTMLElement | null = null;
 let dropLine: HTMLElement | null = null;
-let onLayoutChange: (() => void) | null = null;
+let onLayoutChange: ((offsetShift: number) => void) | null = null;
 
 /** Pusta kolumna dostaje klase zamiast :empty - wskaznik wstawienia tez jest dzieckiem kolumny. */
 function syncEmpty(): void {
@@ -163,16 +185,27 @@ function dropBefore(box: HTMLElement, clientY: number): HTMLElement | null {
 /**
  * Kreska w miejscu upuszczenia. Pozycjonowana absolutnie wzgledem kolumny, wiec jej
  * pokazanie nie przesuwa kart - inaczej karty uciekalyby spod kursora i wskaznik migotalby.
+ * Kolumna bez innych kart kreski nie dostaje - komunikatem jest tam kreskowana strefa.
  */
 function showLine(box: HTMLElement, before: HTMLElement | null): void {
-  const line = ensureLine();
   const cards = cardsOf(box).filter((card) => card !== dragged);
-  const last = cards[cards.length - 1];
-  let top = 0;
-  if (before) top = before.offsetTop - CARD_GAP / 2 - 1;
-  else if (last) top = last.offsetTop + last.offsetHeight + CARD_GAP / 2 - 1;
+  // karta odniesienia: ta przed ktora wstawiamy, albo ostatnia gdy dokladamy na koniec
+  const ref = before ?? cards[cards.length - 1];
+  if (!ref) {
+    hideLine();
+    return;
+  }
+  const line = ensureLine();
+  const top = before
+    ? ref.offsetTop - CARD_GAP / 2 - 1
+    : ref.offsetTop + ref.offsetHeight + CARD_GAP / 2 - 1;
   line.style.top = `${Math.max(0, top)}px`;
-  box.appendChild(line);
+  // szerokosc i lewa krawedz z karty, nie z CSS: klasyczny scrollbar zweza karty,
+  // a lewa kolumna ma wlasny padding
+  line.style.left = `${ref.offsetLeft}px`;
+  line.style.width = `${ref.offsetWidth}px`;
+  // dragover leci przy kazdym drgnieciu myszy - przepinamy wezel tylko przy zmianie kolumny
+  if (line.parentElement !== box) box.appendChild(line);
 }
 
 function startDrag(card: HTMLElement, e: DragEvent): void {
@@ -224,26 +257,25 @@ function bindBox(box: HTMLElement): void {
     if (!dragged) return;
     e.preventDefault();
     const card = dragged;
+    const before = viewOffset();
     box.insertBefore(card, dropBefore(box, e.clientY));
     endDrag();
     syncEmpty();
     saveLayout();
-    onLayoutChange?.();
+    onLayoutChange?.(viewOffset() - before);
   });
 }
 
 /**
- * Wlacza uklad kolumn: stosuje zapis z poprzedniej sesji i podpina przeciaganie.
- * Wolane po zlozeniu paneli - karty maja juz tresc, a przeniesienie <details> jej nie rusza.
- * onChange dostaje sygnal po kazdej zmianie ukladu (app przelicza centrowanie mapy).
+ * Podpina przeciaganie kart. Wolane po zlozeniu paneli - karty maja juz tresc, a przeniesienie
+ * <details> jej nie rusza. Sam uklad jest juz ustawiony (applySavedLayout przy starcie modulu
+ * app.ts), ale powtarzamy go tanio, gdyby ktos wolal initLayout bez tamtego kroku.
+ * onChange dostaje o ile zmienil sie offset centrowania - app przesuwa widok w poziomie.
  */
-export function initLayout(onChange?: () => void): void {
+export function initLayout(onChange?: (offsetShift: number) => void): void {
   if (boxes().length < 2) return;
   onLayoutChange = onChange ?? null;
-  const saved = readLayout();
-  if (saved) applyLayout(saved);
-  syncEmpty();
+  applySavedLayout();
   for (const card of allCards()) bindCard(card);
   for (const box of boxes()) bindBox(box);
-  onLayoutChange?.();
 }

@@ -86,8 +86,11 @@ textarea {
   right: 12px;
 }
 
+/* padding-left lustrzany do prawej kolumny - karty obu kolumn stoja tak samo daleko
+   od krawedzi okna (scrollbar i tak renderuje sie po prawej, w LTR) */
 #sidebar-left {
   left: 12px;
+  padding-left: 8px;
 }
 
 /* Karta sekcji: biale tlo, gruba czarna ramka 4px jak panele w v1. */
@@ -142,11 +145,10 @@ textarea {
 }
 
 /* Wskaznik wstawienia: czarna kreska w przerwie miedzy kartami. Pozycjonowana absolutnie
-   wzgledem kolumny, wiec jej pokazanie nie przesuwa kart. */
+   wzgledem kolumny, wiec jej pokazanie nie przesuwa kart. Top, left i width ustawia
+   layout.ts z geometrii karty odniesienia (szerokosc kart zalezy od rodzaju scrollbara). */
 .drop-line {
   position: absolute;
-  left: 0;
-  width: 300px;
   height: 2px;
   background: #000000;
   pointer-events: none;

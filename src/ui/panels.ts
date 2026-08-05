@@ -83,11 +83,12 @@ export function initPanels(ctx: PanelsContext): Panels {
   legend.render();
   project.render();
 
-  // uklad kolumn na koncu: karty maja juz tresc, a przeniesienie <details> miedzy kolumnami
-  // nie rusza ich sluchaczy (element zmienia rodzica, nie tozsamosc). Zmiana ukladu zmienia
-  // szerokosc kolumn, wiec mapa musi sie przecentrowac.
-  initLayout(() => {
-    ctx.centerOnPaper();
+  // przeciaganie kart podpinamy na koncu: karty maja juz tresc, a przeniesienie <details>
+  // miedzy kolumnami nie rusza ich sluchaczy (element zmienia rodzica, nie tozsamosc).
+  // Po dropie zmienia sie szerokosc kolumn, wiec mape przesuwamy TYLKO w poziomie o roznice
+  // offsetu - pelne centrowanie skasowaloby reczne przewiniecie w pionie.
+  initLayout((offsetShift) => {
+    state.view.panX += offsetShift;
     ctx.markDirty();
   });
 

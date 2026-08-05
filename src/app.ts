@@ -6,7 +6,7 @@ import {
   KvJsonStore, WORKSPACE_KEY, ensureSeed, type Kv, type LevelRecord, type WorkspaceStore,
 } from './core/store';
 import { Renderer, centerView, paperRect } from './ui/renderer';
-import { sidebarWidths } from './ui/layout';
+import { applySavedLayout, sidebarWidths } from './ui/layout';
 import { InputController } from './ui/input';
 import { strokeCommand, type CellChange } from './core/commands';
 import { activeLayerOf, applyLevelToState, bumpContent, type EditorState } from './core/editorState';
@@ -195,6 +195,10 @@ async function restoreWorkspace(): Promise<void> {
 }
 
 renderer.resize();
+// uklad kolumn PRZED pierwszym malowaniem i przed centrowaniem: zapis lezy w localStorage
+// (odczyt synchroniczny), a boot czeka na magazyn nawet kilka sekund - bez tego uzytkownik
+// z wlasnym ukladem zobaczylby najpierw uklad domyslny i skok kart
+applySavedLayout();
 centerOnPaper();
 
 async function boot(): Promise<void> {
