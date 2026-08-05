@@ -34,4 +34,31 @@ describe('rexpaint xp', () => {
     const back = parseXpBytes(new Uint8Array(gunzipSync(gzipSync(bytes))));
     expect(back.grid.toLines()).toEqual(['#']);
   });
+
+  /** Naglowek .xp o zadanych wymiarach plus `cells` komorek wypelnionych zerami. */
+  function header(w: number, h: number, cells = 0): Uint8Array {
+    const out = new Uint8Array(16 + cells * 10);
+    const v = new DataView(out.buffer);
+    v.setInt32(0, -1, true);
+    v.setInt32(4, 1, true);
+    v.setInt32(8, w, true);
+    v.setInt32(12, h, true);
+    return out;
+  }
+
+  it('odrzuca bufor krotszy niz naglowek', () => {
+    expect(() => parseXpBytes(new Uint8Array(8))).toThrow('Not a valid .xp file');
+  });
+
+  it('odrzuca zerowe i ujemne wymiary', () => {
+    expect(() => parseXpBytes(header(0, 5))).toThrow('Not a valid .xp file');
+    expect(() => parseXpBytes(header(5, 0))).toThrow('Not a valid .xp file');
+    expect(() => parseXpBytes(header(-1, 5))).toThrow('Not a valid .xp file');
+    expect(() => parseXpBytes(header(5, -1))).toThrow('Not a valid .xp file');
+  });
+
+  it('odrzuca naglowek deklarujacy wiecej komorek niz miesci bufor', () => {
+    expect(() => parseXpBytes(header(100, 100, 3))).toThrow('Not a valid .xp file');
+    expect(() => parseXpBytes(header(30000, 30000))).toThrow('Not a valid .xp file');
+  });
 });

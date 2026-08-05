@@ -178,6 +178,17 @@ export function initPanels(ctx: PanelsContext): Panels {
     saveTimer = window.setTimeout(saveNow, SAVE_DEBOUNCE_MS);
   }
 
+  /** Debounce gubi ostatnie pociagniecia przy natychmiastowym zamknieciu karty - domykamy zapis od razu. */
+  function flushSave(): void {
+    window.clearTimeout(saveTimer);
+    saveNow();
+  }
+
+  window.addEventListener('pagehide', flushSave);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushSave();
+  });
+
   function restoreSaved(): void {
     let saved: string | null = null;
     try {
@@ -247,9 +258,24 @@ export function initPanels(ctx: PanelsContext): Panels {
     setBrush(e.key);
   });
 
+  /** Czysci mape, ale zostawia legende - nazwy i kolory znakow przezywaja, liczniki spadaja do zera. */
+  function clearMap(): void {
+    if (state.grid.isEmpty()) return;
+    if (!window.confirm('Clear the whole map?')) return;
+    state.grid.clear();
+    ctx.markDirty();
+    renderLegend();
+    scheduleSave();
+    playPop();
+  }
+
+  const clearRow = el('div', 'btn-row');
+  clearRow.append(button('Clear', 'danger', clearMap));
+
   drawBox.append(
     chips,
     labeled('Char', charInput),
+    clearRow,
     el('p', 'hint help-box', 'Press any character key to switch the brush. Alt or Ctrl + drag erases.'),
   );
 

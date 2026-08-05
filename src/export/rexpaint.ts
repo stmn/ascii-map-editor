@@ -36,9 +36,13 @@ export function buildXpBytes(grid: Grid, legend: Legend): Uint8Array {
 }
 
 export function parseXpBytes(bytes: Uint8Array): { grid: Grid; colors: Map<string, string> } {
+  // walidacja przed alokacja: uszkodzony plik moze deklarowac miliardy komorek i zawiesic karte
+  if (bytes.byteLength < 16) throw new Error('Not a valid .xp file');
   const v = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const w = v.getInt32(8, true);
   const h = v.getInt32(12, true);
+  if (w <= 0 || h <= 0) throw new Error('Not a valid .xp file');
+  if (16 + w * h * 10 > bytes.byteLength) throw new Error('Not a valid .xp file');
   const grid = new Grid();
   const colors = new Map<string, string>();
   let p = 16;

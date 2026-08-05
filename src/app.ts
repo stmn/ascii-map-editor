@@ -1,19 +1,16 @@
 import './styles.css';
 import { Grid } from './core/grid';
 import { Legend } from './core/legend';
-import { Renderer, centerView, paperRect, type View } from './ui/renderer';
+import { Renderer, centerView, paperRect } from './ui/renderer';
 import { InputController } from './ui/input';
 import { initPanels } from './ui/panels';
+// import typu (nie wartosci) - nie tworzy cyklu w runtime, wiec app.ts nadal nie zalezy od panels.ts w czasie wykonania
+import type { PanelsState as EditorState } from './ui/panels';
 
 /** Przesuniecie startowego widoku w lewo, bo prawa krawedz zajmuje panel (jak +140 w v1). */
 const SIDEBAR_OFFSET = 140;
 
-export interface EditorState {
-  grid: Grid;
-  legend: Legend;
-  view: View;
-  brush: string;
-}
+export type { EditorState };
 
 export const state: EditorState = {
   grid: new Grid(),

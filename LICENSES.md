@@ -8,11 +8,11 @@ licenses require the license text to be distributed alongside them.
 
 MIT License
 
-Copyright (c) 2026 Darek
+Copyright (c) 2023-2026 stmn
 
-ASCII Level Editor v2 is a rewrite inspired by stmn's ASCII Map Editor and it reuses
-assets from that project (cursor sprites and `pop.wav`). The original license is
-reproduced verbatim in section 2.
+ASCII Level Editor v2 is a rewrite of ASCII Map Editor by the same author and it reuses
+assets from that project (cursor sprites and `pop.wav`). The original license of that
+project is reproduced verbatim in section 2.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
