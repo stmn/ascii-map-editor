@@ -3,6 +3,7 @@
 // dzieki czemu nie powstaje cykl importow (app.ts -> panels.ts, nigdy odwrotnie).
 import type { Command } from '../core/history';
 import type { EditorState } from '../core/editorState';
+import { initLayout } from './layout';
 import { PanelHooks, PanelsCtx, initAutosave, requireEl, scheduleSave } from './panels/context';
 import { initDraw } from './panels/draw';
 import { initHistory } from './panels/history';
@@ -81,6 +82,14 @@ export function initPanels(ctx: PanelsContext): Panels {
   layers.render();
   legend.render();
   project.render();
+
+  // uklad kolumn na koncu: karty maja juz tresc, a przeniesienie <details> miedzy kolumnami
+  // nie rusza ich sluchaczy (element zmienia rodzica, nie tozsamosc). Zmiana ukladu zmienia
+  // szerokosc kolumn, wiec mapa musi sie przecentrowac.
+  initLayout(() => {
+    ctx.centerOnPaper();
+    ctx.markDirty();
+  });
 
   return { onMutate, pushHistory: (cmd) => hooks.pushHistory?.(cmd) };
 }

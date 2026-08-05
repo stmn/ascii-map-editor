@@ -9,32 +9,34 @@
   </head>
   <body>
     <canvas id="map"></canvas>
-    <aside id="sidebar">
-      <details open>
+    <!-- Lewa kolumna startuje pusta - sekcje trafiaja tu dopiero po przeciagnieciu przez usera. -->
+    <aside id="sidebar-left" class="sidebar"></aside>
+    <aside id="sidebar" class="sidebar">
+      <details open data-section="project">
         <summary>Project</summary>
         <div class="section-body" id="panel-project"></div>
       </details>
-      <details open>
+      <details open data-section="draw">
         <summary>Draw</summary>
         <div class="section-body" id="panel-draw"></div>
       </details>
-      <details open>
+      <details open data-section="layers">
         <summary>Layers</summary>
         <div class="section-body" id="panel-layers"></div>
       </details>
-      <details open>
+      <details open data-section="legend">
         <summary>Legend</summary>
         <div class="section-body" id="panel-legend"></div>
       </details>
-      <details open>
+      <details open data-section="generate">
         <summary>Generate</summary>
         <div class="section-body" id="panel-generate"></div>
       </details>
-      <details open>
+      <details open data-section="export">
         <summary>Export</summary>
         <div class="section-body" id="panel-export"></div>
       </details>
-      <details open>
+      <details open data-section="import">
         <summary>Import</summary>
         <div class="section-body" id="panel-import"></div>
       </details>

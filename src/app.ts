@@ -6,6 +6,7 @@ import {
   KvJsonStore, WORKSPACE_KEY, ensureSeed, type Kv, type LevelRecord, type WorkspaceStore,
 } from './core/store';
 import { Renderer, centerView, paperRect } from './ui/renderer';
+import { sidebarWidths } from './ui/layout';
 import { InputController } from './ui/input';
 import { strokeCommand, type CellChange } from './core/commands';
 import { activeLayerOf, applyLevelToState, bumpContent, type EditorState } from './core/editorState';
@@ -15,8 +16,6 @@ import {
   errorMessage, readCurrentRef, reportSaveError, setCurrentLevel, setStore, toast,
 } from './ui/panels/context';
 
-/** Przesuniecie startowego widoku w lewo, bo prawa krawedz zajmuje panel (jak +140 w v1). */
-const SIDEBAR_OFFSET = 140;
 /** Autozapis sprzed workspace: pojedyncza mapa w localStorage. Czytany raz, przy migracji. */
 const LEGACY_KEY = 'ascii-level-editor-v2';
 /** Po migracji stary wpis dostaje te nazwe - dane uzytkownika kasujemy dopiero na jego zyczenie. */
@@ -41,8 +40,16 @@ let dirty = true;
 /** Zamawia przerysowanie w najblizszej klatce - rysujemy tylko po zmianach. */
 export function markDirty(): void { dirty = true; }
 
+/**
+ * Papier centrowany w wolnym obszarze miedzy kolumnami sekcji: srodek tego obszaru lezy
+ * o (left - right) / 2 od srodka okna, wiec widok przesuwamy w lewo o (right - left) / 2.
+ * Pusta kolumna ma szerokosc 0, wiec domyslny uklad (wszystko po prawej) zachowuje sie
+ * jak wczesniejszy staly offset panelu.
+ */
 function centerOnPaper(): void {
-  centerView(state.view, paperRect(state.level), canvas.clientWidth, canvas.clientHeight, SIDEBAR_OFFSET);
+  const { left, right } = sidebarWidths();
+  const offsetX = (right - left) / 2;
+  centerView(state.view, paperRect(state.level), canvas.clientWidth, canvas.clientHeight, offsetX);
 }
 
 // --- pociagniecie pedzla jako jedna komenda historii ---------------------------

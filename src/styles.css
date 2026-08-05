@@ -59,24 +59,39 @@ textarea {
 }
 
 /* Sam sidebar jest przezroczystym stosem - "papierem" sa dopiero pojedyncze karty sekcji.
-   pointer-events: none sprawia, ze przerwy miedzy kartami nie lapia klikniec z mapy. */
-#sidebar {
+   pointer-events: none sprawia, ze przerwy miedzy kartami nie lapia klikniec z mapy.
+   Kolumny sa dwie (prawa domyslnie pelna, lewa pusta) i roznia sie tylko krawedzia okna. */
+.sidebar {
   position: fixed;
-  right: 12px;
   top: 50%;
   transform: translateY(-50%);
-  box-sizing: border-box;
+  /* content-box: 8px odstepu od scrollbara doklada sie obok kart, a nie ich kosztem
+     (przy overlay scrollbarze karty maja pelne 300px, przy klasycznym pasek zabiera swoje
+     - tak jak przed dodaniem odstepu - ale juz nie dotyka ramek) */
+  box-sizing: content-box;
   display: flex;
   flex-direction: column;
   gap: 12px;
   width: 300px;
   max-height: calc(100vh - 24px);
   overflow-y: auto;
+  /* stale miejsce na scrollbar + 8px odstepu, zeby nigdy nie dotykal ramek kart.
+     Padding gora/dol to zapas na wskaznik wstawienia przy skrajnych pozycjach. */
+  scrollbar-gutter: stable;
+  padding: 6px 8px 6px 0;
   pointer-events: none;
 }
 
+#sidebar {
+  right: 12px;
+}
+
+#sidebar-left {
+  left: 12px;
+}
+
 /* Karta sekcji: biale tlo, gruba czarna ramka 4px jak panele w v1. */
-#sidebar details {
+.sidebar details {
   flex: none;
   background: #ffffff;
   border: 4px solid #000000;
@@ -85,27 +100,56 @@ textarea {
   pointer-events: auto;
 }
 
-#sidebar summary {
+.sidebar summary {
   font-size: 13px;
   padding: 8px 10px;
   background: #e5e7eb;
   list-style: none;
 }
 
-#sidebar summary::-webkit-details-marker {
+.sidebar summary::-webkit-details-marker {
   display: none;
 }
 
-#sidebar summary::before {
+.sidebar summary::before {
   content: '+ ';
 }
 
-#sidebar details[open] > summary::before {
+.sidebar details[open] > summary::before {
   content: '- ';
 }
 
-#sidebar details[open] > summary {
+.sidebar details[open] > summary {
   border-bottom: 4px solid #000000;
+}
+
+/* Przeciagana karta blednie - sama przezroczystosc, bez cieni. */
+.sidebar details.dragging {
+  opacity: 0.5;
+}
+
+/* Podczas przeciagania kolumna musi lapac zdarzenia takze poza kartami (inaczej upuszczenie
+   w przerwe albo na pusta kolumne trafialoby w mape pod spodem). */
+.sidebar.drag-active {
+  pointer-events: auto;
+}
+
+/* Pusta kolumna jest widoczna dopiero w trakcie przeciagania - jako kreskowana strefa. */
+.sidebar.drag-active.is-empty {
+  min-height: 140px;
+  outline: 2px dashed #000000;
+  outline-offset: -2px;
+}
+
+/* Wskaznik wstawienia: czarna kreska w przerwie miedzy kartami. Pozycjonowana absolutnie
+   wzgledem kolumny, wiec jej pokazanie nie przesuwa kart. */
+.drop-line {
+  position: absolute;
+  left: 0;
+  width: 300px;
+  height: 2px;
+  background: #000000;
+  pointer-events: none;
 }
 
 .section-body {
