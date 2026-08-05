@@ -179,12 +179,13 @@ button.success:active {
   background: #15803d;
 }
 
-/* Wylaczony przycisk - szary i bez kursora "klikalnego" (regula po wariantach, zeby wygrywala). */
+/* Wylaczony przycisk - szary i bez kursora "klikalnego" (regula po wariantach, zeby wygrywala).
+   Tekst #6b7280 na tle #e5e7eb: ~3.9:1 (bylo #e5e7eb na #9ca3af, ~2:1). */
 button:disabled,
 button:disabled:hover,
 button:disabled:active {
-  color: #e5e7eb;
-  background: #9ca3af;
+  color: #6b7280;
+  background: #e5e7eb;
   cursor: url('./assets/cursor.png'), default;
 }
 

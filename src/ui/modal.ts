@@ -6,8 +6,16 @@ export interface ModalHandle {
   close(): void;
 }
 
+interface StackEntry {
+  handle: ModalHandle;
+  /** Karta modala - zakres, w ktorym pulapka fokusu (Tab/Shift+Tab) trzyma uzytkownika. */
+  card: HTMLElement;
+  /** Element z fokusem sprzed otwarcia - focus wraca tu przy zamknieciu. */
+  opener: HTMLElement | null;
+}
+
 /** Stos otwartych modali - Esc zamyka tylko wierzchni (confirm potrafi stac nad modalem glownym). */
-const stack: ModalHandle[] = [];
+const stack: StackEntry[] = [];
 /** Jeden modal glowny na raz - otwarcie kolejnego zamyka poprzedni. */
 let mainModal: ModalHandle | null = null;
 
@@ -16,18 +24,55 @@ export function isModalOpen(): boolean {
   return stack.length > 0;
 }
 
-// faza capture: Esc obsluzony przez modal nie moze wyciec do skrotow globalnych
+/** Tagi kontrolek liczonych jako fokusowalne w modalach - reszta selektorow buduje sie z tej listy. */
+const FOCUSABLE_TAGS = ['select', 'textarea', 'input', 'button'];
+
+/**
+ * Buduje liste selektorow z ':not(:disabled)' doczepionym do KAZDEGO tagu z osobna.
+ * Naprawa buga: string typu `${selector}:not(:disabled)` doczepia pseudo-klase tylko
+ * do ostatniego czlonu listy po przecinku, wiec pozostale tagi przepuszczaly disabled.
+ */
+function notDisabledSelector(prefix: string): string {
+  return FOCUSABLE_TAGS.map((tag) => `${prefix}${tag}:not(:disabled)`).join(', ');
+}
+
+/** Widoczne (niezwiniete pod etykieta) i wlaczone kontrolki karty, w kolejnosci DOM. */
+function focusableIn(card: HTMLElement): HTMLElement[] {
+  return Array.from(card.querySelectorAll<HTMLElement>(notDisabledSelector('')))
+    .filter((node) => node.offsetParent !== null);
+}
+
+// faza capture: Esc/Tab obslugiwane tu nie moga wyciec do skrotow globalnych ani do tla strony.
+// Jeden listener na oba klawisze - druga globalna subskrypcja tylko dublowalaby stan stosu.
 window.addEventListener('keydown', (e) => {
-  if (e.key !== 'Escape' || stack.length === 0) return;
+  if (stack.length === 0) return;
+  const top = stack[stack.length - 1]!;
+  if (e.key === 'Escape') {
+    e.preventDefault();
+    e.stopPropagation();
+    top.handle.close();
+    return;
+  }
+  if (e.key !== 'Tab') return;
+  // Pulapka fokusu: cyklicznie w obrebie karty NAJWYZSZEGO modala - ten pod spodem (np. main
+  // pod confirmem) ma pozostac calkowicie niedostepny z klawiatury.
+  const items = focusableIn(top.card);
+  if (items.length === 0) return;
+  const first = items[0]!;
+  const last = items[items.length - 1]!;
+  const current = document.activeElement;
+  const atEdge = e.shiftKey
+    ? current === first || !items.includes(current as HTMLElement)
+    : current === last || !items.includes(current as HTMLElement);
+  if (!atEdge) return;
   e.preventDefault();
   e.stopPropagation();
-  stack[stack.length - 1]!.close();
+  (e.shiftKey ? last : first).focus();
 }, true);
 
 /** Autofocus pierwszej widocznej kontrolki - bez tego Tab startowalby od poczatku dokumentu. */
 function focusFirst(card: HTMLElement): void {
-  const selector = '.modal-body select, .modal-body textarea, .modal-body input, .modal-body button';
-  for (const node of card.querySelectorAll<HTMLElement>(`${selector}:not(:disabled)`)) {
+  for (const node of card.querySelectorAll<HTMLElement>(notDisabledSelector('.modal-body '))) {
     if (node.offsetParent === null) continue; // ukryty, np. file input schowany pod etykieta
     node.focus();
     return;
@@ -36,6 +81,8 @@ function focusFirst(card: HTMLElement): void {
 
 /** Wspolny szkielet obu rodzajow modali; onClose odpala sie raz, niezaleznie od drogi zamkniecia. */
 function mount(card: HTMLElement, overlayClass: string, onClose: () => void): ModalHandle {
+  // fokus sprzed otwarcia - zlapany PRZED focusFirst, zeby wracac dokladnie tam po zamknieciu
+  const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   const overlay = el('div', overlayClass);
   overlay.append(card);
   let closed = false;
@@ -44,9 +91,10 @@ function mount(card: HTMLElement, overlayClass: string, onClose: () => void): Mo
       if (closed) return;
       closed = true;
       overlay.remove();
-      const i = stack.indexOf(handle);
+      const i = stack.findIndex((entry) => entry.handle === handle);
       if (i >= 0) stack.splice(i, 1);
       onClose();
+      if (opener?.isConnected) opener.focus();
     },
   };
   // klik w tlo zamyka, klik w karte nie - stad porownanie celu z samym overlayem
@@ -54,7 +102,7 @@ function mount(card: HTMLElement, overlayClass: string, onClose: () => void): Mo
     if (e.target === overlay) handle.close();
   });
   document.body.append(overlay);
-  stack.push(handle);
+  stack.push({ handle, card, opener });
   focusFirst(card);
   return handle;
 }
@@ -66,6 +114,9 @@ function mount(card: HTMLElement, overlayClass: string, onClose: () => void): Mo
 export function openModal(title: string, body: HTMLElement): ModalHandle {
   mainModal?.close();
   const card = el('div', 'modal-card');
+  card.setAttribute('role', 'dialog');
+  card.setAttribute('aria-modal', 'true');
+  card.setAttribute('aria-label', title);
   const head = el('div', 'modal-head');
   const close = button('X', 'modal-x', () => handle.close());
   close.title = 'Close';
@@ -83,9 +134,13 @@ export function openModal(title: string, body: HTMLElement): ModalHandle {
 /**
  * Maly modal NAD modalem glownym (wyzszy z-index): sama karta z trescia, bez naglowka.
  * Wspolny szkielet potwierdzenia i pytania o nazwe - rozni je tylko zawartosc body.
+ * ariaLabel opisuje karte czytnikom ekranu (nie ma naglowka .modal-title jak w openModal).
  */
-function overModal(body: HTMLElement, onClose: () => void): ModalHandle {
+function overModal(body: HTMLElement, ariaLabel: string, onClose: () => void): ModalHandle {
   const card = el('div', 'modal-card');
+  card.setAttribute('role', 'alertdialog');
+  card.setAttribute('aria-modal', 'true');
+  card.setAttribute('aria-label', ariaLabel);
   card.append(body);
   return mount(card, 'modal-overlay modal-confirm', onClose);
 }
@@ -103,7 +158,7 @@ export function confirmModal(message: string, okLabel = 'OK'): Promise<boolean> 
       button(okLabel, 'danger', () => { answer = true; handle.close(); }),
     );
     body.append(el('p', 'modal-message', message), row);
-    const handle = overModal(body, () => resolve(answer));
+    const handle = overModal(body, message, () => resolve(answer));
   });
 }
 
@@ -137,7 +192,7 @@ export function promptModal(title: string, initial: string): Promise<string | nu
     const row = el('div', 'btn-row');
     row.append(button('Cancel', 'modal-cancel', () => handle.close()), button('OK', '', accept));
     body.append(el('p', 'modal-message', title), input, row);
-    const handle = overModal(body, () => resolve(answer));
+    const handle = overModal(body, title, () => resolve(answer));
     // mount ustawia fokus na pierwszej kontrolce (tym polu) - zostaje zaznaczenie tekstu,
     // zeby wpisanie wlasnej nazwy nie wymagalo kasowania podpowiedzi
     input.select();
