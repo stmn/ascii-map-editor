@@ -15,8 +15,8 @@ function isEraseModifier(e: PointerEvent): boolean {
   return e.altKey || e.ctrlKey || e.metaKey;
 }
 
-/** Czy zdarzenie klawiatury leci z pola tekstowego - wtedy strzalki nalezy do niego, nie do mapy. */
-function isTypingTarget(target: EventTarget | null): boolean {
+/** Czy zdarzenie klawiatury leci z pola tekstowego - wtedy klawisz nalezy do niego, nie do mapy. */
+export function isTypingTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   if (target.isContentEditable) return true;
   const tag = target.tagName;

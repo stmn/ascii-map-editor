@@ -115,6 +115,11 @@ textarea {
   padding: 0;
 }
 
+/* jednolity odstep miedzy blokami w sekcji - bez marginesow na pojedynczych elementach */
+.section-body > * + * {
+  margin-top: 8px;
+}
+
 /* Formularze i przyciski - wygladem zgodne z v1 (grube czarne ramki, bez cieni). */
 input[type='text'],
 input[type='number'],
@@ -170,4 +175,174 @@ button.success:hover {
 
 button.success:active {
   background: #15803d;
+}
+
+/* Uklady przyciskow: rzad (rowne szerokosci) i kolumna (pelna szerokosc). */
+.btn-row {
+  display: flex;
+  gap: 6px;
+}
+
+.btn-row button {
+  flex: 1;
+}
+
+.btn-col {
+  display: grid;
+  gap: 6px;
+}
+
+.field,
+.field-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.field-row {
+  gap: 12px;
+}
+
+.hint {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.7;
+  color: #565a75;
+}
+
+/* Sekcja pomocnicza jak w v1 - szare pudelko na podpowiedzi. */
+.help-box {
+  background: #e5e7eb;
+  border-radius: 4px;
+  padding: 8px;
+}
+
+/* Draw: znaki ostatnio uzywane jako klikalne kafelki. */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.chip {
+  min-width: 26px;
+  padding: 5px 4px;
+  text-align: center;
+  color: #1a1c2c;
+  background: #ffffff;
+}
+
+.chip:hover {
+  background: #e5e7eb;
+}
+
+.chip:active {
+  background: #d1d5db;
+}
+
+.chip.active,
+.chip.active:hover {
+  color: #ffffff;
+  background: #3b82f6;
+}
+
+.char-input {
+  width: 48px;
+  text-align: center;
+}
+
+.size-input {
+  width: 64px;
+}
+
+/* Legend: znak, nazwa, kolor, licznik uzyc. */
+.legend-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.section-body > .legend-row + .legend-row {
+  margin-top: 6px;
+}
+
+.legend-char {
+  width: 28px;
+  padding: 5px 0;
+  text-align: center;
+  background: #ffffff;
+}
+
+.legend-char:hover {
+  background: #e5e7eb;
+}
+
+.legend-name {
+  flex: 1;
+  min-width: 0;
+}
+
+input[type='color'] {
+  width: 32px;
+  height: 28px;
+  box-sizing: border-box;
+  padding: 0;
+  background: #ffffff;
+  border: 2px solid #000000;
+  border-radius: 4px;
+}
+
+.legend-count {
+  min-width: 30px;
+  text-align: right;
+  color: #565a75;
+}
+
+/* Import: ukryty file input pod zielonym przyciskiem-etykieta. */
+.file-btn {
+  display: block;
+  font-size: 11px;
+  color: #ffffff;
+  background: #22c55e;
+  border: 2px solid #000000;
+  border-radius: 4px;
+  padding: 6px 10px;
+  text-align: center;
+}
+
+.file-btn:hover {
+  background: #16a34a;
+}
+
+.file-btn:active {
+  background: #15803d;
+}
+
+.file-input {
+  display: none;
+}
+
+/* Toast: pigulka na dole ekranu, znika po 3 s. */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  z-index: 10;
+  max-width: 70vw;
+  font-size: 11px;
+  color: #ffffff;
+  background: #22c55e;
+  border: 2px solid #000000;
+  border-radius: 4px;
+  padding: 10px 14px;
+  text-align: center;
+}
+
+.toast.error {
+  background: #ef4444;
+}
+
+.toast.hidden {
+  display: none;
 }

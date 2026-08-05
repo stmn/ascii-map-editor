@@ -3,6 +3,7 @@ import { Grid } from './core/grid';
 import { Legend } from './core/legend';
 import { Renderer, centerView, paperRect, type View } from './ui/renderer';
 import { InputController } from './ui/input';
+import { initPanels } from './ui/panels';
 
 /** Przesuniecie startowego widoku w lewo, bo prawa krawedz zajmuje panel (jak +140 w v1). */
 const SIDEBAR_OFFSET = 140;
@@ -28,8 +29,15 @@ let dirty = true;
 /** Zamawia przerysowanie w najblizszej klatce - rysujemy tylko po zmianach. */
 export function markDirty(): void { dirty = true; }
 
+function centerOnPaper(): void {
+  centerView(state.view, paperRect(state.grid), canvas.clientWidth, canvas.clientHeight, SIDEBAR_OFFSET);
+}
+
 renderer.resize();
-centerView(state.view, paperRect(state.grid), canvas.clientWidth, canvas.clientHeight, SIDEBAR_OFFSET);
+centerOnPaper();
+
+// panele dostaja stan i callbacki - nie importuja app.ts, wiec nie ma cyklu
+const panels = initPanels({ state, markDirty, centerOnPaper });
 
 new InputController(canvas, {
   paint(x, y) {
@@ -37,10 +45,12 @@ new InputController(canvas, {
     // syncWith zbiera i sortuje wszystkie znaki - wolamy tylko gdy pedzel nie ma jeszcze wpisu
     if (!state.legend.get(state.brush)) state.legend.syncWith(state.grid.usedChars());
     markDirty();
+    panels.onMutate();
   },
   erase(x, y) {
     state.grid.set(x, y, ' ');
     markDirty();
+    panels.onMutate();
   },
   hover(x, y, erasing) {
     const h = renderer.hover;
