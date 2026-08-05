@@ -1,4 +1,4 @@
-import { type Bounds } from '../core/grid';
+import { Grid, type Bounds } from '../core/grid';
 import { Level, flattenLayers, unionBounds } from '../core/level';
 
 export interface View { panX: number; panY: number; scale: number }
@@ -33,9 +33,21 @@ export class Renderer {
   hover: { x: number; y: number } | null = null;
   /** Gdy true, podswietlenie kursora jest czerwone (tryb gumki). */
   eraseHover = false;
+  /**
+   * Splaszczenie warstw z ostatniego rysowania. Klatki po panie/zoomie i po ruchu kursora
+   * trafiaja tu w cache - przeliczamy dopiero gdy contentRev (licznik mutacji tresci) sie zmieni.
+   */
+  private cachedFlat: { rev: number; flat: Grid } | null = null;
 
   constructor(private canvas: HTMLCanvasElement) {
     this.ctx = canvas.getContext('2d')!;
+  }
+
+  private flatten(level: Level, contentRev: number): Grid {
+    if (this.cachedFlat?.rev !== contentRev) {
+      this.cachedFlat = { rev: contentRev, flat: flattenLayers(level.layers) };
+    }
+    return this.cachedFlat.flat;
   }
 
   resize(): void {
@@ -45,7 +57,7 @@ export class Renderer {
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
-  draw(level: Level, view: View): void {
+  draw(level: Level, view: View, contentRev: number): void {
     const { ctx } = this;
     const w = this.canvas.clientWidth, h = this.canvas.clientHeight;
     ctx.fillStyle = COLOR_DESK;
@@ -87,7 +99,7 @@ export class Renderer {
     ctx.strokeRect(px - OUTLINE_WIDTH / 2, py - OUTLINE_WIDTH / 2, pw + OUTLINE_WIDTH, ph + OUTLINE_WIDTH);
 
     // znaki - widoczne warstwy splaszczone do jednej siatki, gorne nadpisuja dolne
-    const flat = flattenLayers(level.layers);
+    const flat = this.flatten(level, contentRev);
     const fontPx = Math.max(6, Math.round(s * 0.6));
     ctx.font = s >= SMALL_SCALE
       ? `${fontPx}px "Press Start 2P", monospace`

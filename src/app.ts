@@ -3,9 +3,9 @@ import { createLevel, levelUsedChars } from './core/level';
 import { parseProject } from './core/project';
 import { Renderer, centerView, paperRect } from './ui/renderer';
 import { InputController } from './ui/input';
-import { STORAGE_KEY, activeGrid, initPanels, trimLayers } from './ui/panels';
-// import typu (nie wartosci) - PanelsState istnieje tylko w typach, wiec nie dokladamy zaleznosci runtime
-import type { PanelsState as EditorState } from './ui/panels';
+import { activeGrid, bumpContent, trimLayers, type EditorState } from './core/editorState';
+// panele nie importuja app.ts - stan i callbacki dostaja przez initPanels, wiec nie ma cyklu
+import { STORAGE_KEY, initPanels } from './ui/panels';
 
 /** Przesuniecie startowego widoku w lewo, bo prawa krawedz zajmuje panel (jak +140 w v1). */
 const SIDEBAR_OFFSET = 140;
@@ -17,6 +17,7 @@ export const state: EditorState = {
   activeLayer: 0,
   view: { panX: 0, panY: 0, scale: 32 },
   brush: '#',
+  contentRev: 0,
 };
 
 const canvas = document.getElementById('map') as HTMLCanvasElement;
@@ -50,6 +51,7 @@ function restoreSaved(): void {
     // wpis moze byc podmieniony recznie - limit warstw obowiazuje tak samo jak przy imporcie
     trimLayers(state.level);
     state.level.legend.syncWith(levelUsedChars(state.level));
+    bumpContent(state);
   } catch {
     // uszkodzony zapis - startujemy od pustego poziomu
   }
@@ -67,11 +69,13 @@ new InputController(canvas, {
     activeGrid(state).set(x, y, state.brush);
     // syncWith zbiera i sortuje wszystkie znaki - wolamy tylko gdy pedzel nie ma jeszcze wpisu
     if (!state.level.legend.get(state.brush)) state.level.legend.syncWith(levelUsedChars(state.level));
+    bumpContent(state);
     markDirty();
     panels.onMutate();
   },
   erase(x, y) {
     activeGrid(state).set(x, y, ' ');
+    bumpContent(state);
     markDirty();
     panels.onMutate();
   },
@@ -102,7 +106,7 @@ document.fonts?.ready.then(markDirty).catch(() => {});
 function frame(): void {
   if (dirty) {
     dirty = false;
-    renderer.draw(state.level, state.view);
+    renderer.draw(state.level, state.view, state.contentRev);
   }
   requestAnimationFrame(frame);
 }
