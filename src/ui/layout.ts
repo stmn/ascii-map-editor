@@ -294,12 +294,16 @@ function bindBox(box: HTMLElement): void {
     if (!dragged) return;
     e.preventDefault();
     const card = dragged;
-    onLayoutChange?.(withOffsetShift(() => {
+    // przestawienie NAJPIERW, powiadomienie potem: `f?.(arg)` nie liczy argumentu, gdy f jest
+    // nullem, wiec zapakowanie mutacji w argument opcjonalnego wywolania cicho zjadaloby caly
+    // drop u kazdego, kto zawola initLayout bez onChange
+    const shift = withOffsetShift(() => {
       box.insertBefore(card, dropBefore(box, e.clientY));
       endDrag();
       syncEmpty();
       saveLayout();
-    }));
+    });
+    onLayoutChange?.(shift);
   });
 }
 

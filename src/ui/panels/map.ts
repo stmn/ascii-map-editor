@@ -39,11 +39,17 @@ export function initMap(
    * w podgladzie legacy - odswiezenie leci przy kazdej zmianie mapy, wiec toasty by zalaly ekran.
    */
   function write(): void {
+    let next: string;
     try {
-      text.value = exportLegacyFlat(state.level, formatSelect.value as LegacyFormat);
+      next = exportLegacyFlat(state.level, formatSelect.value as LegacyFormat);
     } catch (e) {
-      text.value = errorMessage(e);
+      next = errorMessage(e);
     }
+    // Przypisanie do value przewija pole na sam gorny brzeg TAKZE wtedy, gdy tekst jest ten sam,
+    // a samo przewijanie nie daje fokusu, wiec straznik z refresh() nie chroni czytania dlugiego
+    // podgladu. Przy okazji odpadaja jalowe przepisania z hookow legendy i warstw.
+    if (text.value === next) return;
+    text.value = next;
   }
 
   /**
