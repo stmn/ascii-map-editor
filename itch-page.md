@@ -31,7 +31,12 @@ locally as you draw.
 - Named layers, up to 8 per level: add, reorder, rename, hide or delete them from the Layers
   panel, all sharing one legend for the whole level.
 - A legend that turns characters into real tiles: give each one a name and a color, and see
-  how many times it is used.
+  how many times it is used. Change a character on the fly too: one click remaps it everywhere
+  on every layer.
+- Undo and redo for every edit: painting, layers, the legend, generators, imports. Ctrl+Z /
+  Ctrl+Shift+Z (Cmd on Mac), or the Undo/Redo buttons above the Draw panel.
+- A customizable layout: drag any panel by its header into a left or right sidebar, in
+  whatever order you like. It is remembered next time you open the editor.
 - Maze and dungeon generators when you need a starting point instead of a blank page.
 - Projects and levels: organize your maps into projects, each holding as many levels as you
   want, with a thumbnail per level so you can find the one you need at a glance.
@@ -128,6 +133,8 @@ cursors and sound baked in. Double click it, no install, no internet, no browser
 It is pay what you want, and $2 is a fair nudge if the tool saved you an afternoon.
 
 ### Changelog
+
+**v2.3** - undo/redo, legend character remap, customizable dual-sidebar layout.
 
 **v2.2** - projects and levels with thumbnails, IndexedDB persistence, workspace backup.
 

@@ -39,13 +39,76 @@ itch.io-ready HTML project (`index.html` as the entry point) and it also contain
   delete controls, and Add layer appends a new one, up to 8 per level.
 - The Legend panel lists every character used anywhere in the level, shared by all layers,
   with an editable name and color plus a usage count. Names go into the exports, colors go
-  into the canvas and into `.xp`.
+  into the canvas and into `.xp`. A small edit button next to the character opens a prompt to
+  change the character itself: it remaps every cell that uses it, on every layer, to the new
+  one. A new character that collides with one already in the legend (even if currently unused)
+  or already painted somewhere on the map is rejected with a red toast and nothing changes;
+  the remap is undoable like every other edit.
 - Generate builds a maze (recursive backtracker, with `S` and `E` placed) or a room and
   corridor dungeon, replacing the active layer.
 - Export opens a dialog: a Scope selector (Active layer or Flattened), a copy-or-download
   button per format, and a Legacy (v1) section with its own format picker and preview.
 - Import opens a dialog: load a `.json`, `.txt` or REXPaint `.xp` file, or paste text
   directly - both routes run through the same tolerant parser.
+
+## Undo and redo
+
+Ctrl+Z (Cmd+Z on Mac) undoes the last change; Ctrl+Shift+Z or Ctrl+Y (Cmd+Shift+Z or Cmd+Y on
+Mac) redoes it. The same Undo and Redo buttons sit at the top of the Draw card and disable
+themselves when there is nothing to undo or redo - the shortcuts and the buttons drive the
+exact same history. The shortcuts are ignored while typing in a text field or while a modal
+dialog (Export, Import, a confirmation, the legend character prompt) is open. Holding Alt
+together with Ctrl/Cmd is also excluded, so Ctrl+Alt+Z does not trigger undo - Alt is reserved
+elsewhere as the erase modifier while dragging.
+
+History is per level and lives only for the current session; nothing is written to disk. It
+is capped at 100 entries, and pushing past the cap silently drops the oldest one. Switching to
+a different level, or to a level in a different project, clears the history outright: the
+commands on the stack belong to the level you are leaving, and undoing them there would make
+no sense once another level's grid is on screen. Loading a file or pasted text into the
+CURRENT level through the Import dialog is itself undoable, since it replaces the whole level
+in one step; it is switching levels that resets the stack, not loading content into one.
+
+What is on the stack:
+
+- a whole paint or erase stroke - the full mouse-down-to-mouse-up gesture is one command, not
+  one per cell
+- Generate (maze or dungeon)
+- Clear layer
+- loading a file or pasted text through the Import dialog
+- every layer operation: add, delete, move, show/hide, rename
+- every legend edit: renaming an entry, changing its color, changing its character
+
+What is NOT on the stack, because it is a workspace-level operation rather than an edit to
+the currently open level's content: switching levels or projects, New/Duplicate/Delete level,
+New/Rename/Delete project, and Export workspace/Import workspace (the backup JSON).
+
+Undoing or redoing normally cannot fail, but the character remap command is symmetric (it
+remaps in the other direction) and can hit the same "Character already in use" collision the
+forward edit can - for example if the character the remap is returning to has since been
+repainted somewhere else. When that happens the editor shows a red toast and leaves the map as
+it is; the failed command is not put back on the opposite stack, since retrying it would fail
+the same way again, so the rest of the history above and below it stays intact.
+
+## Layout
+
+The seven panel cards (Project, Draw, Layers, Legend, Generate, Export, Import) live in two
+sidebar columns, one on each side of the canvas; the right column is where all seven start.
+Drag a card by its header - the collapsed title bar - into the other column, or up and down
+within the same column: a thin line shows where it will land before you drop it. A column with
+nothing in it collapses out of the map's way instead of reserving empty space.
+
+The arrangement is saved to `localStorage` under the key `ascii-level-editor-layout` (two
+lists of card ids, left and right, top to bottom) and is re-applied before the very first
+paint of the next session, so a saved custom layout never flashes the default one first. A
+card id missing from a saved layout (an older save, or a future card that did not exist yet
+when it was written) is placed at the bottom of the right column instead of disappearing.
+
+The canvas centers itself in whatever horizontal space is left between the two columns, so
+moving a card between columns - which changes their widths - shifts the view horizontally to
+re-center it, but only horizontally: vertical scroll and zoom level survive a drop untouched.
+Both columns keep a fixed 8px gap between their cards and the scrollbar, so a classic
+(non-overlay) scrollbar never touches a card's border.
 
 ## Projects and levels
 
@@ -185,6 +248,9 @@ src/
     store.ts        WorkspaceStore interface, ProjectMeta/LevelRecord, KvJsonStore fallback,
                      ensureSeed (bootstrap + migration), export/importWorkspace (backup JSON)
     idb.ts          IndexedDB WorkspaceStore, db 'ascii-level-editor', stores projects/levels
+    history.ts      History: undo/redo stacks, cap 100, onChange hook
+    commands.ts     Command factories: stroke, level-replace snapshot, layer ops, legend edit, remap
+    remap.ts        remapChar: change a legend entry's character, remapping every cell on every layer
   export/           pure functions Level (or Grid + Legend) -> string or bytes
     text.ts         TXT and CSV, given a grid and optional bounds
     legacy.ts       v1 legacy text / array-text / array-array formats, used by the Export modal
@@ -198,13 +264,15 @@ src/
     modal.ts        generic modal dialog + confirm() replacement, stacked overlay, a11y + focus trap
     thumb.ts        level thumbnail: flat-color 120x80 canvas -> JPEG data URL
     dom.ts          tiny element builder helpers shared by every panel
+    layout.ts       dual sidebar: card drag and drop, localStorage layout, canvas centering offset
     panels.ts       composition root: wires the panels/ modules together through initPanels(ctx)
     panels/         one module per sidebar card, all fed state and callbacks by panels.ts
       context.ts    shared PanelsCtx/hooks, toast, workspace store handle, autosave scheduling
+      history.ts    Undo/Redo buttons and shortcuts, History instance, clears on level switch
       project.ts    Project card: project select, New/Rename/Delete, level list, backup JSON
       draw.ts       brush and recent chips
       layers.ts     Layers card: add/reorder/rename/hide/delete
-      legend.ts     Legend card: name/color/usage per character
+      legend.ts     Legend card: name/color/usage per character, character remap
       generate.ts   maze/dungeon generator card
       exportModal.ts   Export dialog
       importModal.ts   Import dialog
