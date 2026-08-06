@@ -25,9 +25,11 @@ function levelSummary(level: Level): string {
   return `Level ${w}x${h}, ${plural(level.layers.length, 'layer')}`;
 }
 
+/**
+ * Uint8Array MUSI byc juz zdekompresowana (surowy layout .xp) - gzip z dysku rozpakowuje
+ * wolajacy PRZED wywolaniem (patrz decompressXpBytes w export/rexpaint.ts i importModal.ts).
+ */
 export function detectImport(payload: string | Uint8Array): DetectedImport {
-  // Uint8Array MUSI byc juz zdekompresowana (surowy layout .xp) - gzip z dysku rozpakowuje
-  // wolajacy PRZED wywolaniem (patrz decompressXpBytes w export/rexpaint.ts i importModal.ts)
   if (payload instanceof Uint8Array) {
     const { layers, colors } = parseXpBytes(payload);
     const level: Level = { layers: layers.map((l) => makeLayer(l.name, l.grid)), legend: new Legend() };
