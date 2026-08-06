@@ -55,11 +55,11 @@ locally as you draw.
   whole current project (every level it holds) as `project.json` - old `workspace.json` backups
   from earlier versions still import too.
 - An Export dialog: TXT, CSV, KaPlay snippet, Godot GDScript, Tiled `.tmx`, REXPaint `.xp`
-  and a project `.json` that keeps every layer and the legend - plus a Legacy (v1) tab with
+  and a level `.json` that keeps every layer and the legend - plus a Legacy (v1) tab with
   the two array formats the original editor used to save (the third, plain text, is covered
   by Copy TXT in the same dialog, and all three stay available behind SWITCH FORMAT in
   Simplified mode).
-- An Import dialog: load a file or paste text straight in, for project files, plain text,
+- An Import dialog: load a file or paste text straight in, for level `.json` files, plain text,
   REXPaint `.xp` and both old v1 array formats.
 - Mouse wheel zoom, drag to pan, Alt or Ctrl to erase.
 - Clean, high-contrast icon buttons (thick-stroke Lucide icons) across every panel and dialog.
