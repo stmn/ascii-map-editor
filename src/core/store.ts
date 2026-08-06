@@ -232,6 +232,13 @@ export async function ensureSeed(
   return { projectId: project.id, levelId: level.id, migrated };
 }
 
+interface ProjectFile {
+  app: string;
+  version: number;
+  project: { name: string };
+  levels: LevelRecord[];
+}
+
 interface WorkspaceFile {
   app: string;
   version: number;
@@ -239,71 +246,45 @@ interface WorkspaceFile {
   levels: LevelRecord[];
 }
 
-const EXPORT_APP_ID = 'ascii-level-editor-workspace';
+const PROJECT_APP_ID = 'ascii-level-editor-project';
+const LEGACY_WORKSPACE_APP_ID = 'ascii-level-editor-workspace';
 
-export async function exportWorkspace(store: WorkspaceStore): Promise<string> {
+export async function exportProject(store: WorkspaceStore, projectId: string): Promise<string> {
   const projects = await store.listProjects();
-  const levels: LevelRecord[] = [];
-  for (const p of projects) {
-    levels.push(...(await store.listLevels(p.id)));
-  }
-  const file: WorkspaceFile = {
-    app: EXPORT_APP_ID,
+  const project = projects.find((p) => p.id === projectId);
+  if (!project) throw new Error('Project not found');
+  const levels = await store.listLevels(projectId);
+  const file: ProjectFile = {
+    app: PROJECT_APP_ID,
     version: 1,
-    projects,
+    project: { name: project.name },
     levels: levels.map((l) => ({ ...l, thumb: null })), // bez thumb - odchudza plik eksportu
   };
   return JSON.stringify(file, null, 2);
 }
 
-export async function importWorkspace(
+// wspolne dla importu pojedynczego projektu i legacy-workspace: jeden zestaw
+// { name, levels } dostaje nowe id projektu (z nextName przy kolizji nazwy)
+// i remapuje poziomy na nowe id; niepoprawne rekordy sa pomijane po cichu
+async function importOneProject(
   store: WorkspaceStore,
-  json: string,
+  name: string,
+  levels: LevelRecord[],
   now: number,
-): Promise<{ projects: number; levels: number }> {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(json);
-  } catch {
-    throw new Error('Unrecognized workspace file');
-  }
-  if (typeof parsed !== 'object' || parsed === null) {
-    throw new Error('Unrecognized workspace file');
-  }
-  const o = parsed as Record<string, unknown>;
-  if (o.app !== EXPORT_APP_ID || !Array.isArray(o.projects) || !Array.isArray(o.levels)) {
-    throw new Error('Unrecognized workspace file');
-  }
-
-  const importedProjects = o.projects as ProjectMeta[];
-  const importedLevels = o.levels as LevelRecord[];
-
-  // merge-add: wszystko dostaje nowe id, kolidujace nazwy projektow dostaja nextName;
-  // rekordy z niepoprawnymi polami (obcy/uszkodzony plik) sa pomijane po cichu,
-  // tak samo jak poziomy bez zaimportowanego projektu
-  const existingNames = (await store.listProjects()).map((p) => p.name);
-  const idMap = new Map<string, string>(); // stare projectId -> nowe id
-
-  let projectCount = 0;
-  for (const p of importedProjects) {
-    if (typeof p.name !== 'string') continue;
-    const newId = crypto.randomUUID();
-    idMap.set(p.id, newId);
-    let name = p.name;
-    if (existingNames.includes(name)) name = nextName(name, existingNames);
-    existingNames.push(name);
-    await store.putProject({ id: newId, name, createdAt: p.createdAt, updatedAt: now });
-    projectCount++;
-  }
+  existingNames: string[],
+): Promise<{ levelCount: number }> {
+  const newId = crypto.randomUUID();
+  let finalName = name;
+  if (existingNames.includes(finalName)) finalName = nextName(finalName, existingNames);
+  existingNames.push(finalName);
+  await store.putProject({ id: newId, name: finalName, createdAt: now, updatedAt: now });
 
   let levelCount = 0;
-  for (const l of importedLevels) {
+  for (const l of levels) {
     if (typeof l.name !== 'string' || typeof l.data !== 'string' || !Number.isFinite(l.order)) continue;
-    const newProjectId = idMap.get(l.projectId);
-    if (!newProjectId) continue; // poziom bez zaimportowanego projektu - pomijamy (obcy/uszkodzony plik)
     await store.putLevel({
       id: crypto.randomUUID(),
-      projectId: newProjectId,
+      projectId: newId,
       name: l.name,
       order: l.order,
       data: l.data,
@@ -312,6 +293,67 @@ export async function importWorkspace(
     });
     levelCount++;
   }
+  return { levelCount };
+}
 
-  return { projects: projectCount, levels: levelCount };
+export async function importProject(
+  store: WorkspaceStore,
+  json: string,
+  now: number,
+): Promise<{ projects: number; levels: number }> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(json);
+  } catch {
+    throw new Error('Unrecognized project file');
+  }
+  if (typeof parsed !== 'object' || parsed === null) {
+    throw new Error('Unrecognized project file');
+  }
+  const o = parsed as Record<string, unknown>;
+  const existingNames = (await store.listProjects()).map((p) => p.name);
+
+  // legacy: plik calego workspace (backup z wersji 2.2-2.5) - dodajemy
+  // WSZYSTKIE jego projekty ta sama sciezka merge-add co pojedynczy projekt
+  if (o.app === LEGACY_WORKSPACE_APP_ID && Array.isArray(o.projects) && Array.isArray(o.levels)) {
+    const file = o as unknown as WorkspaceFile;
+    const idToLevels = new Map<string, LevelRecord[]>();
+    for (const l of file.levels) {
+      const bucket = idToLevels.get(l.projectId);
+      if (bucket) bucket.push(l);
+      else idToLevels.set(l.projectId, [l]);
+    }
+
+    let projectCount = 0;
+    let levelCount = 0;
+    for (const p of file.projects) {
+      if (typeof p.name !== 'string') continue;
+      const { levelCount: n } = await importOneProject(
+        store,
+        p.name,
+        idToLevels.get(p.id) ?? [],
+        now,
+        existingNames,
+      );
+      projectCount++;
+      levelCount += n;
+    }
+    return { projects: projectCount, levels: levelCount };
+  }
+
+  // plik pojedynczego projektu
+  if (
+    o.app === PROJECT_APP_ID &&
+    typeof o.project === 'object' &&
+    o.project !== null &&
+    typeof (o.project as Record<string, unknown>).name === 'string' &&
+    Array.isArray(o.levels)
+  ) {
+    const name = (o.project as { name: string }).name;
+    const levels = o.levels as LevelRecord[];
+    const { levelCount } = await importOneProject(store, name, levels, now, existingNames);
+    return { projects: 1, levels: levelCount };
+  }
+
+  throw new Error('Unrecognized project file');
 }
