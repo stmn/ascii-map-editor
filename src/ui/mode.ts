@@ -11,9 +11,25 @@ export type EditorMode = 'advanced' | 'simplified';
 const MODE_KEY = 'ascii-level-editor-mode';
 /** Klasa na body, po ktorej CSS chowa karty Advanced i pokazuje karte Map. */
 const SIMPLIFIED_CLASS = 'mode-simplified';
+/**
+ * Klasa na body wlaczajaca karte Extra features. To CALE zrodlo prawdy o jej widocznosci:
+ * CSS pokazuje karte dopiero przy obu klasach naraz (mode-simplified + ta), wiec w Advanced
+ * jest ukryta tym samym mechanizmem co reszta kart Simplified, a powrot do Simplified
+ * przywraca wybor uzytkownika bez zadnego odtwarzania stanu. Checkbox w karcie glownej jest
+ * jej pilotem (i lustrem), a X na karcie tylko wola setExtraVisible(false).
+ * Stan jest sesyjny - jak pedzel czy dim, nie trafia do localStorage.
+ */
+const EXTRA_CLASS = 'show-extra';
 
 /** Jedyna kopia prawdy o trybie w pamieci; localStorage jest tylko jej zapisem miedzy sesjami. */
 let mode: EditorMode = 'advanced';
+
+/**
+ * Obserwator zmian skladu widocznych kart (tryb, karta Extra) - panels.ts przesuwa nim mape
+ * i odswieza podglad. Trzymany w module, bo widocznosc karty Extra przelacza sie tez spoza
+ * przelacznika trybu i obie sciezki maja zachowac sie identycznie.
+ */
+let onVisibilityChange: ((offsetShift: number) => void) | null = null;
 
 export function currentMode(): EditorMode {
   return mode;
@@ -44,6 +60,18 @@ function writeStored(value: EditorMode): void {
 
 function applyClass(): void {
   document.body.classList.toggle(SIMPLIFIED_CLASS, mode === 'simplified');
+}
+
+/**
+ * Pokazanie/ukrycie karty Extra features. Zmiana skladu kart moze zwezic albo poszerzyc kolumne
+ * (karta da sie przeciagnac do pustej kolumny), wiec idzie ta sama sciezka co przelaczenie trybu:
+ * withOffsetShift mierzy offset centrowania przed i po, a wolajacy przesuwa mape o roznice.
+ */
+export function setExtraVisible(visible: boolean): void {
+  const shift = withOffsetShift(() => {
+    document.body.classList.toggle(EXTRA_CLASS, visible);
+  });
+  onVisibilityChange?.(shift);
 }
 
 /**
@@ -104,6 +132,7 @@ function openChooser(setMode: (value: EditorMode) => void): void {
  * kolumn dokladnie tak jak przeciagniecie karty, wiec wolajacy przesuwa mape ta sama sciezka.
  */
 export function initModeUi(onChange: (offsetShift: number) => void): void {
+  onVisibilityChange = onChange;
   const advancedBtn = button('Advanced', 'mode-seg', () => setMode('advanced'));
   const simplifiedBtn = button('Simplified', 'mode-seg', () => setMode('simplified'));
   const pill = el('div', 'mode-switch');
@@ -126,7 +155,7 @@ export function initModeUi(onChange: (offsetShift: number) => void): void {
       syncPill();
     });
     writeStored(next);
-    onChange(shift);
+    onVisibilityChange?.(shift);
   }
 
   syncPill();

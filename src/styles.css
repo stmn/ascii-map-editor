@@ -119,6 +119,19 @@ textarea {
   display: none;
 }
 
+/* Naglowek karty z przyciskiem po prawej (X na Extra features); ::before z +/- zostaje
+   pierwszym elementem rzedu, a tytul w <span> zabiera cala reszte miejsca. */
+.sidebar summary.summary-x {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.summary-x > span {
+  flex: 1;
+  min-width: 0;
+}
+
 .sidebar summary::before {
   content: '+ ';
 }
@@ -277,6 +290,26 @@ button:disabled:active {
   gap: 8px;
 }
 
+/* Pola obok siebie po rowno (Width/Height w karcie glownej Simplified, jak w v1).
+   min-width: 0 - bez tego pole liczbowe nie da sie zwezic ponizej swojej szerokosci wlasnej. */
+.field-row {
+  display: flex;
+  gap: 6px;
+}
+
+.field-row > * {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Wiersz "etykieta z lewej, akcja z prawej" - naglowek pola mapy z linkiem SWITCH FORMAT. */
+.row-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .hint {
   margin: 0;
   font-size: 11px;
@@ -349,6 +382,44 @@ button:disabled:active {
 .char-input {
   width: 48px;
   text-align: center;
+}
+
+/* Pole znaku w karcie glownej (Simplified) zajmuje cala szerokosc karty - jak w v1. */
+.char-input.char-wide {
+  width: 100%;
+}
+
+/* Link akcji w stylu v1: niebieski, podkreslony, bez ramki i tla - nie konkuruje z przyciskami. */
+.link-btn {
+  flex: none;
+  font-size: 9px;
+  color: #3b82f6;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.link-btn:hover {
+  color: #2563eb;
+  background: none;
+}
+
+.link-btn:active {
+  color: #1d4ed8;
+  background: none;
+}
+
+/* Szare pudelko przelacznikow widoku pod przyciskami karty glownej - jeden blok jak w v1. */
+.check-box {
+  display: grid;
+  gap: 6px;
+}
+
+/* Podtytul bloku w karcie (Extra features) - wielkosc tresci, bez szarosci .hint. */
+.card-heading {
+  margin: 0;
 }
 
 /* Pelna szerokosc karty - W i H sa stackowane pionowo (.field-stack), nie obok siebie. */
@@ -670,7 +741,9 @@ input[type='color'] {
   min-width: 0;
 }
 
-.modal-x {
+/* Kwadratowy X: w naglowku modalu i w naglowku karty Extra features - ten sam wyglad. */
+.modal-x,
+.card-x {
   flex: none;
   width: 26px;
   padding: 4px 0;
@@ -681,11 +754,13 @@ input[type='color'] {
   background: #ffffff;
 }
 
-.modal-x:hover {
+.modal-x:hover,
+.card-x:hover {
   background: #d1d5db;
 }
 
-.modal-x:active {
+.modal-x:active,
+.card-x:active {
   background: #9ca3af;
 }
 
@@ -713,10 +788,17 @@ input[type='color'] {
   padding-top: 12px;
 }
 
-.modal-sep {
+.modal-sep,
+.card-sep {
   border: 0;
   border-top: 2px solid #000000;
   margin: 0;
+}
+
+/* Kreska rozdzielajaca bloki W KARCIE potrzebuje wlasnego odstepu: bez niego przykleja sie
+   do czarnej ramki sasiedniego przycisku i czyta sie jak jego pogrubiony spod, a nie separator. */
+.card-sep {
+  margin: 12px 0;
 }
 
 /* Podglad legacy, pole wklejania i podglad mapy w karcie Map: bez zawijania, wlasny scroll. */
@@ -747,8 +829,9 @@ input[type='color'] {
    Karty chowa sam CSS po data-section - zapisany uklad kolumn (DnD) zostaje nietkniety,
    wiec powrot do Advanced przywraca dokladnie to samo rozmieszczenie. */
 
-/* Karta Map jest odwrotnoscia reszty: widoczna wylacznie w Simplified. */
-.sidebar > details[data-section='map'] {
+/* Karta Map (glowna) i Extra features sa odwrotnoscia reszty: widoczne wylacznie w Simplified. */
+.sidebar > details[data-section='map'],
+.sidebar > details[data-section='extra'] {
   display: none;
 }
 
@@ -756,8 +839,17 @@ body.mode-simplified .sidebar > details[data-section='map'] {
   display: block;
 }
 
+/* Extra features wymaga OBU klas naraz: trybu i checkboxa z karty glownej (ui/mode.ts).
+   Dzieki temu jedno zrodlo prawdy o widocznosci obsluguje i przelaczenie trybu, i checkbox. */
+body.mode-simplified.show-extra .sidebar > details[data-section='extra'] {
+  display: block;
+}
+
 body.mode-simplified .sidebar > details[data-section='project'],
+body.mode-simplified .sidebar > details[data-section='draw'],
 body.mode-simplified .sidebar > details[data-section='layers'],
+body.mode-simplified .sidebar > details[data-section='legend'],
+body.mode-simplified .sidebar > details[data-section='generate'],
 body.mode-simplified .sidebar > details[data-section='export'],
 body.mode-simplified .sidebar > details[data-section='import'] {
   display: none;

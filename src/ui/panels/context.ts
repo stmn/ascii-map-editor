@@ -1,6 +1,7 @@
 // Wspolny kontekst modulow panelu: stan, callbacki do app.ts, hooki miedzymodulowe
 // oraz drobne narzedzia UI (toast, dzwiek, autozapis). Jedno miejsce zamiast kopii w kazdym module.
-import { applyLevelToState, type EditorState } from '../../core/editorState';
+import { replaceCommand, snapshotLevel } from '../../core/commands';
+import { applyLevelToState, bumpContent, type EditorState } from '../../core/editorState';
 import type { Command } from '../../core/history';
 import type { Level } from '../../core/level';
 import { serializeProject } from '../../core/project';
@@ -33,6 +34,12 @@ export interface PanelHooks {
    */
   renderMap(): void;
   setBrush(ch: string): void;
+  /**
+   * Rozsyla ustawiony wlasnie pedzel do pol POZA karta Draw (pole Character w karcie glownej).
+   * Wola go setBrush, wiec kazda droga zmiany pedzla (klawisz, chip, legenda, pole Character)
+   * konczy sie tak samo - to druga polowa dwustronnej synchronizacji.
+   */
+  syncBrush(ch: string): void;
   /** Podpina panels/history.ts; do jego zlozenia (i w testach bez paneli) wywolania sa cichym no-op. */
   pushHistory?(cmd: Command): void;
 }
@@ -65,6 +72,30 @@ export function applyLevelToPanels(ctx: PanelsCtx, level: Level): boolean {
   ctx.hooks.renderLegend();
   ctx.hooks.renderMap();
   return trimmed;
+}
+
+/**
+ * Odwracalna zmiana TRESCI poziomu w miejscu: migawka przed, mutacja, odswiezenie widoku i kart,
+ * autozapis, "pop" i wpis w historii. JEDYNA implementacja tej sekwencji - jada nia czyszczenie
+ * warstwy (Draw), czyszczenie calej mapy (karta glowna) i oba generatory. Wolajacy dostarcza
+ * tylko etykiete historii i sama mutacje; dokladanie kroku (np. toast) nalezy do niego.
+ * `center` wlaczaja generatory - podmieniona siatka zmienia rozmiar mapy, wiec widok musi za nia pojsc.
+ */
+export function applyReplace(
+  ctx: PanelsCtx, label: string, mutate: () => void, center = false,
+): void {
+  const before = snapshotLevel(ctx.state.level);
+  mutate();
+  bumpContent(ctx.state);
+  if (center) ctx.centerOnPaper();
+  ctx.markDirty();
+  ctx.hooks.renderLegend();
+  ctx.hooks.renderMap();
+  scheduleSave();
+  playPop();
+  ctx.hooks.pushHistory?.(replaceCommand(
+    label, before, snapshotLevel(ctx.state.level), (level) => { applyLevelToPanels(ctx, level); },
+  ));
 }
 
 // --- male helpery DOM ---------------------------------------------------------

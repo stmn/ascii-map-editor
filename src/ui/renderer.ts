@@ -1,6 +1,8 @@
 import { footprintBounds } from '../core/editorState';
 import { type Bounds } from '../core/grid';
 import { Level, flattenWithSource, unionBounds } from '../core/level';
+// mode.ts nie importuje renderera (siega tylko po dom/layout/modal), wiec nie ma tu cyklu
+import { isSimplified } from './mode';
 
 export interface View { panX: number; panY: number; scale: number }
 
@@ -19,6 +21,10 @@ export interface DrawState {
   activeLayer: number;
   /** Czy przyciemniac na canvasie komorki spoza aktywnej warstwy (patrz DIM_ALPHA). */
   dimOthers: boolean;
+  /** Czy rysowac linie siatki - papier i jego obrys zostaja niezaleznie od tego. */
+  gridVisible: boolean;
+  /** Czy brac kolory z legendy; false = jednolity atrament. */
+  colorsEnabled: boolean;
 }
 
 /** Domyslny "papier" 24x16 pokazywany gdy mapa jest pusta. */
@@ -113,21 +119,24 @@ export class Renderer {
     ctx.fillStyle = COLOR_PAPER;
     ctx.fillRect(px, py, pw, ph);
 
-    // siatka - tylko wewnatrz papieru, linie na granicach komorek
-    const lw = s >= SMALL_SCALE ? 2 : 1;
-    const off = lw % 2 === 0 ? 0 : 0.5;
-    ctx.strokeStyle = COLOR_GRID;
-    ctx.lineWidth = lw;
-    ctx.beginPath();
-    for (let x = Math.max(paper.minX + 1, x0); x <= Math.min(paper.maxX, x1); x++) {
-      const sx = Math.round(x * s - view.panX) + off;
-      ctx.moveTo(sx, py); ctx.lineTo(sx, py + ph);
+    // siatka - tylko wewnatrz papieru, linie na granicach komorek.
+    // Checkbox "Show grid" zdejmuje same linie: papier i jego obrys zostaja, tak jak w v1.
+    if (state.gridVisible) {
+      const lw = s >= SMALL_SCALE ? 2 : 1;
+      const off = lw % 2 === 0 ? 0 : 0.5;
+      ctx.strokeStyle = COLOR_GRID;
+      ctx.lineWidth = lw;
+      ctx.beginPath();
+      for (let x = Math.max(paper.minX + 1, x0); x <= Math.min(paper.maxX, x1); x++) {
+        const sx = Math.round(x * s - view.panX) + off;
+        ctx.moveTo(sx, py); ctx.lineTo(sx, py + ph);
+      }
+      for (let y = Math.max(paper.minY + 1, y0); y <= Math.min(paper.maxY, y1); y++) {
+        const sy = Math.round(y * s - view.panY) + off;
+        ctx.moveTo(px, sy); ctx.lineTo(px + pw, sy);
+      }
+      ctx.stroke();
     }
-    for (let y = Math.max(paper.minY + 1, y0); y <= Math.min(paper.maxY, y1); y++) {
-      const sy = Math.round(y * s - view.panY) + off;
-      ctx.moveTo(px, sy); ctx.lineTo(px + pw, sy);
-    }
-    ctx.stroke();
 
     // gruby czarny obrys papieru - rysowany na zewnatrz krawedzi (jak border-4 w v1)
     ctx.strokeStyle = COLOR_OUTLINE;
@@ -138,9 +147,12 @@ export class Renderer {
     // niesie tez indeks warstwy zrodlowej - patrz komentarz przy cachedFlat)
     const flat = this.flatten(level, state.contentRev);
     // przyciemniamy tylko gdy user wlaczyl to w karcie Layers I jest co odroznic (>1 widoczna warstwa) -
-    // przy jednej widocznej warstwie przyciemnianie nie mialoby czego pokazac
+    // przy jednej widocznej warstwie przyciemnianie nie mialoby czego pokazac.
+    // W Simplified nie ma karty Layers ani pojecia warstwy aktywnej, wiec przyciemnienie czesci
+    // mapy bez zadnego wytlumaczenia w UI wygladaloby na blad renderowania - stad wyjatek trybu
+    // (samo state.dimOthers zostaje nietkniete, powrot do Advanced wraca do ustawienia usera).
     const visibleLayers = level.layers.filter((l) => l.visible).length;
-    const dimming = state.dimOthers && visibleLayers > 1;
+    const dimming = state.dimOthers && visibleLayers > 1 && !isSimplified();
     const fontPx = Math.max(6, Math.round(s * 0.6));
     ctx.font = s >= SMALL_SCALE
       ? `${fontPx}px "Press Start 2P", monospace`
@@ -150,7 +162,10 @@ export class Renderer {
     for (const [key, { ch, layerIndex }] of flat) {
       const [x, y] = key.split(',').map(Number);
       if (x < x0 || x > x1 || y < y0 || y > y1) continue;
-      ctx.fillStyle = level.legend.get(ch)?.color ?? COLOR_INK_FALLBACK;
+      // wylaczone kolory: wszystko jednym atramentem, bez zagladania do legendy
+      ctx.fillStyle = state.colorsEnabled
+        ? level.legend.get(ch)?.color ?? COLOR_INK_FALLBACK
+        : COLOR_INK_FALLBACK;
       ctx.globalAlpha = dimming && layerIndex !== state.activeLayer ? DIM_ALPHA : 1;
       ctx.fillText(ch, x * s - view.panX + s / 2, y * s - view.panY + s / 2);
       ctx.globalAlpha = 1;

@@ -1,10 +1,9 @@
 // Panel Draw: pasek ostatnich znakow, pole pedzla, rozmiar stopki, skrot klawiszowy i czyszczenie warstwy.
-import { replaceCommand, snapshotLevel } from '../../core/commands';
-import { BRUSH_SIZES, activeLayerOf, bumpContent } from '../../core/editorState';
+import { BRUSH_SIZES, activeLayerOf } from '../../core/editorState';
 import { button, el, labeled } from '../dom';
 import { confirmModal, isModalOpen } from '../modal';
 import { isTypingTarget } from '../input';
-import { PanelsCtx, applyLevelToPanels, playPop, scheduleSave } from './context';
+import { PanelsCtx, applyReplace } from './context';
 
 const MAX_RECENT = 14;
 /** Znaki startowe w pasku "recent" - typowe kafle poziomu. */
@@ -57,11 +56,17 @@ export function initDraw(ctx: PanelsCtx, drawBox: HTMLElement): DrawPanel {
     renderChipRow(sizeChips, BRUSH_SIZES, state.brushSize, (n) => `Brush size: ${n}x${n}`, setBrushSize);
   }
 
+  /**
+   * Jedyne miejsce ustawiajace pedzel (klawiatura, chip, legenda, pole Character z karty glownej).
+   * syncBrush rozsyla nowy znak do pol POZA ta karta - dzieki temu pole w trybie Simplified
+   * nadaza za przelaczeniem pedzla klawiszem, a zadna karta nie musi znac drugiej.
+   */
   function setBrush(ch: string): void {
     state.brush = ch;
     pushRecent(ch);
     if (charInput.value !== ch) charInput.value = ch;
     renderChips();
+    ctx.hooks.syncBrush(ch);
   }
 
   /** Rozmiar jest sesyjny (jak pedzel) - nie zapisujemy go, ale hover musi od razu zmienic rozmiar. */
@@ -94,19 +99,9 @@ export function initDraw(ctx: PanelsCtx, drawBox: HTMLElement): DrawPanel {
     if (!await confirmModal(`Clear layer "${layer.name}"?`, 'Clear')) return;
     // stan mogl sie zmienic w trakcie potwierdzania - druga kontrola jest tania
     if (layer.grid.isEmpty()) return;
-    // migawka calego poziomu (nie samej warstwy): czyszczenie zmienia tez liczniki legendy,
-    // a wspolna sciezka podmiany poziomu odtwarza jedno i drugie
-    const before = snapshotLevel(state.level);
-    layer.grid.clear();
-    bumpContent(state);
-    ctx.markDirty();
-    ctx.hooks.renderLegend();
-    ctx.hooks.renderMap();
-    scheduleSave();
-    playPop();
-    ctx.hooks.pushHistory?.(replaceCommand(
-      'Clear layer', before, snapshotLevel(state.level), (level) => { applyLevelToPanels(ctx, level); },
-    ));
+    // migawke calego poziomu (nie samej warstwy) robi applyReplace: czyszczenie zmienia tez
+    // liczniki legendy, a wspolna sciezka podmiany poziomu odtwarza jedno i drugie
+    applyReplace(ctx, 'Clear layer', () => layer.grid.clear());
   }
 
   const clearRow = el('div', 'btn-row');

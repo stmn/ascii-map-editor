@@ -4,7 +4,7 @@ import {
 } from '../../core/commands';
 import { bumpContent, clampedActive } from '../../core/editorState';
 import { Layer, MAX_LAYERS, makeLayer } from '../../core/level';
-import { button, el, iconButton } from '../dom';
+import { button, checkboxRow, el, iconButton } from '../dom';
 import { icon } from '../icons';
 import { confirmModal } from '../modal';
 import { PanelsCtx, playPop, scheduleSave } from './context';
@@ -35,16 +35,11 @@ export function initLayers(ctx: PanelsCtx, layersBox: HTMLElement): LayersPanel 
    * brushSize), nie tresci mapy, wiec zmiana idzie TYLKO przez markDirty: bez historii (undo/redo
    * by nie mialo sensu dla podgladu) i bez autozapisu (nic tu nie trafia do rekordu poziomu).
    */
-  const dimCheckbox = el('input');
-  dimCheckbox.type = 'checkbox';
-  dimCheckbox.checked = state.dimOthers;
-  dimCheckbox.setAttribute('aria-label', 'Dim other layers');
-  dimCheckbox.addEventListener('change', () => {
-    state.dimOthers = dimCheckbox.checked;
+  const dimRow = checkboxRow('Dim other layers', state.dimOthers, (on) => {
+    state.dimOthers = on;
     ctx.markDirty();
-  });
-  const dimRow = el('label', 'field help-box');
-  dimRow.append(dimCheckbox, el('span', undefined, 'Dim other layers'));
+  }).row;
+  dimRow.classList.add('help-box');
 
   function setActiveLayer(index: number): void {
     if (state.activeLayer === index) return;

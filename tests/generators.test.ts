@@ -42,4 +42,27 @@ describe('generators', () => {
     expect(a).toEqual(b);
     expect(a.join('')).toContain('.');
   });
+
+  // Jedna proba pokoju przy min === max daje DOKLADNIE jeden prostokat podlogi o tym boku,
+  // wiec sama liczba komorek '.' dowodzi, ze oba konce zakresu trafiaja do losowania.
+  it('dungeon: bok pokoju trzyma sie zadanego min/max', () => {
+    for (const size of [3, 5, 7]) {
+      const g = generateDungeon(40, 24, 1, mulberry32(5), size, size);
+      const floors = [...g.cells()].filter((c) => c.ch === '.').length;
+      expect(floors).toBe(size * size);
+    }
+  });
+
+  it('dungeon: custom min/max jest deterministyczny i ma podloge', () => {
+    const a = generateDungeon(50, 30, 25, mulberry32(11), 5, 9).toLines();
+    const b = generateDungeon(50, 30, 25, mulberry32(11), 5, 9).toLines();
+    expect(a).toEqual(b);
+    expect(a.join('')).toContain('.');
+  });
+
+  it('dungeon: odwrocone min/max daje to samo co poprawna kolejnosc', () => {
+    const a = generateDungeon(40, 24, 30, mulberry32(9), 4, 8).toLines();
+    const b = generateDungeon(40, 24, 30, mulberry32(9), 8, 4).toLines();
+    expect(a).toEqual(b);
+  });
 });

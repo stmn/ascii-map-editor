@@ -14,6 +14,7 @@ import { initGenerate } from './panels/generate';
 import { initExportModal } from './panels/exportModal';
 import { initImportModal } from './panels/importModal';
 import { initMap } from './panels/map';
+import { initExtra } from './panels/extra';
 import { initProject } from './panels/project';
 
 /**
@@ -52,6 +53,7 @@ export function initPanels(ctx: PanelsContext): Panels {
   const exportBox = requireEl('panel-export');
   const importBox = requireEl('panel-import');
   const mapBox = requireEl('panel-map');
+  const extraBox = requireEl('panel-extra');
 
   initAutosave(state);
 
@@ -69,7 +71,8 @@ export function initPanels(ctx: PanelsContext): Panels {
   // zaslepki na czas skladania modulow - odwolania miedzy panelami sa cykliczne,
   // wiec prawdziwe funkcje podpinamy dopiero gdy wszystkie moduly powstana
   const hooks: PanelHooks = {
-    renderLegend: () => {}, renderLayers: () => {}, renderMap: () => {}, setBrush: () => {},
+    renderLegend: () => {}, renderLayers: () => {}, renderMap: () => {},
+    setBrush: () => {}, syncBrush: () => {},
   };
   const panelsCtx: PanelsCtx = { ...ctx, onMutate, hooks };
 
@@ -89,6 +92,10 @@ export function initPanels(ctx: PanelsContext): Panels {
   // z modulu Import zamiast wlasnej kopii podmiany poziomu
   const map = initMap(panelsCtx, mapBox, importPanel.applyImported);
   hooks.renderMap = map.refresh;
+  // pole Character z karty glownej ma nadazac za pedzlem ustawionym gdzie indziej (klawisz, chip)
+  hooks.syncBrush = map.syncBrush;
+  // karta Extra features czyta z karty glownej rozmiar mapy i chowa sie przez jej checkbox
+  initExtra(panelsCtx, extraBox, map);
   // karta projektow czyta magazyn asynchronicznie i sama rejestruje sie na zdarzenie zapisu
   // (odswiezanie miniatury biezacego poziomu) - nie potrzebuje wpisu w hookach miedzypanelowych
   const project = initProject(panelsCtx, projectBox);

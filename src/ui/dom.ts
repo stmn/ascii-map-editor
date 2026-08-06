@@ -59,6 +59,51 @@ export function labeledStack(text: string, control: HTMLElement): HTMLLabelEleme
 }
 
 /**
+ * Wiersz przelacznika: checkbox i podpis w jednej etykiecie, wiec klik w tekst tez przelacza.
+ * Wspolny dla "Dim other layers" w karcie Layers i pudelka przelacznikow w karcie glownej.
+ * Zwraca tez samo pole - checkbox bywa sterowany z zewnatrz (X na karcie Extra features).
+ */
+export function checkboxRow(
+  text: string, checked: boolean, onChange: (on: boolean) => void,
+): { row: HTMLLabelElement; input: HTMLInputElement } {
+  const input = el('input');
+  input.type = 'checkbox';
+  input.checked = checked;
+  input.setAttribute('aria-label', text);
+  input.addEventListener('change', () => onChange(input.checked));
+  const row = el('label', 'field');
+  row.append(input, el('span', undefined, text));
+  return { row, input };
+}
+
+/**
+ * Pole liczbowe z twardym zakresem - rozmiar mapy w karcie Generate i w karcie glownej
+ * (Simplified) oraz bok pokoju w karcie Extra features. Zakres siedzi w atrybutach min/max,
+ * wiec readNumber odczytuje go z samego pola i nie trzeba nigdzie powtarzac granic.
+ */
+export function numberInput(value: number, label: string, min: number, max: number): HTMLInputElement {
+  const input = el('input', 'size-input');
+  input.type = 'number';
+  input.min = String(min);
+  input.max = String(max);
+  input.value = String(value);
+  input.setAttribute('aria-label', label);
+  return input;
+}
+
+/**
+ * Odczyt pola numberInput przyciety do jego zakresu; smiec (puste pole, tekst) wraca do fallbacku.
+ * Wartosc wraca tez do samego pola, zeby uzytkownik od razu widzial, z czym naprawde policzylismy.
+ */
+export function readNumber(input: HTMLInputElement, fallback: number): number {
+  const min = Number(input.min), max = Number(input.max);
+  const raw = Math.round(Number(input.value));
+  const value = Number.isFinite(raw) && raw > 0 ? Math.max(min, Math.min(max, raw)) : fallback;
+  input.value = String(value);
+  return value;
+}
+
+/**
  * Ciemny kolor tla wg WCAG relative luminance (prog 0.5) -> tekst na nim powinien byc bialy,
  * jasny kolor -> czarny. Uzywane przez legend.ts do koloru licznika uzyc na swatchu koloru.
  */

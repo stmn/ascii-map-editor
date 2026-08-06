@@ -26,6 +26,10 @@ export interface EditorState {
    * sesyjne, nie trafia do zapisu ani historii. Domyslnie wlaczone.
    */
   dimOthers: boolean;
+  /** Czy rysowac linie siatki na papierze (checkbox "Show grid" z karty glownej). Ustawienie widoku. */
+  gridVisible: boolean;
+  /** Czy malowac znaki kolorami legendy; false = wszystko kolorem atramentu (gray mode z v1). */
+  colorsEnabled: boolean;
 }
 
 /**

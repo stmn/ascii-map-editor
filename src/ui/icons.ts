@@ -14,8 +14,7 @@ export type IconName =
   | 'eye'
   | 'eye-off'
   | 'copy'
-  | 'x'
-  | 'plus';
+  | 'x';
 
 /** Pojedynczy wezel potomny <svg> - ten zestaw ikon Lucide korzysta tylko z path/circle/rect. */
 interface IconShape {
@@ -59,10 +58,6 @@ const ICONS: Record<IconName, IconShape[]> = {
   x: [
     path('M18 6 6 18'),
     path('m6 6 12 12'),
-  ],
-  plus: [
-    path('M5 12h14'),
-    path('M12 5v14'),
   ],
 };
 

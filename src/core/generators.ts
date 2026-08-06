@@ -38,16 +38,24 @@ export function generateMaze(w: number, h: number, rng: () => number = Math.rand
   return g;
 }
 
+/**
+ * Loch z prostokatnych pokoi polaczonych korytarzami w L.
+ * minRoom/maxRoom to bok pokoju (obie osie losowane z tego samego zakresu) - karta Extra features
+ * wystawia je uzytkownikowi. Odwrocone wartosci zamieniamy miejscami zamiast rzucac: pole liczbowe
+ * w UI latwo zostawic w takim stanie w trakcie pisania, a pusty zakres dalby ujemne boki pokoi.
+ */
 export function generateDungeon(
   w: number, h: number, roomTries = 30, rng: () => number = Math.random,
+  minRoom = 4, maxRoom = 10,
 ): Grid {
+  const lo = Math.min(minRoom, maxRoom), hi = Math.max(minRoom, maxRoom);
   const g = new Grid();
   interface Room { x: number; y: number; w: number; h: number }
   const rooms: Room[] = [];
   const ri = (a: number, b: number) => a + Math.floor(rng() * (b - a + 1));
 
   for (let i = 0; i < roomTries; i++) {
-    const rw = ri(4, 10), rh = ri(4, 8);
+    const rw = ri(lo, hi), rh = ri(lo, hi);
     const rx = ri(1, Math.max(1, w - rw - 2));
     const ry = ri(1, Math.max(1, h - rh - 2));
     const overlaps = rooms.some((r) =>
