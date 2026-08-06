@@ -169,7 +169,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 ## 4. Lucide icons
 
 Applies to the icon glyphs (pencil, trash, chevron-up, chevron-down, eye, eye-off,
-copy, crosshair, x, plus) inlined as SVG path data in `src/ui/icons.ts`. Path data was copied
+copy, crosshair, x) inlined as SVG path data in `src/ui/icons.ts`. Path data was copied
 from the icon SVG files at dev time; the build ships no Lucide package or network
 fetch at runtime.
 
@@ -221,6 +221,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-Note: `chevron-up`, `chevron-down`, `crosshair`, `plus`, `trash` (trash-2) and `x` are
+Note: `chevron-up`, `chevron-down`, `crosshair`, `trash` (trash-2) and `x` are
 on the Feather-derived list above, so both the ISC notice and the Feather MIT notice
 apply to them; `pencil`, `eye`, `eye-off` and `copy` are plain Lucide icons under ISC only.

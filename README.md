@@ -45,8 +45,8 @@ itch.io-ready HTML project (`index.html` as the entry point) and it also contain
   or already painted somewhere on the map is rejected with a red toast and nothing changes;
   the remap is undoable like every other edit.
 - Generate builds a maze (recursive backtracker, with `S` and `E` placed) or a room and
-  corridor dungeon, replacing the active layer. A **Rooms** field (1-50, default 8) sits next
-  to the Width/Height fields and sets the dungeon's target room count - the generator places
+  corridor dungeon, replacing the active layer. A **Rooms** field (1-50, default 8) sits below
+  the Width/Height fields and sets the dungeon's target room count - the generator places
   rooms until it reaches that target or hits an internal placement-attempt cap, so a small or
   crowded map may end up with fewer rooms than requested. Rooms has no effect on the maze.
 - Export opens a dialog: a Scope selector (Active layer or Flattened), a copy-or-download
@@ -413,6 +413,9 @@ src/
     thumb.ts        level thumbnail: flat-color 120x80 canvas -> JPEG data URL
     dom.ts          tiny element builder helpers shared by every panel
     layout.ts       dual sidebar: card drag and drop, localStorage layout, canvas centering offset
+    center.ts       floating center button, fixed at the bottom of the screen in both modes
+    mode.ts         Advanced/Simplified switch, first-run mode chooser, mode stored in localStorage
+    icons.ts        Lucide icon path data inlined as constants, no runtime network fetch
     panels.ts       composition root: wires the panels/ modules together through initPanels(ctx)
     panels/         one module per sidebar card, all fed state and callbacks by panels.ts
       context.ts    shared PanelsCtx/hooks, toast, workspace store handle, autosave scheduling

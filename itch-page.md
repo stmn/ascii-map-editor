@@ -39,7 +39,7 @@ locally as you draw.
   / Show colors toggles. A first-run chooser asks which one you want, and a switch at the top
   of the screen changes it any time after that.
 - An Extra features card in Simplified, one checkbox away: the maze generator, and the dungeon
-  generator with its own min and max room size.
+  generator with its own min and max room size and a target room count.
 - A legend that turns characters into real tiles: give each one a name and a color, and see
   how many times it is used. Change a character on the fly too: one click remaps it everywhere
   on every layer.
