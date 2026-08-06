@@ -27,7 +27,7 @@ export function closeAnyMenu(): void {
   closeOpenMenu?.();
 }
 
-/** Etykieta triggera: tekst + chevron w dol po prawej (ten sam ISCwony chevron co w karcie Layers). */
+/** Etykieta triggera: tekst + chevron w dol po prawej (ta sama ikona co w karcie Layers). */
 function triggerContent(label: string): DocumentFragment {
   const content = document.createDocumentFragment();
   content.append(el('span', 'menu-label', label), icon('chevron-down'));
@@ -78,8 +78,16 @@ export function menuButton(label: string, items: () => MenuItem[]): HTMLElement 
 
   function onKey(e: KeyboardEvent): void {
     if (!panel) return;
+    // Otwarty panel zabiera CALA klawiature dla siebie, bezwarunkowo - nie tylko klawisze,
+    // ktore tu obslugujemy. Listener stoi w capture na document, a globalne skroty edytora
+    // (input.ts - pan widoku na strzalkach, draw.ts - zmiana pedzla na znaku drukowalnym,
+    // history.ts - undo/redo) siedza w bubble na window; bez stopPropagation kazdy z tych
+    // klawiszy lecialby dalej i jednoczesnie ruszalby widokiem/pedzlem POD otwartym menu
+    // (fix round 2, finding 1). Capture na document wyprzedza bubble na window, wiec samo to
+    // wystarcza - preventDefault nizej to osobna sprawa (blokuje tylko domyslna akcje
+    // przegladarki dla konkretnego klawisza, np. scroll na strzalkach).
+    e.stopPropagation();
     if (e.key === 'Escape') {
-      e.stopPropagation();
       closeSelf();
       trigger.focus();
       return;
@@ -121,7 +129,8 @@ export function menuButton(label: string, items: () => MenuItem[]): HTMLElement 
     document.body.append(panel);
 
     // korekta w lewo, gdyby panel (szerszy niz trigger przy dluzszych etykietach) wystawal
-    // poza prawa krawedz viewportu; nie schodzimy ponizej 0, zeby nie wyjechac w lewo zamiast
+    // poza prawa krawedz viewportu; nie schodzimy ponizej 0, zeby korekta sama nie wypchnela
+    // panelu poza LEWA krawedz zamiast prawej.
     const panelRect = panel.getBoundingClientRect();
     const overflowRight = panelRect.right - window.innerWidth;
     if (overflowRight > 0) panel.style.left = `${Math.max(0, triggerRect.left - overflowRight)}px`;
