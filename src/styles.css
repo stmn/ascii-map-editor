@@ -462,9 +462,11 @@ button:disabled:active {
   background: #3b82f6;
 }
 
+/* Pole Char w karcie Draw: rozciagniete na reszte rzedu za etykieta, tekst do lewej. */
 .char-input {
-  width: 48px;
-  text-align: center;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
 }
 
 /* Pole znaku w karcie glownej (Simplified): waskie i przyklejone do lewej krawedzi karty
