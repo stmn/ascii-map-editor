@@ -17,6 +17,11 @@ export interface EditorState {
   /** Bok kwadratowej stopki pedzla (1-5). Sesyjny jak brush - nie trafia do zapisu. */
   brushSize: number;
   /**
+   * Aktywne narzedzie karty Draw. Sesyjny jak brush/brushSize - nie trafia do zapisu.
+   * 'eraser' pozwala wymazywac przeciagnieciem bez modyfikatora Alt/Ctrl (patrz ui/input.ts).
+   */
+  tool: 'brush' | 'eraser';
+  /**
    * Licznik zmian TRESCI mapy. Renderer trzyma po nim cache splaszczenia warstw,
    * wiec pan i zoom (ktore tresci nie ruszaja) cache'u nie kasuja.
    */

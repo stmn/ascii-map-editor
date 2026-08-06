@@ -8,6 +8,7 @@
 
 export type IconName =
   | 'pencil'
+  | 'eraser'
   | 'trash'
   | 'chevron-up'
   | 'chevron-down'
@@ -32,6 +33,10 @@ const ICONS: Record<IconName, IconShape[]> = {
   pencil: [
     path('M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z'),
     path('m15 5 4 4'),
+  ],
+  eraser: [
+    path('M21 21H8a2 2 0 0 1-1.42-.587l-3.994-3.999a2 2 0 0 1 0-2.828l10-10a2 2 0 0 1 2.829 0l5.999 6a2 2 0 0 1 0 2.828L12.834 21'),
+    path('m5.082 11.09 8.828 8.828'),
   ],
   trash: [
     path('M10 11v6'),

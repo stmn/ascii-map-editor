@@ -34,6 +34,7 @@ export const state: EditorState = {
   view: { panX: 0, panY: 0, scale: 32 },
   brush: '#',
   brushSize: 1,
+  tool: 'brush',
   contentRev: 0,
   dimOthers: true,
   gridVisible: true,
@@ -262,6 +263,7 @@ async function boot(): Promise<void> {
       markDirty();
     },
     viewChanged: markDirty,
+    eraserActive: () => state.tool === 'eraser',
   }, state.view);
   setGestureActiveGetter(() => input.isGesturing());
 

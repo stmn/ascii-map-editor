@@ -9,8 +9,8 @@ import { createLevel, levelUsedChars, makeLayer, type Level } from '../src/core/
 
 function makeState(level: Level = createLevel()): EditorState {
   return {
-    level, activeLayer: 0, view: { panX: 0, panY: 0, scale: 32 }, brush: '#', brushSize: 1, contentRev: 0,
-    dimOthers: true, gridVisible: true, colorsEnabled: true,
+    level, activeLayer: 0, view: { panX: 0, panY: 0, scale: 32 }, brush: '#', brushSize: 1, tool: 'brush',
+    contentRev: 0, dimOthers: true, gridVisible: true, colorsEnabled: true,
   };
 }
 

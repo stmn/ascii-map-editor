@@ -1,21 +1,25 @@
-// Panel Draw: pasek ostatnich znakow, pole pedzla, rozmiar stopki, skrot klawiszowy i czyszczenie warstwy.
-import { BRUSH_SIZES, activeLayerOf } from '../../core/editorState';
-import { button, el, labeled } from '../dom';
+// Panel Draw: przelacznik narzedzia (Brush/Eraser), pole pedzla, rozmiar stopki,
+// skrot klawiszowy i czyszczenie warstwy.
+import { BRUSH_SIZES, activeLayerOf, type EditorState } from '../../core/editorState';
+import { button, el, iconButton, labeled } from '../dom';
+import { icon } from '../icons';
 import { confirmModal, isModalOpen } from '../modal';
 import { isTypingTarget } from '../input';
 import { PanelsCtx, applyReplace } from './context';
-
-const MAX_RECENT = 14;
-/** Znaki startowe w pasku "recent" - typowe kafle poziomu. */
-const DEFAULT_RECENT = ['#', '.', '@', 'S', 'E', '~', '+'];
 
 export interface DrawPanel {
   setBrush(ch: string): void;
   render(): void;
 }
 
+/** Narzedzia karty Draw - kolejnosc w rzedzie przelacznika. */
+const TOOLS: ReadonlyArray<{ tool: EditorState['tool']; icon: 'pencil' | 'eraser'; title: string }> = [
+  { tool: 'brush', icon: 'pencil', title: 'Brush tool' },
+  { tool: 'eraser', icon: 'eraser', title: 'Eraser tool' },
+];
+
 /**
- * Pasek chipow: wspolny dla znakow pedzla i rozmiarow stopki - rozni je tylko lista wartosci,
+ * Pasek chipow: wspolny dla rozmiarow stopki - rozni je tylko lista wartosci,
  * aktywny element i tooltip, wiec budowa chipa zostaje w jednym miejscu.
  */
 function renderChipRow<T>(
@@ -31,7 +35,7 @@ function renderChipRow<T>(
 
 export function initDraw(ctx: PanelsCtx, drawBox: HTMLElement): DrawPanel {
   const { state } = ctx;
-  const chips = el('div', 'chips');
+  const toolRow = el('div', 'chips');
   const sizeChips = el('div', 'chips');
   const charInput = el('input', 'char-input');
   charInput.type = 'text';
@@ -39,17 +43,20 @@ export function initDraw(ctx: PanelsCtx, drawBox: HTMLElement): DrawPanel {
   charInput.value = state.brush;
   charInput.setAttribute('aria-label', 'Brush character');
 
-  const recent: string[] = [...DEFAULT_RECENT];
-
-  function pushRecent(ch: string): void {
-    if (recent.includes(ch)) return;
-    recent.push(ch);
-    // usuwamy najstarszy, ale nigdy aktywnego pedzla - musi zostac widoczny na liscie
-    if (recent.length > MAX_RECENT) recent.splice(recent[0] === state.brush ? 1 : 0, 1);
+  /** Przelacznik narzedzia: aktywne narzedzie dostaje ta sama klase 'active' co chipy. */
+  function renderToolRow(): void {
+    toolRow.replaceChildren();
+    for (const t of TOOLS) {
+      const active = state.tool === t.tool;
+      const btn = iconButton(icon(t.icon), active ? 'chip active' : 'chip', t.title, () => setTool(t.tool));
+      toolRow.append(btn);
+    }
   }
 
-  function renderChips(): void {
-    renderChipRow(chips, recent, state.brush, (ch) => `Brush: ${ch}`, setBrush);
+  function setTool(tool: EditorState['tool']): void {
+    if (state.tool === tool) return;
+    state.tool = tool;
+    renderToolRow();
   }
 
   function renderSizeChips(): void {
@@ -58,14 +65,14 @@ export function initDraw(ctx: PanelsCtx, drawBox: HTMLElement): DrawPanel {
 
   /**
    * Jedyne miejsce ustawiajace pedzel (klawiatura, chip, legenda, pole Character z karty glownej).
+   * Wpisanie znaku wyraza zamiar rysowania, wiec przelacza narzedzie z powrotem na Brush.
    * syncBrush rozsyla nowy znak do pol POZA ta karta - dzieki temu pole w trybie Simplified
    * nadaza za przelaczeniem pedzla klawiszem, a zadna karta nie musi znac drugiej.
    */
   function setBrush(ch: string): void {
     state.brush = ch;
-    pushRecent(ch);
     if (charInput.value !== ch) charInput.value = ch;
-    renderChips();
+    setTool('brush');
     ctx.hooks.syncBrush(ch);
   }
 
@@ -108,15 +115,15 @@ export function initDraw(ctx: PanelsCtx, drawBox: HTMLElement): DrawPanel {
   clearRow.append(button('Clear layer', 'danger', () => void clearLayer()));
 
   drawBox.append(
-    chips,
+    toolRow,
     labeled('Char', charInput),
     labeled('Size', sizeChips),
     clearRow,
-    el('p', 'hint help-box hint-small', 'Press any character key to switch the brush. Alt or Ctrl + drag erases.'),
+    el('p', 'hint help-box hint-small', 'Press any character key to switch the brush. Alt or Ctrl + drag also erases.'),
   );
 
   return {
     setBrush,
-    render() { renderChips(); renderSizeChips(); },
+    render() { renderToolRow(); renderSizeChips(); },
   };
 }

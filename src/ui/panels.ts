@@ -5,7 +5,7 @@ import type { Command } from '../core/history';
 import type { EditorState } from '../core/editorState';
 import { initCenterButton } from './center';
 import { initLayout } from './layout';
-import { initModeUi } from './mode';
+import { initModeUi, isSimplified } from './mode';
 import {
   PanelHooks, PanelsCtx, initAutosave, recenterView, requireEl, scheduleSave,
 } from './panels/context';
@@ -135,6 +135,12 @@ export function initPanels(ctx: PanelsContext): Panels {
   initModeUi((offsetShift) => {
     shiftView(offsetShift);
     hooks.renderMap();
+    // karta Draw (i jej gumka) jest w Simplified ukryta - narzedzie wraca do Brush, zeby
+    // gumka nie mogla zostac wlaczona bez widocznej kontrolki do jej wylaczenia
+    if (isSimplified() && state.tool !== 'brush') {
+      state.tool = 'brush';
+      draw.render();
+    }
   });
 
   return { onMutate, pushHistory: (cmd) => hooks.pushHistory?.(cmd) };

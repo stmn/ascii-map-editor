@@ -9,6 +9,8 @@ export interface InputCallbacks {
   /** Koniec gestu malowania/gumki (pointerup, pointercancel) - czas domknac wpis historii. */
   strokeEnd(): void;
   viewChanged(): void;
+  /** Czy narzedzie Eraser jest aktywne w karcie Draw - gumka wtedy dziala tez bez modyfikatora. */
+  eraserActive(): boolean;
 }
 
 interface Cell { x: number; y: number }
@@ -87,14 +89,14 @@ export class InputController {
     if (e.button === 1 || e.button === 2) { this.panning = true; return; }
     const { x, y } = screenToCell(e.offsetX, e.offsetY, this.view);
     this.lastCell = null; // nowe pociagniecie - brak interpolacji do poprzedniego
-    if (isEraseModifier(e)) { this.erasing = true; this.stroke(x, y, true); }
+    if (isEraseModifier(e) || this.cb.eraserActive()) { this.erasing = true; this.stroke(x, y, true); }
     else { this.painting = true; this.stroke(x, y, false); }
   }
 
   private move(e: PointerEvent): void {
     const { x, y } = screenToCell(e.offsetX, e.offsetY, this.view);
     // w trakcie malowania modyfikator wcisniety po drodze nie zmienia trybu, wiec i podswietlenia
-    this.cb.hover(x, y, this.painting ? false : (this.erasing || isEraseModifier(e)));
+    this.cb.hover(x, y, this.painting ? false : (this.erasing || isEraseModifier(e) || this.cb.eraserActive()));
     if (this.panning) {
       this.view.panX -= e.offsetX - this.last.x;
       this.view.panY -= e.offsetY - this.last.y;
