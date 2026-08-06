@@ -534,9 +534,10 @@ button:disabled:active {
 }
 
 /* Layers: wiersz per warstwa, gora listy = wierzch stosu.
-   Wiersz poziomu (karta Project) korzysta z tego samego wygladu. */
+   Wiersz poziomu (karta Project) i wiersz formatu (modal Export) korzystaja z tego samego wygladu. */
 .layer-row,
-.level-row {
+.level-row,
+.format-row {
   display: flex;
   align-items: center;
   gap: 4px;
@@ -554,9 +555,53 @@ button:disabled:active {
 /* Aktywny wiersz czyta sie jako niebieski razem z polem nazwy - przyciski zostaja biale,
    zeby dalej wygladaly na kontrolki. */
 .layer-row.active,
-.level-row.active {
+.level-row.active,
+.format-row.active {
   color: #ffffff;
   background: #3b82f6;
+}
+
+/* Wiersz formatu (modal Export): natywny radio z lewej (klik gdziekolwiek w wiersz go zaznacza,
+   bo cale .format-row jest <label>), nazwa+opis na srodku, badge warstw w stalym miejscu z prawej. */
+.format-row input[type='radio'] {
+  flex: none;
+}
+
+.format-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.format-name {
+  font-size: 11px;
+}
+
+.format-desc {
+  font-size: 9px;
+  line-height: 1.5;
+  color: #565a75;
+}
+
+.format-row.active .format-desc {
+  color: #e5e7eb;
+}
+
+.format-badge {
+  flex: none;
+  font-size: 9px;
+  color: #565a75;
+  background: #e5e7eb;
+  border-radius: 4px;
+  padding: 2px 6px;
+  white-space: nowrap;
+}
+
+.format-row.active .format-badge {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .layer-name,
@@ -944,13 +989,11 @@ body.mode-simplified .sidebar > details[data-section='generate'] {
 
 /* Przelacznik trybu: dwusegmentowa pigulka na srodku gornej krawedzi. z-index ponizej
    modali (20) i toastow (40), ale powyzej kolumn kart - musi zostac klikalny, gdy waskie
-   okno wsunie pod niego krawedz sidebara. */
-.mode-switch {
-  position: fixed;
-  top: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 10;
+   okno wsunie pod niego krawedz sidebara.
+   .scope-switch dzieli ten sam wyglad - zakres (This level/Whole project) i opcja Layers
+   w modalu Export - roznica jest tylko w pozycjonowaniu (modal nie potrzebuje position:fixed). */
+.mode-switch,
+.scope-switch {
   display: flex;
   background: #ffffff;
   border: 2px solid #000000;
@@ -958,8 +1001,23 @@ body.mode-simplified .sidebar > details[data-section='generate'] {
   overflow: hidden;
 }
 
+.mode-switch {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+}
+
+/* W przeplywie modalu pigulka ma sie owinac wokol wlasnej tresci, nie rozciagnac na cala karte. */
+.scope-switch {
+  width: max-content;
+  max-width: 100%;
+}
+
 /* Segment: bialy jak przyciski drugorzedne, bez wlasnej ramki - pigulka ma jedna wspolna. */
-.mode-seg {
+.mode-seg,
+.scope-seg {
   color: #1a1c2c;
   background: #ffffff;
   border: 0;
@@ -967,18 +1025,29 @@ body.mode-simplified .sidebar > details[data-section='generate'] {
   padding: 8px 12px;
 }
 
-.mode-seg + .mode-seg {
+.mode-seg + .mode-seg,
+.scope-seg + .scope-seg {
   border-left: 2px solid #000000;
 }
 
-.mode-seg:hover {
+.mode-seg:hover,
+.scope-seg:hover {
   background: #e5e7eb;
 }
 
 .mode-seg.active,
-.mode-seg.active:hover {
+.mode-seg.active:hover,
+.scope-seg.active,
+.scope-seg.active:hover {
   color: #ffffff;
   background: #3b82f6;
+}
+
+/* Whole project wylaczone bez kontekstu (store/projectId) - sam wyglad disabled jak w przyciskach. */
+.scope-seg:disabled,
+.scope-seg:disabled:hover {
+  color: #6b7280;
+  background: #e5e7eb;
 }
 
 /* Wybor trybu przy pierwszym starcie: dwa duze przyciski, tytul nad opisem. */
