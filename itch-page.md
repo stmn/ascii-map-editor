@@ -51,8 +51,9 @@ locally as you draw.
 - Projects and levels: organize your maps into projects, each holding as many levels as you
   want, with a thumbnail per level so you can find the one you need at a glance.
 - Autosave. Close the tab, come back, your level is still there.
-- A one-click workspace backup: export every project and level to a single JSON file, import
-  it back into another browser or another machine.
+- Two IO scopes in the Project card: export or import a single level as `level.json`, or the
+  whole current project (every level it holds) as `project.json` - old `workspace.json` backups
+  from earlier versions still import too.
 - An Export dialog: TXT, CSV, KaPlay snippet, Godot GDScript, Tiled `.tmx`, REXPaint `.xp`
   and a project `.json` that keeps every layer and the legend - plus a Legacy (v1) tab with
   the two array formats the original editor used to save (the third, plain text, is covered
@@ -146,6 +147,10 @@ cursors and sound baked in. Double click it, no install, no internet, no browser
 It is pay what you want, and $2 is a fair nudge if the tool saved you an afternoon.
 
 ### Changelog
+
+**v2.6** - level and project export scopes: Export/Import level (`level.json`) and Export/Import
+project (`project.json`) replace the old whole-workspace backup - old `workspace.json` files
+still import through Import project.
 
 **v2.5** - dungeon room count, floating center button, tidier project card.
 

@@ -110,7 +110,7 @@ What is on the stack:
 
 What is NOT on the stack, because it is a workspace-level operation rather than an edit to
 the currently open level's content: switching levels or projects, New/Duplicate/Delete level,
-New/Rename/Delete project, and Export workspace/Import workspace (the backup JSON).
+New/Rename/Delete project, and Export project/Import project (the whole-project backup JSON).
 
 Undoing or redoing normally cannot fail, but the character remap command is symmetric (it
 remaps in the other direction) and can hit the same "Character already in use" collision the
@@ -256,11 +256,12 @@ Duplicate / Delete buttons. Click a level (or its name field) to switch to it; N
 a blank one. The last project cannot be deleted, and neither can a project's last level - there
 is always at least one of each.
 
-Below the level list the Project card has two more button rows. The first, **Export...** and
-**Import...**, opens the Export and Import modals for the current level - these buttons used to
-sit in their own Export and Import cards; the Project card is now the only place those dialogs
-are launched from, see Export and Import dialogs below. The second, **Export workspace** and
-**Import workspace**, is the whole-workspace backup described in Workspace backup below.
+Below the level list the Project card has two more button rows. The first, **Export level...**
+and **Import level...**, opens the Export and Import modals for the current level - these
+buttons used to sit in their own Export and Import cards; the Project card is now the only place
+those dialogs are launched from, see Export and Import dialogs below. The second, **Export
+project** and **Import project**, exports or imports the whole current project (every level it
+holds) as one file, described in Project backup below.
 
 Thumbnails are rendered offscreen at 120x80 as flat color rectangles, one per legend color
 (at that size, drawing the actual characters would be unreadable, so shapes and colors carry
@@ -297,17 +298,32 @@ renamed to a `-backup` suffix, so the original data stays recoverable on disk ev
 migrated copy turns out wrong. There is no second migration: once the workspace store holds
 anything, this path never runs again.
 
-### Workspace backup
+### Project backup
 
-The Project panel's second button row is the backup: "Export workspace" downloads a
-`workspace.json` with every project and level (thumbnails are dropped to keep the file small;
-they regenerate on the next save). "Import workspace" reads that file back and merge-adds it
-into whatever is already open:
-every imported project and level gets a fresh id, a project name that collides with an
-existing one gets a "Name N" suffix instead of overwriting it, and the import never deletes or
-replaces anything already in the workspace. An unrecognized file (wrong shape, foreign JSON)
-is rejected up front with a red toast; inside an otherwise valid file, individual malformed
-records are skipped silently while the rest of the file still imports.
+The Project panel's second button row is a whole-project backup, one file per project rather
+than one file for the whole workspace. "Export project" downloads a `project.json` with every
+level in the CURRENT project (thumbnails are dropped to keep the file small; they regenerate on
+the next save). "Import project" reads a project file back and adds it as a brand new project,
+merged into whatever is already open: it gets a fresh id, a name that collides with an existing
+project gets a "Name N" suffix instead of overwriting it, every level inside it gets a fresh id
+too, and the import never deletes or replaces anything already in the workspace. An unrecognized
+file (wrong shape, foreign JSON) is rejected up front with a red toast; inside an otherwise
+valid file, individual malformed level records are skipped silently while the rest of the file
+still imports. On success the toast reads `Imported P projects, L levels`; if a storage write
+failed partway through the batch (full quota, closed database) it shows a red toast, `Import may
+be incomplete - storage errors occurred`, instead - the same soft-failure handling as autosave,
+see Storage above.
+
+"Import project" also reads the older whole-workspace backup format from versions 2.2-2.5 (back
+then the file was named `workspace.json` and came from an "Export workspace" button that no
+longer exists): instead of one project it then adds every project the old file contains, through
+the exact same merge-add path described above. There is no whole-workspace export anymore - to
+back up several projects, export each one separately with "Export project" - but a
+`workspace.json` saved by an older version of the editor still loads through "Import project".
+
+The single-level export, "Export level..." in the first button row, is a different file: it
+opens the Export modal, whose Download .json button saves that one level's own full-fidelity
+JSON (every layer plus the legend) as `level.json` - see Export and Import dialogs below.
 
 ### Multi-tab and other caveats
 
@@ -359,15 +375,16 @@ every visible layer merged), never the frame around them.
 | Godot | one entry per layer in the `LEVELS` dictionary, keyed by layer name, plus a shared `TILES` dict and a `load_layer(tile_map, layer_name)` helper |
 | Tiled `.tmx` | one `<layer>` element per layer, in the same order as the level; hidden layers are exported too, marked `visible="0"` |
 | REXPaint `.xp` | native multi-layer binary, one binary layer per level layer, in the same bottom-to-top order |
-| Project `.json` | every layer (name, visibility, origin, lines) plus the shared legend - the only export that reads back without any loss |
+| Level `.json` | every layer (name, visibility, origin, lines) plus the shared legend - the only export that reads back without any loss |
 
 `.xp` files do not store layer names, so importing one names its layers "layer 1", "layer 2"
 and so on, bottom to top; rename them in the Layers panel afterwards if you want better names.
 
 ### Export and Import dialogs
 
-Export and Import open modal dialogs rather than inline panels, launched by the Export... and
-Import... buttons in the Project card (see Projects and levels above). The Export modal has the
+Export and Import open modal dialogs rather than inline panels, launched by the Export level...
+and Import level... buttons in the Project card (see Projects and levels above). The Export
+modal has the
 Scope selector, one copy-or-download button per format, and a "Legacy (v1)" section: a format
 picker with two of the three shapes the original v1 editor used to save - Array of strings and
 Array of arrays - a live preview textarea, and a Copy legacy button. The third shape, plain
@@ -394,7 +411,8 @@ src/
     generators.ts   seeded RNG (mulberry32), maze and dungeon generators
     editorState.ts  EditorState type, activeLayer/activeGrid helpers, applyLevelToState
     store.ts        WorkspaceStore interface, ProjectMeta/LevelRecord, KvJsonStore fallback,
-                     ensureSeed (bootstrap + migration), export/importWorkspace (backup JSON)
+                     ensureSeed (bootstrap + migration), export/importProject (project backup
+                     JSON; importProject also accepts legacy whole-workspace files from 2.2-2.5)
     idb.ts          IndexedDB WorkspaceStore, db 'ascii-level-editor', stores projects/levels
     history.ts      History: undo/redo stacks, cap 100, onChange hook
     commands.ts     Command factories: stroke, level-replace snapshot, layer ops, legend edit, remap
@@ -421,7 +439,7 @@ src/
       context.ts    shared PanelsCtx/hooks, toast, workspace store handle, autosave scheduling
       history.ts    Undo/Redo buttons and shortcuts, History instance, clears on level switch
       project.ts    Project card: project select, New/Rename/Delete, level list,
-                     Export/Import modal launchers, backup JSON
+                     Export/Import level modal launchers, project export/import (project.json)
       draw.ts       brush and recent chips
       layers.ts     Layers card: add/reorder/rename/hide/delete
       legend.ts     Legend card: name/color/usage per character, character remap
@@ -452,7 +470,7 @@ and `scripts/build-standalone.mjs` is plain Node with no packages at all.
 | Godot | clipboard | GDScript with a `LEVELS` dict keyed by layer name, shared `TILES`, and a `load_layer(tile_map, layer_name)` helper |
 | Tiled | `map.tmx` | orthogonal map, one `<layer>` element per level layer (hidden ones get `visible="0"`), legend exported as tile properties |
 | REXPaint | `map.xp` | gzipped `.xp`, native multi-layer (up to 8), legend colors as foreground |
-| Project | `project.json` | every layer plus the shared legend, the format to re-import later without any loss |
+| Level | `level.json` | every layer plus the shared legend, the format to re-import later without any loss |
 
 Specifications and API docs:
 
