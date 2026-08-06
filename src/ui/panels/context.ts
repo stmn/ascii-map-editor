@@ -98,6 +98,16 @@ export function applyReplace(
   ));
 }
 
+/**
+ * Wycentrowanie widoku na papierze. To ustawienie WIDOKU, wiec bez historii i bez autozapisu
+ * (jak dim w karcie Layers). Jedna implementacja dla obu przyciskow Center: tego w karcie
+ * glownej (replika v1) i plywajacego na dole ekranu (ui/center.ts).
+ */
+export function recenterView(ctx: PanelsCtx): void {
+  ctx.centerOnPaper();
+  ctx.markDirty();
+}
+
 // --- male helpery DOM ---------------------------------------------------------
 
 export function requireEl(id: string): HTMLElement {

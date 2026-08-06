@@ -3,9 +3,12 @@
 // dzieki czemu nie powstaje cykl importow (app.ts -> panels.ts, nigdy odwrotnie).
 import type { Command } from '../core/history';
 import type { EditorState } from '../core/editorState';
+import { initCenterButton } from './center';
 import { initLayout } from './layout';
 import { initModeUi } from './mode';
-import { PanelHooks, PanelsCtx, initAutosave, requireEl, scheduleSave } from './panels/context';
+import {
+  PanelHooks, PanelsCtx, initAutosave, recenterView, requireEl, scheduleSave,
+} from './panels/context';
 import { initDraw } from './panels/draw';
 import { initHistory } from './panels/history';
 import { initLayers } from './panels/layers';
@@ -50,8 +53,6 @@ export function initPanels(ctx: PanelsContext): Panels {
   const layersBox = requireEl('panel-layers');
   const legendBox = requireEl('panel-legend');
   const generateBox = requireEl('panel-generate');
-  const exportBox = requireEl('panel-export');
-  const importBox = requireEl('panel-import');
   const mapBox = requireEl('panel-map');
   const extraBox = requireEl('panel-extra');
 
@@ -86,8 +87,10 @@ export function initPanels(ctx: PanelsContext): Panels {
   hooks.renderLegend = legend.render;
 
   initGenerate(panelsCtx, generateBox);
-  initExportModal(panelsCtx, exportBox);
-  const importPanel = initImportModal(panelsCtx, importBox);
+  // Export i Import nie maja juz wlasnych kart - moduly buduja same modale, a otwieraja je
+  // przyciski z karty Project (nizej), wiec init musi wyprzedzic initProject
+  const exportPanel = initExportModal(panelsCtx);
+  const importPanel = initImportModal(panelsCtx);
   // Load w karcie Map to ten sam import co wklejony tekst - karta dostaje gotowa sciezke
   // z modulu Import zamiast wlasnej kopii podmiany poziomu
   const map = initMap(panelsCtx, mapBox, importPanel.applyImported);
@@ -98,7 +101,9 @@ export function initPanels(ctx: PanelsContext): Panels {
   initExtra(panelsCtx, extraBox, map);
   // karta projektow czyta magazyn asynchronicznie i sama rejestruje sie na zdarzenie zapisu
   // (odswiezanie miniatury biezacego poziomu) - nie potrzebuje wpisu w hookach miedzypanelowych
-  const project = initProject(panelsCtx, projectBox);
+  const project = initProject(panelsCtx, projectBox, {
+    openExport: exportPanel.open, openImport: importPanel.open,
+  });
 
   draw.render();
   layers.render();
@@ -119,6 +124,9 @@ export function initPanels(ctx: PanelsContext): Panels {
   // przeciaganie kart podpinamy na koncu: karty maja juz tresc, a przeniesienie <details>
   // miedzy kolumnami nie rusza ich sluchaczy (element zmienia rodzica, nie tozsamosc)
   initLayout(shiftView);
+
+  // plywajacy Center: stoi poza kartami, wiec dziala w obu trybach i przy kazdym ukladzie kolumn
+  initCenterButton(() => recenterView(panelsCtx));
 
   // przelacznik trybu (i pytanie o tryb przy pierwszym starcie) na samym koncu: modal wyboru
   // ma wypasc nad gotowym edytorem, a wejscie w Simplified musi zastac karte Map do odswiezenia

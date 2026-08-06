@@ -12,7 +12,9 @@ import { LegacyFormat, exportLegacyFlat } from '../../export/legacy';
 import { button, checkboxRow, el, labeledStack, numberInput, readNumber } from '../dom';
 import { isExtraVisible, isSimplified, setExtraVisible } from '../mode';
 import { confirmModal } from '../modal';
-import { PanelsCtx, applyReplace, copyToClipboard, errorMessage, guarded, toast } from './context';
+import {
+  PanelsCtx, applyReplace, copyToClipboard, errorMessage, guarded, recenterView, toast,
+} from './context';
 
 // Zakres jak w v1: mapy ponizej 3 komorek nie ma sensu generowac, gorna granica wspolna
 // z karta Generate. Domyslne 14x12 to rozmiar startowy oryginalu.
@@ -72,7 +74,7 @@ export function initMap(
   // --- znak pedzla ---
   // Pedzel jest wspolny z karta Draw (state.brush): pole ustawia go przez hook setBrush,
   // a zmiany z zewnatrz (klawisz, chip legendy) wracaja tu przez hook syncBrush.
-  const charInput = el('input', 'char-input char-wide');
+  const charInput = el('input', 'char-input char-main');
   charInput.type = 'text';
   charInput.maxLength = 1;
   charInput.value = state.brush;
@@ -204,11 +206,6 @@ export function initMap(
     });
   }
 
-  function center(): void {
-    ctx.centerOnPaper();
-    ctx.markDirty();
-  }
-
   // --- przelaczniki widoku (szare pudelko) ---
   // Oba sa ustawieniem WIDOKU: samo markDirty, bez historii i bez autozapisu (jak dim w Layers).
   const grid = checkboxRow('Show grid', state.gridVisible, (on) => {
@@ -237,7 +234,7 @@ export function initMap(
   const actions = el('div', 'btn-row');
   actions.append(
     button('Clear', 'danger', () => void clearAll()),
-    button('Center', '', center),
+    button('Center', '', () => recenterView(ctx)),
     button('Load', 'success', load),
   );
 

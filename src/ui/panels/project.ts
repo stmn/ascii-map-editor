@@ -1,6 +1,6 @@
-// Panel Project: wybor projektu, lista jego poziomow (miniatura, nazwa, duplikat, usuniecie)
-// i kopia zapasowa calego workspace. To jedyne miejsce UI, ktore tworzy i kasuje rekordy
-// magazynu - reszta paneli zna tylko biezacy poziom.
+// Panel Project: wybor projektu, lista jego poziomow (miniatura, nazwa, duplikat, usuniecie),
+// wejscia do modali Export/Import poziomu i kopia zapasowa calego workspace. To jedyne miejsce
+// UI, ktore tworzy i kasuje rekordy magazynu - reszta paneli zna tylko biezacy poziom.
 import { createLevel } from '../../core/level';
 import { parseProject, serializeProject } from '../../core/project';
 import {
@@ -42,7 +42,14 @@ function makeLevelRecord(projectId: string, name: string, order: number): LevelR
   };
 }
 
-export function initProject(ctx: PanelsCtx, box: HTMLElement): ProjectPanel {
+export interface ProjectModals {
+  /** Otwiera modal Export (panels/exportModal.ts). */
+  openExport(): void;
+  /** Otwiera modal Import (panels/importModal.ts). */
+  openImport(): void;
+}
+
+export function initProject(ctx: PanelsCtx, box: HTMLElement, modals: ProjectModals): ProjectPanel {
   /**
    * Wiersze listy po id poziomu - pozwalaja odswiezyc wiersz BEZ przebudowy DOM.
    * `record` to migawka z czasu renderu, ktora obsluga wiersza (nazwa, duplikat) trzyma w domknieciu;
@@ -311,6 +318,21 @@ export function initProject(ctx: PanelsCtx, box: HTMLElement): ProjectPanel {
 
   // --- budowa karty ------------------------------------------------------------
 
+  /**
+   * Rzad wejsc do modali Export/Import BIEZACEGO poziomu (dawne karty Export i Import).
+   * Fabryka, bo kazdy render przebudowuje karte od zera - i stoi w KAZDYM wariancie karty,
+   * takze w tych bez listy poziomow: modale czytaja i podmieniaja sam poziom w pamieci,
+   * wiec dzialaja rowniez wtedy, gdy magazyn padl albo nie ma jeszcze zadnego projektu.
+   */
+  function modalRow(): HTMLElement {
+    const row = el('div', 'btn-row');
+    row.append(
+      button('Export...', '', modals.openExport),
+      button('Import...', 'success', modals.openImport),
+    );
+    return row;
+  }
+
   function levelRow(
     store: WorkspaceStore, record: LevelRecord, index: number, levels: LevelRecord[],
   ): HTMLElement {
@@ -384,7 +406,7 @@ export function initProject(ctx: PanelsCtx, box: HTMLElement): ProjectPanel {
     box.append(select, actions);
 
     if (!projectId) {
-      box.append(el('p', 'hint', 'No projects yet - create one to start.'));
+      box.append(el('p', 'hint', 'No projects yet - create one to start.'), modalRow());
       return;
     }
 
@@ -407,7 +429,8 @@ export function initProject(ctx: PanelsCtx, box: HTMLElement): ProjectPanel {
       button('Export workspace', 'btn-plain', () => { runOp(exportWorkspaceFile(store)); }),
       button('Import workspace', 'btn-plain', () => fileInput.click()),
     );
-    box.append(backup, fileInput);
+    // poziom nad workspace: gorny rzad dotyczy biezacej mapy, dolny calej kopii zapasowej
+    box.append(modalRow(), backup, fileInput);
   }
 
   /**
@@ -430,7 +453,9 @@ export function initProject(ctx: PanelsCtx, box: HTMLElement): ProjectPanel {
     const store = getStore();
     if (!store) {
       rows.clear(); // wiersze znikaja z DOM, wiec mapa nie moze zostac z odpietymi wezlami
-      box.replaceChildren(el('p', 'hint', 'Storage unavailable - projects cannot be saved.'));
+      box.replaceChildren(
+        el('p', 'hint', 'Storage unavailable - projects cannot be saved.'), modalRow(),
+      );
       return;
     }
     const projects = (await store.listProjects()).sort((a, b) => a.createdAt - b.createdAt);

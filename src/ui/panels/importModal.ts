@@ -1,4 +1,5 @@
 // Modal Import: wczytanie pliku (.json/.txt/.xp) albo wklejonego tekstu przez wspolny parser.
+// Modul buduje SAM modal - przycisk, ktory go otwiera, stoi w karcie Project (panels/project.ts).
 import { replaceCommand, snapshotLevel } from '../../core/commands';
 import { Grid } from '../../core/grid';
 import { Legend } from '../../core/legend';
@@ -16,6 +17,8 @@ function countCells(grid: Grid): number {
 }
 
 export interface ImportPanel {
+  /** Otwiera modal Import - wola go przycisk w karcie Project. */
+  open(): void;
   /**
    * Wspolna sciezka podmiany poziomu po udanym imporcie. Wystawiona na zewnatrz dla karty Map
    * (tryb Simplified), ktorej przycisk Load jest tym samym importem wklejonego tekstu - dzieki
@@ -24,7 +27,7 @@ export interface ImportPanel {
   applyImported(level: Level): void;
 }
 
-export function initImportModal(ctx: PanelsCtx, importBox: HTMLElement): ImportPanel {
+export function initImportModal(ctx: PanelsCtx): ImportPanel {
   const { state } = ctx;
   const fileInput = el('input', 'file-input');
   fileInput.type = 'file';
@@ -103,9 +106,11 @@ export function initImportModal(ctx: PanelsCtx, importBox: HTMLElement): ImportP
     el('p', 'hint', 'Accepts project .json, plain text and both v1 array formats.'),
   );
 
-  importBox.append(button('Import...', 'success btn-full', () => {
-    importModal = openModal('Import', importBody);
-  }));
-
-  return { applyImported };
+  return {
+    open(): void {
+      // uchwyt zapamietujemy przy kazdym otwarciu - udany import zamyka wlasnie ten modal
+      importModal = openModal('Import', importBody);
+    },
+    applyImported,
+  };
 }

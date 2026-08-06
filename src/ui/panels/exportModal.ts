@@ -1,4 +1,5 @@
 // Modal Export: kopiowanie i pobieranie mapy w formatach v2 oraz podglad legacy (v1).
+// Modul buduje SAM modal - przycisk, ktory go otwiera, stoi w karcie Project (panels/project.ts).
 import { Bounds, Grid } from '../../core/grid';
 import { activeGrid } from '../../core/editorState';
 import { flattenLayers, unionBounds } from '../../core/level';
@@ -13,7 +14,12 @@ import { button, el, labeled } from '../dom';
 import { openModal } from '../modal';
 import { PanelsCtx, copyToClipboard, download, errorMessage, guarded } from './context';
 
-export function initExportModal(ctx: PanelsCtx, exportBox: HTMLElement): void {
+export interface ExportPanel {
+  /** Otwiera modal Export ze swiezym podgladem legacy - wola go przycisk w karcie Project. */
+  open(): void;
+}
+
+export function initExportModal(ctx: PanelsCtx): ExportPanel {
   const { state } = ctx;
   const scopeSelect = el('select', 'scope-select');
   for (const [value, label] of [['active', 'Active layer'], ['flat', 'Flattened']] as const) {
@@ -93,8 +99,11 @@ export function initExportModal(ctx: PanelsCtx, exportBox: HTMLElement): void {
     button('Copy legacy', 'btn-full', guarded(() => copyToClipboard(legacyText.value))),
   );
 
-  exportBox.append(button('Export...', 'btn-full', () => {
-    refreshLegacy();
-    openModal('Export', exportBody);
-  }));
+  return {
+    open(): void {
+      // podglad liczymy dopiero przy otwarciu - mapa zmieniala sie od ostatniego razu
+      refreshLegacy();
+      openModal('Export', exportBody);
+    },
+  };
 }

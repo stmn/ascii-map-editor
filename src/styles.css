@@ -384,9 +384,12 @@ button:disabled:active {
   text-align: center;
 }
 
-/* Pole znaku w karcie glownej (Simplified) zajmuje cala szerokosc karty - jak w v1. */
-.char-input.char-wide {
-  width: 100%;
+/* Pole znaku w karcie glownej (Simplified): waskie i przyklejone do lewej krawedzi karty
+   (etykieta zostaje nad nim). Definitywna szerokosc wygrywa ze stretchem z .field-stack,
+   wiec pole nie rozciaga sie na cala karte, tylko staje przy jej lewym brzegu. */
+.char-input.char-main {
+  width: 72px;
+  text-align: left;
 }
 
 /* Link akcji w stylu v1: niebieski, podkreslony, bez ramki i tla - nie konkuruje z przyciskami. */
@@ -849,9 +852,7 @@ body.mode-simplified .sidebar > details[data-section='project'],
 body.mode-simplified .sidebar > details[data-section='draw'],
 body.mode-simplified .sidebar > details[data-section='layers'],
 body.mode-simplified .sidebar > details[data-section='legend'],
-body.mode-simplified .sidebar > details[data-section='generate'],
-body.mode-simplified .sidebar > details[data-section='export'],
-body.mode-simplified .sidebar > details[data-section='import'] {
+body.mode-simplified .sidebar > details[data-section='generate'] {
   display: none;
 }
 
@@ -923,11 +924,33 @@ body.mode-simplified .sidebar > details[data-section='import'] {
   color: #565a75;
 }
 
-/* Toast: pigulka na dole ekranu, znika po 3 s. */
+/* Plywajacy Center: lustro przelacznika trybu przy dolnej krawedzi - ten sam bialy przycisk
+   w stylu v1 i ten sam z-index (ponizej modali i toastow, powyzej kolumn kart). */
+.center-fab {
+  position: fixed;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  color: #1a1c2c;
+  background: #ffffff;
+  padding: 8px 12px;
+}
+
+.center-fab:hover {
+  background: #e5e7eb;
+}
+
+.center-fab:active {
+  background: #d1d5db;
+}
+
+/* Toast: pigulka na dole ekranu, znika po 3 s. Stoi NAD plywajacym Center (12px + jego
+   wysokosc), zeby komunikat nie zaslanial przycisku ani odwrotnie. */
 .toast {
   position: fixed;
   left: 50%;
-  bottom: 20px;
+  bottom: 56px;
   transform: translateX(-50%);
   /* nad modalami - komunikat o skopiowaniu musi byc widoczny przy otwartym modalu */
   z-index: 40;
