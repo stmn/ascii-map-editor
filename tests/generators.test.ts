@@ -90,7 +90,7 @@ describe('generators', () => {
 });
 
 describe('generateDungeonDetailed: roomTarget', () => {
-  // Duza plansza (60x40) z domyslnym zakresem boku pokoju (4-10) mieści cel bez trudu -
+  // Duza plansza (60x40) z domyslnym zakresem boku pokoju (4-10) miesci cel bez trudu -
   // wewnetrzny limit prob (roomTarget * 25) nie powinien byc w ogole potrzebny.
   it('trafia dokladnie w zadana liczbe pokoi na duzej planszy', () => {
     const { roomsPlaced } = generateDungeonDetailed(60, 40, { roomTarget: 3, rng: mulberry32(1) });
@@ -112,11 +112,38 @@ describe('generateDungeonDetailed: roomTarget', () => {
     expect(roomsPlaced).toBeLessThan(50);
   });
 
-  // generateDungeon to cienki wrapper nad generateDungeonDetailed (bez roomTarget) - ten sam
-  // seed i te same parametry musza dac identyczna siatke z obu wejsc.
-  it('generateDungeon (wrapper) daje ta sama siatke co Detailed bez roomTarget', () => {
-    const wrapped = generateDungeon(40, 24, 30, mulberry32(7)).toLines();
-    const detailed = generateDungeonDetailed(40, 24, { roomTries: 30, rng: mulberry32(7) }).grid.toLines();
-    expect(wrapped).toEqual(detailed);
+  // Test rownowaznosci "wrapper vs Detailed" bylby tautologiczny - wrapper i tak tylko wola
+  // Detailed w srodku, wiec taki test dowodzi jedynie przekazania parametrow, a nie zgodnosci
+  // z oryginalna (sprzed refaktoru) petla. Zamiast tego zamrazamy DOKLADNY output generateDungeon
+  // dla ustalonego seeda jako zloty wzorzec (golden): wartosc ponizej zostala recznie zweryfikowana
+  // jako identyczna z wynikiem sprzed refaktoru (ta sama liczba iteracji petli i ta sama kolejnosc
+  // wywolan ri() dla trybu bez roomTarget) - jesli kiedys rozjedzie sie z Detailed, ten test to wylapie.
+  it('dungeon: legacy roomTries (bez roomTarget) daje zamrozony wynik dla seeda 7 (golden)', () => {
+    const golden = [
+      '    #######',
+      '    #.....#',
+      '    #.....# #########',
+      '    #.....# #.......#',
+      '    #.....# #.......#        ######',
+      '    #.....###.......#        #....#',
+      '    #...............#        #....#',
+      '    #.....#.#.......#        #....#',
+      '    #.....#.#.......#        #....#',
+      '    #.....#.####.##.#        ###.##',
+      '    #.....#.#  #.##.#          #.#',
+      '    ###.###.#  #.##.###        #.####',
+      '#######.# #.#  #......#        #....#',
+      '#.......###.####......##########....#',
+      '#.............##....................#',
+      '#...................................#',
+      '#.............###.....###############',
+      '#######.......# #.....#',
+      '      ##......# #######',
+      '       #......#',
+      '       #......#',
+      '       ########',
+    ];
+    const lines = generateDungeon(40, 24, 30, mulberry32(7)).toLines();
+    expect(lines).toEqual(golden);
   });
 });

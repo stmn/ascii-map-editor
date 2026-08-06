@@ -31,7 +31,7 @@ export interface RoomRange { minRoom?: number; maxRoom?: number; roomTarget?: nu
  * generator zasypuje ja bezpowrotnie; reszta stosu zostaje nietknieta.
  * Podane w i h sa ZAMOWIENIEM rozmiaru - zaden wolajacy nie przepisuje potem swoich pol
  * obrysem wyniku (patrz panels/extra.ts), bo generator moze wypelnic mniej niz zamowiono.
- * Loch woła Detailed bezposrednio (nie prosty generateDungeon) - to jedyny sposob przekazania
+ * Loch wola Detailed bezposrednio (nie prosty generateDungeon) - to jedyny sposob przekazania
  * roomTarget dalej; roomsPlaced z wyniku nie jest tu jeszcze wykorzystywane przez UI.
  */
 export async function runGenerator(
