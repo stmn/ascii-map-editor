@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { gzipSync, gunzipSync } from 'node:zlib';
 import { Grid } from '../src/core/grid';
 import { createLevel, makeLayer } from '../src/core/level';
-import { buildXpBytes, parseXpBytes } from '../src/export/rexpaint';
+import { buildXpBytes, decompressXpBytes, parseXpBytes } from '../src/export/rexpaint';
 
 function level1(lines: string[], color?: string) {
   const lv = createLevel();
@@ -61,6 +61,13 @@ describe('rexpaint xp', () => {
     v3.setInt32(0, -1, true); v3.setInt32(4, 1, true);
     v3.setInt32(8, 0, true); v3.setInt32(12, -5, true); // zerowa szerokosc, ujemna wysokosc
     expect(() => parseXpBytes(dims)).toThrow('Not a valid .xp file');
+  });
+
+  it('decompressXpBytes odrzuca niegzipowane/uszkodzone bajty czytelnym bledem', async () => {
+    // urwane pobranie/plik przemianowany na .xp - DecompressionStream rzuca TypeError z PUSTYM
+    // message (finding recenzenta) - decompressXpBytes musi to zamienic w ten sam komunikat
+    // co parseXpBytes dla tego samego scenariusza uzytkownika
+    await expect(decompressXpBytes(new Uint8Array([1, 2, 3, 4]))).rejects.toThrow('Not a valid .xp file');
   });
 
   it('rzuca czytelny blad przy absurdalnych bounds', () => {

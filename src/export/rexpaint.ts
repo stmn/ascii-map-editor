@@ -94,7 +94,14 @@ export async function exportXp(level: Level): Promise<Uint8Array> {
  * (sync) - wolajacy, ktory czyta plik z dysku (importModal.ts), robi ja PRZED detectImport.
  */
 export async function decompressXpBytes(gzipped: Uint8Array): Promise<Uint8Array> {
-  const stream = new Blob([gzipped.slice()]).stream()
-    .pipeThrough(new DecompressionStream('gzip'));
-  return new Uint8Array(await new Response(stream).arrayBuffer());
+  try {
+    const stream = new Blob([gzipped.slice()]).stream()
+      .pipeThrough(new DecompressionStream('gzip'));
+    return new Uint8Array(await new Response(stream).arrayBuffer());
+  } catch {
+    // uszkodzony/niegzipowany plik (urwane pobranie, plik przemianowany na .xp) -> DecompressionStream
+    // rzuca TypeError z PUSTYM message - bez tego przechwycenia dialog Import pokazalby czerwony
+    // akapit bez tekstu. Ten sam komunikat co parseXpBytes dla tego samego scenariusza uzytkownika.
+    throw new Error('Not a valid .xp file');
+  }
 }
