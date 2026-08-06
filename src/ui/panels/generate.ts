@@ -69,14 +69,13 @@ export function initGenerate(ctx: PanelsCtx, generateBox: HTMLElement): void {
   // W i H stackowane pionowo (etykieta nad inputem, pelna szerokosc karty) zamiast rzedu obok siebie
   const sizes = el('div', 'field-col');
   sizes.append(labeledStack('W', widthInput), labeledStack('H', heightInput));
+  const mazeButton = el('div', 'btn-row');
+  mazeButton.append(button('Maze', '', () => generate('maze')));
   const roomsField = labeledStack('Rooms', roomsInput);
-  const genButtons = el('div', 'btn-row');
-  genButtons.append(
-    button('Maze', '', () => generate('maze')),
-    button('Dungeon', '', () => generate('dungeon')),
-  );
+  const dungeonButton = el('div', 'btn-row');
+  dungeonButton.append(button('Dungeon', '', () => generate('dungeon')));
   generateBox.append(
-    sizes, roomsField, genButtons,
+    sizes, mazeButton, roomsField, dungeonButton,
     el('p', 'hint hint-small hint-gap', 'Generating replaces the active layer.'),
   );
 }
