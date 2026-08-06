@@ -4,7 +4,7 @@
 import { button, el, iconButton, labeledStack, numberInput, readNumber } from '../dom';
 import { icon } from '../icons';
 import { PanelsCtx } from './context';
-import { GeneratorKind, RoomRange, runGenerator } from './generate';
+import { DEFAULT_ROOMS, GeneratorKind, MAX_ROOMS, MIN_ROOMS, RoomRange, runGenerator } from './generate';
 import type { MapPanel } from './map';
 
 /** Bok pokoju: mniej niz 2 nie da sciany, wiecej niz 40 i tak nie zmiesci sie na mapie. */
@@ -14,6 +14,7 @@ const DEFAULT_MIN_ROOM = 4;
 const DEFAULT_MAX_ROOM = 8;
 
 export function initExtra(ctx: PanelsCtx, extraBox: HTMLElement, map: MapPanel): void {
+  const roomsInput = numberInput(DEFAULT_ROOMS, 'Rooms', MIN_ROOMS, MAX_ROOMS);
   const minRoom = numberInput(DEFAULT_MIN_ROOM, 'Minimum room size', MIN_ROOM, MAX_ROOM);
   const maxRoom = numberInput(DEFAULT_MAX_ROOM, 'Maximum room size', MIN_ROOM, MAX_ROOM);
 
@@ -29,7 +30,10 @@ export function initExtra(ctx: PanelsCtx, extraBox: HTMLElement, map: MapPanel):
   }
 
   const rooms = el('div', 'field-col');
-  rooms.append(labeledStack('Min. room size:', minRoom), labeledStack('Max. room size:', maxRoom));
+  rooms.append(
+    labeledStack('Rooms:', roomsInput),
+    labeledStack('Min. room size:', minRoom), labeledStack('Max. room size:', maxRoom),
+  );
 
   extraBox.append(
     el('p', 'card-heading', 'Maze generator'),
@@ -40,6 +44,7 @@ export function initExtra(ctx: PanelsCtx, extraBox: HTMLElement, map: MapPanel):
     button('Generate', 'btn-full', () => void generate('dungeon', {
       // odczyt dopiero w chwili klikniecia - pola przycinaja sie same do swojego zakresu,
       // a odwrocone min/max generator zamienia miejscami (patrz core/generators.ts)
+      roomTarget: readNumber(roomsInput, DEFAULT_ROOMS),
       minRoom: readNumber(minRoom, DEFAULT_MIN_ROOM),
       maxRoom: readNumber(maxRoom, DEFAULT_MAX_ROOM),
     })),

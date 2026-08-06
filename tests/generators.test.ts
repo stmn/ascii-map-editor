@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { generateDungeon, generateMaze, mulberry32 } from '../src/core/generators';
+import { generateDungeon, generateDungeonDetailed, generateMaze, mulberry32 } from '../src/core/generators';
 
 describe('generators', () => {
   it('maze: wymiary, S i E, wszystko osiagalne', () => {
@@ -86,5 +86,37 @@ describe('generators', () => {
     const a = generateDungeon(40, 24, 30, mulberry32(9), 4, 8).toLines();
     const b = generateDungeon(40, 24, 30, mulberry32(9), 8, 4).toLines();
     expect(a).toEqual(b);
+  });
+});
+
+describe('generateDungeonDetailed: roomTarget', () => {
+  // Duza plansza (60x40) z domyslnym zakresem boku pokoju (4-10) mieści cel bez trudu -
+  // wewnetrzny limit prob (roomTarget * 25) nie powinien byc w ogole potrzebny.
+  it('trafia dokladnie w zadana liczbe pokoi na duzej planszy', () => {
+    const { roomsPlaced } = generateDungeonDetailed(60, 40, { roomTarget: 3, rng: mulberry32(1) });
+    expect(roomsPlaced).toBe(3);
+  });
+
+  it('nigdy nie przekracza roomTarget, niezaleznie od seeda', () => {
+    for (let seed = 1; seed <= 10; seed++) {
+      const { roomsPlaced } = generateDungeonDetailed(60, 40, { roomTarget: 8, rng: mulberry32(seed) });
+      expect(roomsPlaced).toBeLessThanOrEqual(8);
+    }
+  });
+
+  // Ciasna plansza (10x8) z domyslnym zakresem boku pokoju (4-10) fizycznie nie pomiesci
+  // 50 nienakladajacych sie pokoi - test dowodzi, ze wewnetrzny limit prob (roomTarget * 25)
+  // faktycznie przerywa petle zamiast zawieszac generator.
+  it('na ciasnej planszy konczy sie bez zawieszenia i nie osiaga nierealnego celu', () => {
+    const { roomsPlaced } = generateDungeonDetailed(10, 8, { roomTarget: 50, rng: mulberry32(1) });
+    expect(roomsPlaced).toBeLessThan(50);
+  });
+
+  // generateDungeon to cienki wrapper nad generateDungeonDetailed (bez roomTarget) - ten sam
+  // seed i te same parametry musza dac identyczna siatke z obu wejsc.
+  it('generateDungeon (wrapper) daje ta sama siatke co Detailed bez roomTarget', () => {
+    const wrapped = generateDungeon(40, 24, 30, mulberry32(7)).toLines();
+    const detailed = generateDungeonDetailed(40, 24, { roomTries: 30, rng: mulberry32(7) }).grid.toLines();
+    expect(wrapped).toEqual(detailed);
   });
 });

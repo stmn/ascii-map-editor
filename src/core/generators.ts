@@ -38,23 +38,46 @@ export function generateMaze(w: number, h: number, rng: () => number = Math.rand
   return g;
 }
 
+/** Opcje generatora lochu - patrz {@link generateDungeonDetailed}. */
+export interface DungeonOpts {
+  /** Liczba prob postawienia pokoju gdy roomTarget nie jest podany (dotychczasowe zachowanie). */
+  roomTries?: number;
+  rng?: () => number;
+  minRoom?: number;
+  maxRoom?: number;
+  /**
+   * Docelowa liczba pokoi. Gdy podana (>=1), generator probuje stawiac pokoje az ja OSIAGNIE
+   * albo wyczerpie wewnetrzny limit prob (roomTarget * 25) - roomTries jest wtedy ignorowane.
+   */
+  roomTarget?: number;
+}
+
 /**
- * Loch z prostokatnych pokoi polaczonych korytarzami w L.
+ * Loch z prostokatnych pokoi polaczonych korytarzami w L. JEDYNA implementacja petli stawiania
+ * pokoi - {@link generateDungeon} to nad nia cienki wrapper.
  * minRoom/maxRoom to bok pokoju (obie osie losowane z tego samego zakresu) - karta Extra features
  * wystawia je uzytkownikowi. Odwrocone wartosci zamieniamy miejscami zamiast rzucac: pole liczbowe
  * w UI latwo zostawic w takim stanie w trakcie pisania, a pusty zakres dalby ujemne boki pokoi.
+ * Zwraca tez roomsPlaced - liczenie pokoi z gotowej siatki jest zawodne (korytarze zlepiaja podloge).
  */
-export function generateDungeon(
-  w: number, h: number, roomTries = 30, rng: () => number = Math.random,
-  minRoom = 4, maxRoom = 10,
-): Grid {
+export function generateDungeonDetailed(
+  w: number, h: number, opts: DungeonOpts = {},
+): { grid: Grid; roomsPlaced: number } {
+  const { roomTries = 30, rng = Math.random, minRoom = 4, maxRoom = 10, roomTarget } = opts;
   const lo = Math.min(minRoom, maxRoom), hi = Math.max(minRoom, maxRoom);
   const g = new Grid();
   interface Room { x: number; y: number; w: number; h: number }
   const rooms: Room[] = [];
   const ri = (a: number, b: number) => a + Math.floor(rng() * (b - a + 1));
 
-  for (let i = 0; i < roomTries; i++) {
+  // tryb "roomTries" (roomTarget nie podany): stala liczba prob niezaleznie od trafien - dotychczasowe
+  // zachowanie. tryb "roomTarget": probuje az postawi tyle pokoi ile trzeba, z twardym limitem prob,
+  // zeby ciasna plansza z nieosiagalnym celem nie zawiesila generatora.
+  const hasTarget = typeof roomTarget === 'number' && roomTarget >= 1;
+  const maxAttempts = hasTarget ? roomTarget * 25 : roomTries;
+  let attempts = 0;
+  while (attempts < maxAttempts && (!hasTarget || rooms.length < roomTarget)) {
+    attempts++;
     const rw = ri(lo, hi), rh = ri(lo, hi);
     const rx = ri(1, Math.max(1, w - rw - 2));
     const ry = ri(1, Math.max(1, h - rh - 2));
@@ -87,5 +110,16 @@ export function generateDungeon(
       }
     }
   }
-  return g;
+  return { grid: g, roomsPlaced: rooms.length };
+}
+
+/**
+ * Cienki wrapper nad {@link generateDungeonDetailed} - zachowuje dotychczasowa sygnature i
+ * zwraca sama siatke, bez roomTarget (petla stawiania pokoi zyje wylacznie w Detailed).
+ */
+export function generateDungeon(
+  w: number, h: number, roomTries = 30, rng: () => number = Math.random,
+  minRoom = 4, maxRoom = 10,
+): Grid {
+  return generateDungeonDetailed(w, h, { roomTries, rng, minRoom, maxRoom }).grid;
 }
