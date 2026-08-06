@@ -71,9 +71,11 @@ drawn at 50% opacity on the canvas, so the layer you are currently painting on s
 the rest of the stack. It is a view-only setting: it never changes the saved level, is not
 part of undo/redo, and is not persisted between sessions - it always starts on.
 
-The checkbox itself lives in the Layers card, which Simplified mode hides (see Modes below),
-so in Simplified the dimming stays wherever it was last set (on, by default) with no way to
-change it until you switch back to Advanced.
+Dimming is an Advanced-mode aid. Simplified mode has no Layers card and no notion of an active
+layer, so a partly faded map there would look like a rendering bug with nothing in the UI to
+explain it - the canvas draws every cell at full opacity in Simplified regardless of the
+checkbox. The setting itself is untouched, so switching back to Advanced restores whatever you
+had chosen.
 
 ## Undo and redo
 
@@ -98,8 +100,8 @@ What is on the stack:
 - a whole paint or erase stroke - the full mouse-down-to-mouse-up gesture is one command, not
   one per cell
 - Generate (maze or dungeon)
-- Clear layer
-- loading a file or pasted text through the Import dialog
+- Clear layer, and the whole-map Clear in Simplified mode's Map card
+- loading a file or pasted text through the Import dialog, or through Load in the Map card
 - every layer operation: add, delete, move, show/hide, rename
 - every legend edit: renaming an entry, changing its color, changing its character
 
@@ -116,11 +118,12 @@ the same way again, so the rest of the history above and below it stays intact.
 
 ## Layout
 
-The eight panel cards (Project, Draw, Layers, Legend, Generate, Export, Import, Map) live in
-two sidebar columns, one on each side of the canvas; the right column is where all eight
-start. Map is the odd one out: it only shows in Simplified mode, see Modes below. Drag a card
-by its header - the collapsed title bar - into the other column, or up and down within the
-same column: a thin line shows where it will land before you drop it.
+The nine panel cards (Project, Draw, Layers, Legend, Generate, Export, Import, Map, Extra
+features) live in two sidebar columns, one on each side of the canvas; the right column is
+where all nine start. Map and Extra features are the odd ones out: they only show in Simplified
+mode, see Modes below. Drag a card by its header - the collapsed title bar - into the other
+column, or up and down within the same column: a thin line shows where it will land before you
+drop it.
 
 Both sidebar columns are always the full height of the window and top-aligned: cards stack
 from the top, and whatever space is left below the last card - or all of it, in a column with
@@ -162,32 +165,71 @@ under the key `ascii-level-editor-mode` (value `advanced` or `simplified`), so i
 reload. If `localStorage` is unavailable (private browsing, for example) the switch still
 works for the rest of the session, but the Welcome dialog asks again on the next load.
 
-### What Simplified hides
+### What Simplified shows
 
-Simplified keeps four cards: **Map**, **Draw**, **Legend** and **Generate**. It hides
-**Project**, **Layers**, **Export** and **Import** with plain CSS (`display: none` by
-`data-section`), so nothing about a hidden card's content is lost - switch back to Advanced
-and every card is exactly as you left it, including a custom position from dragging it between
-sidebar columns. A hidden card also takes no space and cannot be dropped into, so drag and
-drop in Simplified only ever targets the cards you can actually see.
+Simplified is a deliberate replica of the original v1 panel, so it shows at most two cards:
+**Map**, the main panel, and **Extra features**, which only appears when you tick its checkbox
+in Map. Everything else - **Project**, **Draw**, **Layers**, **Legend**, **Generate**,
+**Export** and **Import** - is hidden with plain CSS (`display: none` by `data-section`), so
+nothing about a hidden card's content is lost: switch back to Advanced and every card is
+exactly as you left it, including a custom position from dragging it between sidebar columns.
+A hidden card also takes no space and cannot be dropped into, so drag and drop in Simplified
+only ever targets the cards you can actually see.
+
+Hiding the Draw card does not take its two keyboard behaviours away, because both are bound to
+the window rather than to the card: pressing any printable key still switches the brush, and
+Ctrl+Z / Ctrl+Shift+Z still undo and redo.
 
 ### The Map card
 
-Map is the closest thing Simplified has to the old v1 workflow of one text box for the whole
-level: a single textarea that is both a live export preview and an import field, plus a
-format picker offering the same three shapes v1 used to save - Text, Array of strings, Array
-of arrays.
+Map is the whole v1 editor in one card, in the original order:
 
-- The preview rewrites itself after every edit, in whichever format is currently selected.
-- **Load** parses whatever is in the textarea through the same tolerant parser as the Import
+- **Width** and **Height** side by side (default 14 by 12, clamped to 3-199). These are what
+  the generators in Extra features build - they are a request, not a readout, so generating
+  never rewrites them. A successful **Load** does update them, to the size of the map you just
+  loaded, the way v1's detectMapSize did.
+- **Character** - the brush, as a single-character field. It is the same brush the rest of the
+  editor uses, kept in sync both ways: typing here sets it, and switching the brush any other
+  way (a printable key, a Legend chip) updates the field.
+- **Map:** with a blue **SWITCH FORMAT** link on the right, over the textarea. The link cycles
+  the same three shapes v1 could save - Text, then Array of strings, then Array of arrays, then
+  back - and rewrites the textarea immediately. The choice lasts for the session.
+- The **textarea** is both a live preview of the whole map and the import field. It rewrites
+  itself after every edit, except while it holds text of your own: once you paste or type
+  something different from the preview, it is left alone until you Load it or hit SWITCH
+  FORMAT, so painting on the canvas can never wipe a paste out from under you. Clearing the
+  field, or editing it back to what the preview says, hands it back to the preview.
+- **Clear**, **Center**, **Load**. Clear asks for confirmation and then empties every layer,
+  leaving the legend intact; it is one undo step. Center re-centers the view on the paper.
+  Load parses whatever is in the textarea through the same tolerant parser as the Import
   dialog's paste box (`.json` project text, a v1 map, or anything else `parseProject`
-  understands), and applies it through the same undo-aware replace-level command Import uses.
-  In practice that means **Load replaces the whole map - Undo brings it back** - exactly like
-  loading a file through Import, and the card says so directly under its buttons.
-- **Copy** copies the current preview text to the clipboard.
+  understands), and applies it through the same undo-aware replace-level command Import uses -
+  so **Load replaces the whole map, and Undo brings it back**.
+- **To clipboard** copies the current textarea contents.
+- A gray box of three checkboxes: **Show grid**, **Show colors** and **Extra features**. The
+  first two are view-only session toggles - they redraw the canvas but never touch the saved
+  level, undo history or autosave, and both start on. Unticking Show grid drops the grid lines
+  while keeping the paper and its outline; unticking Show colors draws every glyph in one ink
+  color instead of its legend color, like v1's gray mode. Extra features shows and hides the
+  second card.
 
-Map only offers to view or replace the whole map as text; it has no per-layer or per-legend
-controls of its own, since those live in the cards Simplified hides.
+Map only views or replaces the whole map as text; it has no per-layer or per-legend controls
+of its own, since those live in the cards Simplified hides.
+
+### The Extra features card
+
+Ticking **Extra features** in Map opens a second card below it, holding the two generators:
+
+- **Maze generator** with a Generate button.
+- **Dungeon generator** with **Min. room size** (default 4) and **Max. room size** (default 8)
+  above its own Generate button. Room sides are drawn from that range inclusively; if you leave
+  min above max the two are simply swapped rather than rejected.
+
+Both read the map size from Map's Width and Height fields and run through exactly the same
+path as the Generate card in Advanced: a confirmation if the active layer is not empty, then
+one undoable step. The card's own **X** button closes it and unticks the checkbox, which is
+also the only way it is hidden - the checkbox and the card can never disagree. Whether it is
+open is a session setting, like the brush; it always starts closed.
 
 ## Projects and levels
 
@@ -306,8 +348,8 @@ Scope selector, one copy-or-download button per format, and a "Legacy (v1)" sect
 picker with two of the three shapes the original v1 editor used to save - Array of strings and
 Array of arrays - a live preview textarea, and a Copy legacy button. The third shape, plain
 Text, is left out of this picker because it duplicates the Copy TXT button already in the same
-dialog; all three legacy shapes together are still available in Simplified mode's Map card,
-see Modes above. The Import modal has a file picker for `.json` / `.txt` / `.xp` plus a paste
+dialog; all three legacy shapes together are still available behind the SWITCH FORMAT link in
+Simplified mode's Map card, see Modes above. The Import modal has a file picker for `.json` / `.txt` / `.xp` plus a paste
 box; both routes run through the same tolerant parser, so pasting an old v1 export works
 exactly like importing its file.
 
@@ -355,7 +397,9 @@ src/
       draw.ts       brush and recent chips
       layers.ts     Layers card: add/reorder/rename/hide/delete
       legend.ts     Legend card: name/color/usage per character, character remap
-      generate.ts   maze/dungeon generator card
+      generate.ts   maze/dungeon generator card, plus the generator path both cards share
+      map.ts        Map card: the whole v1 main panel, Simplified mode only
+      extra.ts      Extra features card: the two generators, Simplified mode only
       exportModal.ts   Export dialog
       importModal.ts   Import dialog
 tests/              Vitest specs for core/ and export/ only

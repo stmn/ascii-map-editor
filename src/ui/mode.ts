@@ -62,6 +62,11 @@ function applyClass(): void {
   document.body.classList.toggle(SIMPLIFIED_CLASS, mode === 'simplified');
 }
 
+/** Czy karta Extra features jest wlaczona - checkbox w karcie glownej czyta stad stan poczatkowy. */
+export function isExtraVisible(): boolean {
+  return document.body.classList.contains(EXTRA_CLASS);
+}
+
 /**
  * Pokazanie/ukrycie karty Extra features. Zmiana skladu kart moze zwezic albo poszerzyc kolumne
  * (karta da sie przeciagnac do pustej kolumny), wiec idzie ta sama sciezka co przelaczenie trybu:

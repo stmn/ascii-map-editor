@@ -10,7 +10,7 @@ import { unionBounds, type Level } from '../../core/level';
 import { parseProject } from '../../core/project';
 import { LegacyFormat, exportLegacyFlat } from '../../export/legacy';
 import { button, checkboxRow, el, labeledStack, numberInput, readNumber } from '../dom';
-import { isSimplified, setExtraVisible } from '../mode';
+import { isExtraVisible, isSimplified, setExtraVisible } from '../mode';
 import { confirmModal } from '../modal';
 import { PanelsCtx, applyReplace, copyToClipboard, errorMessage, guarded, toast } from './context';
 
@@ -36,8 +36,6 @@ export interface MapPanel {
   syncBrush(ch: string): void;
   /** Rozmiar z pol Width/Height, przyciety do zakresu - czyta go karta Extra features. */
   size(): { w: number; h: number };
-  /** Przepisuje pola Width/Height z obrysu mapy (v1: detectMapSize) - po Load i po generatorach. */
-  syncSize(): void;
   /** Odznacza checkbox Extra features i chowa tamta karte - wola to X w jej naglowku. */
   hideExtra(): void;
 }
@@ -56,9 +54,12 @@ export function initMap(
   }
 
   /**
-   * Rozmiar pol z obrysu mapy. Przypisanie do value i zaraz odczyt przez readNumber wyglada
-   * okreznie, ale to ten sam (jedyny) kod przycinajacy do zakresu pola - mapa moze byc wieksza
-   * niz MAX_SIZE albo pusta, a pola maja pokazywac wartosc, z ktora naprawde da sie generowac.
+   * Rozmiar pol z obrysu mapy - wolane WYLACZNIE po udanym Load (v1 robil tam detectMapSize).
+   * Generatory swiadomie tedy nie ida: dla nich pola sa zamowieniem, a nie odbiciem wyniku
+   * (patrz panels/extra.ts). Malowanie tez nie - inaczej pola gonilyby kazde pociagniecie pedzla.
+   *
+   * Przypisanie do value i zaraz odczyt przez readNumber wyglada okreznie, ale to ten sam
+   * (jedyny) kod przycinajacy do zakresu pola - wczytana mapa moze byc wieksza niz MAX_SIZE.
    */
   function syncSize(): void {
     const b = unionBounds(state.level.layers);
@@ -94,26 +95,46 @@ export function initMap(
   /**
    * Czy w polu siedzi tresc UZYTKOWNIKA (wklejka, wlasne poprawki). Dopoki tak jest, zaden
    * refresh jej nie nadpisze - inaczej klikniecie w mape (albo cofniecie zmiany) kasowaloby
-   * wklejke po debounce podgladu. Flage zdejmuje dopiero jawna akcja: udany Load albo
-   * SWITCH FORMAT, no i samo przepisanie podgladu w write().
+   * wklejke po debounce podgladu. Flaga schodzi na trzy sposoby: jawna akcja (udany Load,
+   * SWITCH FORMAT, przepisanie podgladu w write()) oraz sama edycja, ktora nie zostawia
+   * w polu nic wlasnego - puste pole albo tresc rowna biezacemu eksportowi (patrz nizej).
    */
   let userEdited = false;
 
   const text = el('textarea', 'map-text');
   text.setAttribute('aria-label', 'Map contents');
-  text.addEventListener('input', () => { userEdited = true; });
+  // Pole puste albo z trescia identyczna z biezacym eksportem NIE jest "wlasna" trescia -
+  // bez tego skasowanie wklejki do zera zostawialoby straznik na zawsze wlaczony i podglad
+  // juz nigdy by nie odzyl (az do Load albo SWITCH FORMAT).
+  text.addEventListener('input', () => {
+    userEdited = text.value.trim() !== '' && text.value !== currentExport();
+  });
 
   /**
-   * Przepisanie podgladu ze stanu. Blad (zbyt duze bounds) laduje w samym polu, tak jak
-   * w podgladzie legacy - odswiezenie leci przy kazdej zmianie mapy, wiec toasty by zalaly ekran.
+   * Mapa w biezacym formacie. Blad (zbyt duze bounds) wraca jako tekst i laduje w samym polu,
+   * tak jak w podgladzie legacy - odswiezenie leci przy kazdej zmianie mapy, wiec toasty by
+   * zalaly ekran. Wynik trzymamy w cache po liczniku tresci i formacie: pyta o niego kazde
+   * nacisniecie klawisza w polu (straznik wyzej) i kazdy hook renderMap, a mapa miedzy nimi
+   * najczesciej sie nie zmienia.
    */
-  function write(): void {
-    let next: string;
-    try {
-      next = exportLegacyFlat(state.level, format);
-    } catch (e) {
-      next = errorMessage(e);
+  let exportCache: { rev: number; format: LegacyFormat; text: string } | null = null;
+
+  function currentExport(): string {
+    if (exportCache?.rev !== state.contentRev || exportCache.format !== format) {
+      let next: string;
+      try {
+        next = exportLegacyFlat(state.level, format);
+      } catch (e) {
+        next = errorMessage(e);
+      }
+      exportCache = { rev: state.contentRev, format, text: next };
     }
+    return exportCache.text;
+  }
+
+  /** Przepisanie podgladu ze stanu mapy. */
+  function write(): void {
+    const next = currentExport();
     // po przepisaniu pole znowu pokazuje sam stan mapy, wiec straznik nie ma juz czego bronic
     userEdited = false;
     // Przypisanie do value przewija pole na sam gorny brzeg TAKZE wtedy, gdy tekst jest ten sam,
@@ -166,10 +187,18 @@ export function initMap(
     syncSize();
   }
 
+  /** Czy na calym poziomie nie ma ANI JEDNEJ komorki - czyszczenie pustej mapy nie ma sensu. */
+  function mapIsEmpty(): boolean {
+    return state.level.layers.every((l) => l.grid.isEmpty());
+  }
+
   /** Czysci WSZYSTKIE warstwy naraz (v1 nie mial warstw); legenda zostaje, jak przy Clear layer. */
   async function clearAll(): Promise<void> {
-    if (state.level.layers.every((l) => l.grid.isEmpty())) return;
+    if (mapIsEmpty()) return;
     if (!await confirmModal('Clear the whole map?', 'Clear')) return;
+    // stan mogl sie zmienic w trakcie potwierdzania (undo skrotem) - bez tej drugiej kontroli
+    // poszedlby do historii wpis, ktory niczego nie zmienia
+    if (mapIsEmpty()) return;
     applyReplace(ctx, 'Clear map', () => {
       for (const layer of state.level.layers) layer.grid.clear();
     });
@@ -190,8 +219,9 @@ export function initMap(
     state.colorsEnabled = on;
     ctx.markDirty();
   });
-  // Checkbox jest pilotem karty Extra features - stan trzyma klasa na body (patrz ui/mode.ts)
-  const extra = checkboxRow('Extra features', false, setExtraVisible);
+  // Checkbox jest pilotem karty Extra features, ale nie jej pamiecia: stan poczatkowy czytamy
+  // z klasy na body, zeby to ona pozostala jedynym zrodlem prawdy (patrz ui/mode.ts)
+  const extra = checkboxRow('Extra features', isExtraVisible(), setExtraVisible);
 
   function hideExtra(): void {
     extra.input.checked = false;
@@ -224,5 +254,5 @@ export function initMap(
     toggles,
   );
 
-  return { refresh, syncBrush, size, syncSize, hideExtra };
+  return { refresh, syncBrush, size, hideExtra };
 }

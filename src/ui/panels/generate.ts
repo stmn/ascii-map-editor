@@ -24,14 +24,15 @@ export interface RoomRange { minRoom: number; maxRoom: number }
  * Wygenerowanie mapy na aktywnej warstwie - JEDYNA implementacja tej sciezki (karta Generate
  * w Advanced i karta Extra features w Simplified). Niepusta warstwa wymaga potwierdzenia, bo
  * generator zasypuje ja bezpowrotnie; reszta stosu zostaje nietknieta.
- * Zwraca true gdy mapa faktycznie powstala - wolajacy odswieza wtedy swoje pola z rozmiarem.
+ * Podane w i h sa ZAMOWIENIEM rozmiaru - zaden wolajacy nie przepisuje potem swoich pol
+ * obrysem wyniku (patrz panels/extra.ts), bo generator moze wypelnic mniej niz zamowiono.
  */
 export async function runGenerator(
   ctx: PanelsCtx, kind: GeneratorKind, w: number, h: number, rooms?: RoomRange,
-): Promise<boolean> {
+): Promise<void> {
   const { state } = ctx;
   const layer = activeLayerOf(state);
-  if (!layer.grid.isEmpty() && !await confirmModal(`Replace layer "${layer.name}"?`, 'Replace')) return false;
+  if (!layer.grid.isEmpty() && !await confirmModal(`Replace layer "${layer.name}"?`, 'Replace')) return;
   applyReplace(ctx, kind === 'maze' ? 'Generate maze' : 'Generate dungeon', () => {
     layer.grid = kind === 'maze'
       ? generateMaze(w, h)
@@ -39,7 +40,6 @@ export async function runGenerator(
     state.level.legend.syncWith(levelUsedChars(state.level));
   }, true);
   toast(`Generated ${kind} ${w}x${h}`);
-  return true;
 }
 
 export function initGenerate(ctx: PanelsCtx, generateBox: HTMLElement): void {

@@ -53,6 +53,28 @@ describe('generators', () => {
     }
   });
 
+  // Przy min < max jedna proba pokoju daje jeden prostokat podlogi, wiec jego obrys to wprost
+  // wylosowane boki. Sprawdzamy i zakres, i to, ze OBIE granice sa osiagalne - inkluzywna gorna
+  // granica jest latwa do zgubienia (ri z ta sama arytmetyka bez '+ 1' nigdy nie zwroci hi).
+  it('dungeon: przy min < max boki pokoju mieszcza sie w [min, max] i siegaja obu koncow', () => {
+    const lo = 3, hi = 6;
+    const seen = new Set<number>();
+    for (let seed = 1; seed <= 40; seed++) {
+      const cells = [...generateDungeon(60, 40, 1, mulberry32(seed), lo, hi).cells()]
+        .filter((c) => c.ch === '.');
+      const xs = cells.map((c) => c.x), ys = cells.map((c) => c.y);
+      const rw = Math.max(...xs) - Math.min(...xs) + 1;
+      const rh = Math.max(...ys) - Math.min(...ys) + 1;
+      for (const side of [rw, rh]) {
+        expect(side).toBeGreaterThanOrEqual(lo);
+        expect(side).toBeLessThanOrEqual(hi);
+        seen.add(side);
+      }
+    }
+    expect(seen.has(lo)).toBe(true);
+    expect(seen.has(hi)).toBe(true);
+  });
+
   it('dungeon: custom min/max jest deterministyczny i ma podloge', () => {
     const a = generateDungeon(50, 30, 25, mulberry32(11), 5, 9).toLines();
     const b = generateDungeon(50, 30, 25, mulberry32(11), 5, 9).toLines();

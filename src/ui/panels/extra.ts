@@ -18,13 +18,14 @@ export function initExtra(ctx: PanelsCtx, extraBox: HTMLElement, map: MapPanel):
   const maxRoom = numberInput(DEFAULT_MAX_ROOM, 'Maximum room size', MIN_ROOM, MAX_ROOM);
 
   /**
-   * Generowanie z rozmiarem z karty glownej. Po udanym przebiegu odswiezamy tam pola W/H:
-   * generator lekko koryguje wymiary (labirynt schodzi do nieparzystych, loch obrysowuje pokoje),
-   * wiec bez tego pola klamalyby o tym, co naprawde lezy na papierze.
+   * Generowanie z rozmiarem z karty glownej. Pola W/H sa dla generatora ZAMOWIENIEM i celowo
+   * nie sa po nim przepisywane obrysem wyniku (semantyka v1): loch wypelnia pokojami tylko
+   * czesc zamowionego prostokata, wiec przepisanie skurczyloby pola przy kazdym kliknieciu
+   * i seria generacji zjezdzalaby z 31x21 do kilku komorek.
    */
   async function generate(kind: GeneratorKind, rooms?: RoomRange): Promise<void> {
     const { w, h } = map.size();
-    if (await runGenerator(ctx, kind, w, h, rooms)) map.syncSize();
+    await runGenerator(ctx, kind, w, h, rooms);
   }
 
   const rooms = el('div', 'field-col');

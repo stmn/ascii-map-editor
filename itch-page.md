@@ -33,9 +33,13 @@ locally as you draw.
   panel, all sharing one legend for the whole level. A "Dim other layers" toggle fades
   everything but the active layer to 50% on the canvas, so you always see what you are
   painting on.
-- Two modes: Advanced, the full editor, and Simplified, a smaller map-and-legend layout close
-  to the original v1 tool. A first-run chooser asks which one you want, and a switch at the
-  top of the screen changes it any time after that.
+- Two modes: Advanced, the full editor, and Simplified, a faithful replica of the original v1
+  panel - width and height, a character field, the whole map in one text box with a SWITCH
+  FORMAT link cycling all three v1 formats, Clear / Center / Load, To clipboard, and Show grid
+  / Show colors toggles. A first-run chooser asks which one you want, and a switch at the top
+  of the screen changes it any time after that.
+- An Extra features card in Simplified, one checkbox away: the maze generator, and the dungeon
+  generator with its own min and max room size.
 - A legend that turns characters into real tiles: give each one a name and a color, and see
   how many times it is used. Change a character on the fly too: one click remaps it everywhere
   on every layer.
@@ -52,7 +56,8 @@ locally as you draw.
 - An Export dialog: TXT, CSV, KaPlay snippet, Godot GDScript, Tiled `.tmx`, REXPaint `.xp`
   and a project `.json` that keeps every layer and the legend - plus a Legacy (v1) tab with
   the two array formats the original editor used to save (the third, plain text, is covered
-  by Copy TXT in the same dialog, and stays available too in the Simplified mode map view).
+  by Copy TXT in the same dialog, and all three stay available behind SWITCH FORMAT in
+  Simplified mode).
 - An Import dialog: load a file or paste text straight in, for project files, plain text,
   REXPaint `.xp` and both old v1 array formats.
 - Mouse wheel zoom, drag to pan, Alt or Ctrl to erase.
@@ -142,8 +147,8 @@ It is pay what you want, and $2 is a fair nudge if the tool saved you an afterno
 
 ### Changelog
 
-**v2.4** - simplified classic mode with first run chooser, brush sizes, layer dimming, UI icon
-polish.
+**v2.4** - simplified mode rebuilt as a v1 panel replica (with Show grid / Show colors and an
+Extra features card), first run chooser, brush sizes, layer dimming, UI icon polish.
 
 **v2.3** - undo/redo, legend character remap, customizable dual-sidebar layout.
 
