@@ -1,14 +1,15 @@
-// Plywajacy przycisk Center: staly punkt "wroc do mapy" na dole ekranu, w OBU trybach.
+// Plywajacy przycisk centrowania widoku: staly celownik na dole ekranu, w OBU trybach.
 // Mieszka poza kartami (jak przelacznik trybu), bo mapa da sie odjechac w bok takze wtedy,
 // gdy karta z przyciskiem Center jest ukryta, przewinieta albo przeciagnieta do drugiej kolumny.
-import { button } from './dom';
+import { iconButton } from './dom';
+import { icon } from './icons';
 
 /**
- * Doklada przycisk do body. Samo wycentrowanie robi wolajacy - to ustawienie WIDOKU
+ * Doklada przycisk do body. Sam napis zastapila ikona celownika - przy dolnej krawedzi ekranu
+ * kwadratowy przycisk zaslania mniej mapy niz etykieta, a opis niesie tooltip (i aria-label,
+ * dokladany przez iconButton). Samo wycentrowanie robi wolajacy - to ustawienie WIDOKU
  * (bez historii i bez autozapisu), wspolne z przyciskiem Center w karcie glownej.
  */
 export function initCenterButton(onCenter: () => void): void {
-  const btn = button('Center', 'center-fab', onCenter);
-  btn.title = 'Center the view on the map';
-  document.body.append(btn);
+  document.body.append(iconButton(icon('crosshair'), 'center-fab', 'Center view', onCenter));
 }

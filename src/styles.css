@@ -924,17 +924,31 @@ body.mode-simplified .sidebar > details[data-section='generate'] {
   color: #565a75;
 }
 
-/* Plywajacy Center: lustro przelacznika trybu przy dolnej krawedzi - ten sam bialy przycisk
-   w stylu v1 i ten sam z-index (ponizej modali i toastow, powyzej kolumn kart). */
+/* Plywajacy przycisk centrowania: lustro przelacznika trybu przy dolnej krawedzi - ten sam
+   bialy przycisk w stylu v1 i ten sam z-index (ponizej modali i toastow, powyzej kolumn kart).
+   Kwadrat 32x32 z sama ikona celownika, jak przyciski-ikony w kartach (tylko wiekszy, bo stoi
+   samotnie nad mapa); box-sizing, zeby ramka 2px miescila sie w tych 32 px. */
 .center-fab {
   position: fixed;
   bottom: 12px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 10;
+  box-sizing: border-box;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   color: #1a1c2c;
   background: #ffffff;
-  padding: 8px 12px;
+}
+
+/* Ikona wieksza niz 14px z kart - przycisk stoi sam nad mapa, wiec celownik ma byc czytelny. */
+.center-fab .icon {
+  width: 18px;
+  height: 18px;
 }
 
 .center-fab:hover {
@@ -945,8 +959,9 @@ body.mode-simplified .sidebar > details[data-section='generate'] {
   background: #d1d5db;
 }
 
-/* Toast: pigulka na dole ekranu, znika po 3 s. Stoi NAD plywajacym Center (12px + jego
-   wysokosc), zeby komunikat nie zaslanial przycisku ani odwrotnie. */
+/* Toast: pigulka na dole ekranu, znika po 3 s. Stoi NAD plywajacym przyciskiem centrowania
+   (12 px jego odstepu + 32 px wysokosci + 12 px przerwy = 56), zeby komunikat nie zaslanial
+   przycisku ani odwrotnie. */
 .toast {
   position: fixed;
   left: 50%;

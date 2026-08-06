@@ -14,6 +14,7 @@ export type IconName =
   | 'eye'
   | 'eye-off'
   | 'copy'
+  | 'crosshair'
   | 'x';
 
 /** Pojedynczy wezel potomny <svg> - ten zestaw ikon Lucide korzysta tylko z path/circle/rect. */
@@ -54,6 +55,14 @@ const ICONS: Record<IconName, IconShape[]> = {
   copy: [
     { tag: 'rect', attrs: { width: '14', height: '14', x: '8', y: '8', rx: '2', ry: '2' } },
     path('M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2'),
+  ],
+  // celownik: okrag i cztery kreski na osiach - plywajacy przycisk centrowania widoku
+  crosshair: [
+    { tag: 'circle', attrs: { cx: '12', cy: '12', r: '10' } },
+    path('M22 12h-4'),
+    path('M6 12H2'),
+    path('M12 6V2'),
+    path('M12 22v-4'),
   ],
   x: [
     path('M18 6 6 18'),

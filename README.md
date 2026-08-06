@@ -146,15 +146,16 @@ re-center it, but only horizontally: vertical scroll and zoom level survive a dr
 Both columns keep a fixed 8px gap between their cards and the scrollbar, so a classic
 (non-overlay) scrollbar never touches a card's border.
 
-## Floating Center button
+## Floating center button
 
-A **Center** button floats fixed at the bottom-center of the screen in both modes, drawn on top
-of whichever cards happen to be underneath it. Clicking it re-centers the view on the paper -
-the same underlying view-centering call as the in-card Center button inside Simplified's Map
-card, so the two are always in sync. It lives outside the card layout entirely, so it stays
-visible regardless of scroll position, zoom, which cards are on screen or which sidebar column
-they are dragged into. Toasts are anchored a little higher, directly above the button, so a
-toast message and the floating Center button never overlap on screen.
+A small square button with a crosshair icon floats fixed at the bottom-center of the screen in
+both modes, drawn on top of whichever cards happen to be underneath it. Its tooltip (and screen
+reader label) is "Center view", and clicking it re-centers the view on the paper - the same
+underlying view-centering call as the in-card Center button inside Simplified's Map card, so the
+two are always in sync. It lives outside the card layout entirely, so it stays visible
+regardless of scroll position, zoom, which cards are on screen or which sidebar column they are
+dragged into. Toasts are anchored a little higher, directly above the button, so a toast message
+and the floating center button never overlap on screen.
 
 ## Modes
 
