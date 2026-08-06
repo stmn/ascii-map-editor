@@ -10,7 +10,7 @@ import {
 } from '../../core/store';
 import { button, el, iconButton, setIconTitle } from '../dom';
 import { icon } from '../icons';
-import { menuButton } from '../menu';
+import { closeAnyMenu, menuButton } from '../menu';
 import { confirmModal, promptModal } from '../modal';
 import {
   PanelsCtx, applyLevelToPanels, download, errorMessage, flushSave, getCurrentLevel,
@@ -450,6 +450,11 @@ export function initProject(ctx: PanelsCtx, box: HTMLElement, modals: LevelIoMod
    * wiec autozapis w trakcie pisania nadal nie rusza pola nazwy.
    */
   async function render(): Promise<void> {
+    // render przebudowuje CALY DOM karty (box.replaceChildren nizej), a panel otwartego
+    // dropdowna zyje POZA box (dopiety do document.body - patrz menu.ts) - bez tego zamkniecia
+    // zostalby osierocony ze starymi domknieciami az do najblizszego klikniecia poza/Esc
+    // (fix round 1, finding 2).
+    closeAnyMenu();
     const focused = document.activeElement;
     if (focused instanceof HTMLInputElement && box.contains(focused)) {
       focused.blur();

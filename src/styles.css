@@ -291,15 +291,34 @@ button:disabled:active {
   min-width: 0;
 }
 
+/* Etykieta + chevron w dol po prawej (fix round 1 - wymog ownera), wysrodkowane pionowo. */
 .menu-trigger {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
   width: 100%;
   box-sizing: border-box;
 }
 
+.menu-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Chevron dopasowany do 9px tekstu triggera (patrz .btn-row button), nie domyslne 14px .icon. */
+.menu-trigger .icon {
+  width: 10px;
+  height: 10px;
+  flex: none;
+}
+
 /* Panel dropdowna: bialy card z czarna ramka jak reszta UI v1, position fixed policzony w JS
    (patrz komentarz w menu.ts - karty sekcji maja overflow:hidden, ktore obcieloby zagniezdzony
-   panel absolute). z-index ponizej modalu (20). */
+   panel absolute). z-index ponizej modalu (20). Szerokosc dopasowana do NAJDLUZSZEJ pozycji
+   (fix round 1, finding 1) - min-width w JS pilnuje tylko, zeby panel nie byl WEZSZY niz trigger,
+   samo dopasowanie do dluzszych etykiet ("Export project") robi max-content. */
 .menu-panel {
   position: fixed;
   z-index: 15;
@@ -307,6 +326,7 @@ button:disabled:active {
   flex-direction: column;
   gap: 4px;
   box-sizing: border-box;
+  width: max-content;
   padding: 4px;
   background: #ffffff;
   border: 2px solid #000000;
