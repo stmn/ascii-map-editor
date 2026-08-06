@@ -396,6 +396,11 @@ button:disabled:active {
   min-width: 26px;
   padding: 5px 4px;
   text-align: center;
+  /* .icon jest display:block (patrz regula .icon) - bez flexa tu ikona Brush/Eraser (Draw)
+     osiadala przy lewej krawedzi chipa zamiast sie wysrodkowac jak tekst rozmiaru stopki. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   color: #1a1c2c;
   background: #ffffff;
 }
@@ -475,7 +480,8 @@ button:disabled:active {
   margin: 0;
 }
 
-/* Pelna szerokosc karty - W i H sa stackowane pionowo (.field-stack), nie obok siebie. */
+/* Pelna szerokosc pola: W/H stoja 50/50 w .field-row (Generate, Map), a etykieta zostaje nad
+   kazdym z nich (.field-stack) - .size-input wypelnia sobie przydzielona polowe rzedu. */
 .size-input {
   width: 100%;
 }
@@ -1007,6 +1013,12 @@ body.mode-simplified .sidebar > details[data-section='generate'] {
 
 .center-fab:active {
   background: #d1d5db;
+}
+
+/* Widoczny tylko gdy widok jest odsuniety od wycentrowanej pozycji - patrz setCenterFabVisible
+   w ui/center.ts (app.ts porownuje pan po kazdym przerysowaniu). */
+.center-fab.hidden {
+  display: none;
 }
 
 /* Toast: pigulka na dole ekranu, znika po 3 s. Stoi NAD plywajacym przyciskiem centrowania

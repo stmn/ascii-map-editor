@@ -40,6 +40,13 @@ export interface MapPanel {
   size(): { w: number; h: number };
   /** Odznacza checkbox Extra features i chowa tamta karte - wola to X w jej naglowku. */
   hideExtra(): void;
+  /**
+   * Odswieza checkboxy Show grid / Show colors ze stanu - wola to przelacznik trybu (mode.ts
+   * przez panels.ts), gdy wejscie w Advanced wymusza gridVisible/colorsEnabled na true.
+   * Checkboxy nie sluchaja stanu same (input.checked to ich WLASNA kopia), wiec bez tego
+   * powrot do Simplified pokazalby odznaczone pola mimo wymuszonego wlaczenia.
+   */
+  syncToggles(): void;
 }
 
 export function initMap(
@@ -225,6 +232,11 @@ export function initMap(
     setExtraVisible(false);
   }
 
+  function syncToggles(): void {
+    grid.input.checked = state.gridVisible;
+    colors.input.checked = state.colorsEnabled;
+  }
+
   const sizes = el('div', 'field-row');
   sizes.append(labeledStack('Width:', widthInput), labeledStack('Height:', heightInput));
 
@@ -251,5 +263,5 @@ export function initMap(
     toggles,
   );
 
-  return { refresh, syncBrush, size, hideExtra };
+  return { refresh, syncBrush, size, hideExtra, syncToggles };
 }

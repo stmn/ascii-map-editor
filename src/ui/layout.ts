@@ -87,8 +87,8 @@ export function sidebarWidths(): { left: number; right: number } {
 
 /**
  * Przesuniecie srodka wolnego obszaru wzgledem srodka okna, w tej samej konwencji co offsetX
- * w centerView (dodatni = mapa idzie w lewo). Roznica sprzed i po zmianie ukladu wystarcza,
- * by przesunac widok w poziomie bez ruszania przewiniecia w pionie.
+ * w centeredPan/centerOnPaper (app.ts, dodatni = mapa idzie w lewo). Roznica sprzed i po
+ * zmianie ukladu wystarcza, by przesunac widok w poziomie bez ruszania przewiniecia w pionie.
  */
 function viewOffset(): number {
   const { left, right } = sidebarWidths();

@@ -184,14 +184,19 @@ export class Renderer {
 }
 
 /**
- * Ustawia pan tak, by prostokat byl wysrodkowany w oknie.
+ * Docelowy pan wysrodkowujacy prostokat w oknie - czysta funkcja bez efektow ubocznych.
+ * JEDYNA implementacja tej matematyki: app.ts uzywa jej i do faktycznego centrowania
+ * (centerOnPaper stosuje wynik wprost do state.view), i do sprawdzenia, czy widok JEST
+ * wycentrowany (fab centrowania - patrz Task 6 brief) - porownuje biezacy pan z tym,
+ * co zwrocilaby ta funkcja.
  * offsetX przesuwa mape w lewo - robi miejsce na panel boczny (v1 uzywal +140).
  */
-export function centerView(view: View, rect: Bounds, w: number, h: number, offsetX = 0): void {
-  const cx = (rect.minX + (rect.maxX - rect.minX + 1) / 2) * view.scale;
-  const cy = (rect.minY + (rect.maxY - rect.minY + 1) / 2) * view.scale;
-  view.panX = cx - (w / 2 - offsetX);
-  view.panY = cy - h / 2;
+export function centeredPan(
+  rect: Bounds, scale: number, w: number, h: number, offsetX = 0,
+): { panX: number; panY: number } {
+  const cx = (rect.minX + (rect.maxX - rect.minX + 1) / 2) * scale;
+  const cy = (rect.minY + (rect.maxY - rect.minY + 1) / 2) * scale;
+  return { panX: cx - (w / 2 - offsetX), panY: cy - h / 2 };
 }
 
 export function screenToCell(px: number, py: number, view: View): { x: number; y: number } {

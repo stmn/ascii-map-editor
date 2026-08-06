@@ -141,6 +141,16 @@ export function initPanels(ctx: PanelsContext): Panels {
       state.tool = 'brush';
       draw.render();
     }
+    // checkboxy Show grid / Show colors istnieja tylko w karcie Map (Simplified) - odznaczenie
+    // ich tam i przejscie do Advanced zostawialoby edytor bez drogi ich wlaczenia z powrotem
+    // (trap state), wiec wejscie w Advanced wymusza oba na true. Wejscie w Simplified niczego
+    // nie wymusza - checkboxy tam maja po prostu pokazac aktualny stan.
+    if (!isSimplified() && (!state.gridVisible || !state.colorsEnabled)) {
+      state.gridVisible = true;
+      state.colorsEnabled = true;
+      map.syncToggles();
+      ctx.markDirty();
+    }
   });
 
   return { onMutate, pushHistory: (cmd) => hooks.pushHistory?.(cmd) };

@@ -5,9 +5,10 @@ import { openIdbStore } from './core/idb';
 import {
   KvJsonStore, WORKSPACE_KEY, ensureSeed, type Kv, type LevelRecord, type WorkspaceStore,
 } from './core/store';
-import { Renderer, centerView, paperRect } from './ui/renderer';
+import { Renderer, centeredPan, paperRect } from './ui/renderer';
 import { applySavedLayout, sidebarWidths } from './ui/layout';
 import { applyStoredMode } from './ui/mode';
+import { setCenterFabVisible } from './ui/center';
 import { InputController } from './ui/input';
 import { strokeCommand, type CellChange } from './core/commands';
 import {
@@ -49,15 +50,34 @@ let dirty = true;
 export function markDirty(): void { dirty = true; }
 
 /**
- * Papier centrowany w wolnym obszarze miedzy kolumnami sekcji: srodek tego obszaru lezy
- * o (left - right) / 2 od srodka okna, wiec widok przesuwamy w lewo o (right - left) / 2.
+ * Docelowy pan wysrodkowujacy papier w wolnym obszarze miedzy kolumnami sekcji: srodek tego
+ * obszaru lezy o (left - right) / 2 od srodka okna, wiec widok idzie w lewo o (right - left) / 2.
  * Pusta kolumna ma szerokosc 0, wiec domyslny uklad (wszystko po prawej) zachowuje sie
- * jak wczesniejszy staly offset panelu.
+ * jak wczesniejszy staly offset panelu. Czysta funkcja (centeredPan w renderer.ts) - JEDYNA
+ * implementacja tej matematyki: centerOnPaper stosuje wynik do widoku, isViewCentered
+ * porownuje go z biezacym panem (fab centrowania, patrz Task 6 brief).
  */
-function centerOnPaper(): void {
+function targetPan(): { panX: number; panY: number } {
   const { left, right } = sidebarWidths();
   const offsetX = (right - left) / 2;
-  centerView(state.view, paperRect(state.level), canvas.clientWidth, canvas.clientHeight, offsetX);
+  return centeredPan(paperRect(state.level), state.view.scale, canvas.clientWidth, canvas.clientHeight, offsetX);
+}
+
+function centerOnPaper(): void {
+  const { panX, panY } = targetPan();
+  state.view.panX = panX;
+  state.view.panY = panY;
+}
+
+/** Prog roznicy pan (w px), ponizej ktorego widok liczy sie jako wycentrowany - fab centrowania
+ * chowa sie wtedy. Male zaokraglenia zoomu/panu nie moga migotac przyciskiem. */
+const CENTER_THRESHOLD_PX = 2;
+
+/** Czy biezacy widok jest (w granicach progu) wycentrowany - steruje widocznoscia faba. */
+function isViewCentered(): boolean {
+  const t = targetPan();
+  return Math.abs(state.view.panX - t.panX) <= CENTER_THRESHOLD_PX
+    && Math.abs(state.view.panY - t.panY) <= CENTER_THRESHOLD_PX;
 }
 
 // --- pociagniecie pedzla jako jedna komenda historii ---------------------------
@@ -291,6 +311,9 @@ function frame(): void {
   if (dirty) {
     dirty = false;
     renderer.draw(state);
+    // zoom/pan/resize/przelaczenie trybu/przeciagniecie karty/klik faba koncza sie wszystkie
+    // markDirty - jedna sciezka tu wystarcza, zeby fab byl aktualny po kazdym z nich
+    setCenterFabVisible(!isViewCentered());
   }
   requestAnimationFrame(frame);
 }

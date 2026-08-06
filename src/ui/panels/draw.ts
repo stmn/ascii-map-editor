@@ -119,7 +119,7 @@ export function initDraw(ctx: PanelsCtx, drawBox: HTMLElement): DrawPanel {
     labeled('Char', charInput),
     labeled('Size', sizeChips),
     clearRow,
-    el('p', 'hint help-box hint-small', 'Press any character key to switch the brush. Alt or Ctrl + drag also erases.'),
+    el('p', 'hint help-box hint-small hint-gap', 'Press any character key to switch the brush. Alt or Ctrl + drag also erases.'),
   );
 
   return {

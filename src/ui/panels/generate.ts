@@ -66,8 +66,9 @@ export function initGenerate(ctx: PanelsCtx, generateBox: HTMLElement): void {
     );
   }
 
-  // W i H stackowane pionowo (etykieta nad inputem, pelna szerokosc karty) zamiast rzedu obok siebie
-  const sizes = el('div', 'field-col');
+  // W i H obok siebie 50/50 w jednym rzedzie (etykieta nad kazdym polem) - ten sam wzorzec
+  // co Width/Height w karcie Map (Simplified), patrz .field-row w styles.css.
+  const sizes = el('div', 'field-row');
   sizes.append(labeledStack('W', widthInput), labeledStack('H', heightInput));
   const mazeButton = el('div', 'btn-row');
   mazeButton.append(button('Maze', '', () => generate('maze')));
