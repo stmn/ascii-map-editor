@@ -29,10 +29,12 @@ itch.io-ready HTML project (`index.html` as the entry point) and it also contain
 ## Using the editor
 
 - Left click or drag on the paper to paint the current brush character.
-- Alt, Ctrl or Cmd while dragging erases.
+- Alt, Ctrl or Cmd while dragging erases, whichever tool is active in the Draw card. The
+  Draw card's Eraser tool erases on a plain drag too, with no modifier held.
 - Middle or right mouse button drag pans, the mouse wheel zooms towards the cursor,
   arrow keys pan too.
-- Press any character key to make it the brush, or pick one of the recent chips.
+- Press any character key to make it the brush; if the Eraser tool was active, typing a
+  character switches the Draw card back to Brush.
 - The Layers panel lists every layer top to bottom (top of the list is the top of the
   stack, same as Tiled). Click a row to make it the active layer: painting, erasing,
   generating and Clear layer all act on it. Each row also has visibility, reorder and
@@ -45,10 +47,11 @@ itch.io-ready HTML project (`index.html` as the entry point) and it also contain
   or already painted somewhere on the map is rejected with a red toast and nothing changes;
   the remap is undoable like every other edit.
 - Generate builds a maze (recursive backtracker, with `S` and `E` placed) or a room and
-  corridor dungeon, replacing the active layer. A **Rooms** field (1-50, default 8) sits below
-  the Width/Height fields and sets the dungeon's target room count - the generator places
-  rooms until it reaches that target or hits an internal placement-attempt cap, so a small or
-  crowded map may end up with fewer rooms than requested. Rooms has no effect on the maze.
+  corridor dungeon, replacing the active layer. The Generate card has Width and Height side by
+  side, then a **Maze** button, then a **Rooms** field (1-50, default 8) directly above the
+  **Dungeon** button, since Rooms only affects the dungeon - it sets its target room count and
+  the generator places rooms until it reaches that target or hits an internal
+  placement-attempt cap, so a small or crowded map may end up with fewer rooms than requested.
 - Export opens a dialog: a Scope selector (Active layer or Flattened), a copy-or-download
   button per format, and a Legacy (v1) section with its own format picker and preview.
 - Import opens a dialog: load a `.json`, `.txt` or REXPaint `.xp` file, or paste text
@@ -121,11 +124,13 @@ the same way again, so the rest of the history above and below it stays intact.
 
 ## Layout
 
-The seven panel cards (Project, Draw, Layers, Legend, Generate, Map, Extra features) live in
-two sidebar columns, one on each side of the canvas; the right column is where all seven start.
-Map and Extra features are the odd ones out: they only show in Simplified mode, see Modes
-below. Drag a card by its header - the collapsed title bar - into the other column, or up and
-down within the same column: a thin line shows where it will land before you drop it.
+The seven panel cards (Project, Generate, Draw, Map, Extra features, Legend, Layers) live in
+two sidebar columns, one on each side of the canvas. By default the left column starts with
+Project, Generate and Draw, and the right column starts with Map, Extra features, Legend and
+Layers. Map and Extra features are the odd ones out: they only show in Simplified mode, see
+Modes below, so in Advanced mode the right column visually starts with just Legend and Layers.
+Drag a card by its header - the collapsed title bar - into the other column, or up and down
+within the same column: a thin line shows where it will land before you drop it.
 
 Both sidebar columns are always the full height of the window and top-aligned: cards stack
 from the top, and whatever space is left below the last card - or all of it, in a column with
@@ -134,11 +139,14 @@ has no card drawn around it and lets clicks fall straight through to the map und
 an empty or half-full column never gets in the way of painting; the column only turns into a
 visible dashed drop zone while a card is actually being dragged over it.
 
-The arrangement is saved to `localStorage` under the key `ascii-level-editor-layout` (two
+The arrangement is saved to `localStorage` under the key `ascii-level-editor-layout2` (two
 lists of card ids, left and right, top to bottom) and is re-applied before the very first
 paint of the next session, so a saved custom layout never flashes the default one first. A
 card id missing from a saved layout (an older save, or a future card that did not exist yet
 when it was written) is placed at the bottom of the right column instead of disappearing.
+The key was bumped from `ascii-level-editor-layout` in v2.7, when the default layout above
+changed; the old key is deleted the first time the layout loads, so anyone with a saved
+custom layout gets the new default once, then goes back to arranging cards as before.
 
 The canvas centers itself in whatever horizontal space is left between the two columns, so
 moving a card between columns - which changes their widths - shifts the view horizontally to
@@ -149,13 +157,18 @@ Both columns keep a fixed 8px gap between their cards and the scrollbar, so a cl
 ## Floating center button
 
 A small square button with a crosshair icon floats fixed at the bottom-center of the screen in
-both modes, drawn on top of whichever cards happen to be underneath it. Its tooltip (and screen
-reader label) is "Center view", and clicking it re-centers the view on the paper - the same
-underlying view-centering call as the in-card Center button inside Simplified's Map card, so the
-two are always in sync. It lives outside the card layout entirely, so it stays visible
-regardless of scroll position, zoom, which cards are on screen or which sidebar column they are
-dragged into. Toasts are anchored a little higher, directly above the button, so a toast message
-and the floating center button never overlap on screen.
+both modes, drawn on top of whichever cards happen to be underneath it. It only appears once the
+view has actually drifted away from centered - panning, zooming, resizing the window, switching
+mode or dragging a card between columns can all move the view off-center, checked against a
+~2px pan threshold so tiny rounding does not flicker the button. At load the view starts
+centered, so the button is hidden until you move it. Its tooltip (and screen reader label) is
+"Center view", and clicking it re-centers the view on the paper - the same underlying
+view-centering call as the in-card Center button inside Simplified's Map card, so the two are
+always in sync, and the button hides itself again once the view lands back on center. It lives
+outside the card layout entirely, so whenever visible it stays on screen regardless of scroll
+position, zoom, which cards are on screen or which sidebar column they are dragged into. Toasts
+are anchored a little higher, directly above the button's position, so a toast message and the
+floating center button never overlap on screen.
 
 ## Modes
 
@@ -224,7 +237,10 @@ Map is the whole v1 editor in one card, in the original order:
   level, undo history or autosave, and both start on. Unticking Show grid drops the grid lines
   while keeping the paper and its outline; unticking Show colors draws every glyph in one ink
   color instead of its legend color, like v1's gray mode. Extra features shows and hides the
-  second card.
+  second card. These two checkboxes only exist here, in Simplified's Map card, so switching to
+  Advanced mode always turns Show grid and Show colors back on - otherwise unticking one in
+  Simplified and switching to Advanced would leave no control to turn it back on. Switching to
+  Simplified does not touch either setting, it just shows whatever the checkboxes already say.
 
 Map only views or replaces the whole map as text; it has no per-layer or per-legend controls
 of its own, since those live in the cards Simplified hides.
@@ -256,12 +272,16 @@ Duplicate / Delete buttons. Click a level (or its name field) to switch to it; N
 a blank one. The last project cannot be deleted, and neither can a project's last level - there
 is always at least one of each.
 
-Below the level list the Project card has two more button rows. The first, **Export level...**
-and **Import level...**, opens the Export and Import modals for the current level - these
-buttons used to sit in their own Export and Import cards; the Project card is now the only place
-those dialogs are launched from, see Export and Import dialogs below. The second, **Export
-project** and **Import project**, exports or imports the whole current project (every level it
-holds) as one file, described in Project backup below.
+Below the level list the Project card has one more button row: two dropdown buttons, **Export**
+and **Import**, each labeled with a chevron and 50/50 in the same row. Export opens a menu with
+"Export level" (opens the Export modal for the current level, see Export and Import dialogs
+below) and "Export project" (downloads the whole current project as one file, see Project
+backup below); Import opens a matching menu with "Import level" and "Import project". The level
+items work with no store or project open at all, since the Export/Import modals operate on the
+in-memory level; the project items are disabled until there is a project to read from or write
+into. Each menu opens right below its button, closes on picking an item, clicking outside, or
+Esc, and only one of the two can be open at a time; arrow keys move between its items, Enter or
+Space picks one, and Esc closes it and returns focus to the button.
 
 Thumbnails are rendered offscreen at 120x80 as flat color rectangles, one per legend color
 (at that size, drawing the actual characters would be unreadable, so shapes and colors carry
@@ -300,8 +320,9 @@ anything, this path never runs again.
 
 ### Project backup
 
-The Project panel's second button row is a whole-project backup, one file per project rather
-than one file for the whole workspace. "Export project" downloads a `project.json` with every
+"Export project" and "Import project", the second item in each of the Project card's Export and
+Import dropdown menus, are a whole-project backup, one file per project rather than one file for
+the whole workspace. "Export project" downloads a `project.json` with every
 level in the CURRENT project (thumbnails are dropped to keep the file small; they regenerate on
 the next save). "Import project" reads a project file back and adds it as a brand new project,
 merged into whatever is already open: it gets a fresh id, a name that collides with an existing
@@ -321,9 +342,10 @@ the exact same merge-add path described above. There is no whole-workspace expor
 back up several projects, export each one separately with "Export project" - but a
 `workspace.json` saved by an older version of the editor still loads through "Import project".
 
-The single-level export, "Export level..." in the first button row, is a different file: it
-opens the Export modal, whose Download .json button saves that one level's own full-fidelity
-JSON (every layer plus the legend) as `level.json` - see Export and Import dialogs below.
+The single-level export, "Export level" in the Export dropdown's first item, is a different
+file: it opens the Export modal, whose Download .json button saves that one level's own
+full-fidelity JSON (every layer plus the legend) as `level.json` - see Export and Import
+dialogs below.
 
 ### Multi-tab and other caveats
 
@@ -382,9 +404,9 @@ and so on, bottom to top; rename them in the Layers panel afterwards if you want
 
 ### Export and Import dialogs
 
-Export and Import open modal dialogs rather than inline panels, launched by the Export level...
-and Import level... buttons in the Project card (see Projects and levels above). The Export
-modal has the
+Export and Import open modal dialogs rather than inline panels, launched by "Export level" and
+"Import level" in the Project card's Export and Import dropdown menus (see Projects and levels
+above). The Export modal has the
 Scope selector, one copy-or-download button per format, and a "Legacy (v1)" section: a format
 picker with two of the three shapes the original v1 editor used to save - Array of strings and
 Array of arrays - a live preview textarea, and a Copy legacy button. The third shape, plain
@@ -430,8 +452,11 @@ src/
     modal.ts        generic modal dialog + confirm() replacement, stacked overlay, a11y + focus trap
     thumb.ts        level thumbnail: flat-color 120x80 canvas -> JPEG data URL
     dom.ts          tiny element builder helpers shared by every panel
+    menu.ts         dropdown button primitive (Export/Import menus in the Project card):
+                     trigger with a chevron, content-width panel, full keyboard nav (ARIA menu)
     layout.ts       dual sidebar: card drag and drop, localStorage layout, canvas centering offset
-    center.ts       floating center button, fixed at the bottom of the screen in both modes
+    center.ts       floating center button, fixed at the bottom of the screen in both modes,
+                     shown only while the view is off-center
     mode.ts         Advanced/Simplified switch, first-run mode chooser, mode stored in localStorage
     icons.ts        Lucide icon path data inlined as constants, no runtime network fetch
     panels.ts       composition root: wires the panels/ modules together through initPanels(ctx)
@@ -439,8 +464,8 @@ src/
       context.ts    shared PanelsCtx/hooks, toast, workspace store handle, autosave scheduling
       history.ts    Undo/Redo buttons and shortcuts, History instance, clears on level switch
       project.ts    Project card: project select, New/Rename/Delete, level list,
-                     Export/Import level modal launchers, project export/import (project.json)
-      draw.ts       brush and recent chips
+                     Export/Import dropdown menus (level via modal, project via project.json)
+      draw.ts       Brush/Eraser tool switch, brush character, brush size chips, clear layer
       layers.ts     Layers card: add/reorder/rename/hide/delete
       legend.ts     Legend card: name/color/usage per character, character remap
       generate.ts   maze/dungeon generator card, plus the generator path both cards share

@@ -61,7 +61,8 @@ locally as you draw.
   Simplified mode).
 - An Import dialog: load a file or paste text straight in, for level `.json` files, plain text,
   REXPaint `.xp` and both old v1 array formats.
-- Mouse wheel zoom, drag to pan, Alt or Ctrl to erase.
+- Mouse wheel zoom, drag to pan, Alt or Ctrl to erase - or flip the Draw card's tool switch to
+  Eraser and erase with a plain drag, no modifier needed.
 - Clean, high-contrast icon buttons (thick-stroke Lucide icons) across every panel and dialog.
 
 ### Works with your engine
@@ -147,6 +148,12 @@ cursors and sound baked in. Double click it, no install, no internet, no browser
 It is pay what you want, and $2 is a fair nudge if the tool saved you an afternoon.
 
 ### Changelog
+
+**v2.7** - eraser tool (an icon switch in the Draw card, erases on drag with no modifier held),
+a split default sidebar layout (Project/Generate/Draw on the left, Legend/Layers on the right),
+Export/Import replaced by two dropdown menus in the Project card, the Generate card regrouped so
+Rooms sits with Dungeon, and a floating center button that only shows up once the view drifts
+off-center.
 
 **v2.6** - level and project export scopes: Export/Import level (`level.json`) and Export/Import
 project (`project.json`) replace the old whole-workspace backup - old `workspace.json` files
