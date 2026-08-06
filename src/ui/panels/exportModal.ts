@@ -53,7 +53,7 @@ export function initExportModal(ctx: PanelsCtx): ExportPanel {
     button('Download .tmx', '', guarded(() => download(exportTmx(state.level), 'map.tmx', 'application/xml'))),
     button('Download .xp', '', guarded(downloadXp)),
     button('Download .json', '', guarded(() => download(
-      serializeProject(state.level), 'project.json', 'application/json',
+      serializeProject(state.level), 'level.json', 'application/json',
     ))),
   );
 

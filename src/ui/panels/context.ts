@@ -183,7 +183,7 @@ export async function copyToClipboard(text: string): Promise<void> {
 
 /**
  * Zapis danych na dysk uzytkownika przez sztuczny <a download>. Jedna implementacja dla
- * modalu Export (mapa) i karty Project (kopia workspace) - z popem i toastem o nazwie pliku.
+ * modalu Export (poziom) i karty Project (caly projekt) - z popem i toastem o nazwie pliku.
  */
 export function download(data: BlobPart, filename: string, type: string): void {
   const url = URL.createObjectURL(new Blob([data], { type }));
@@ -307,7 +307,7 @@ let saveErrorCount = 0;
 
 /**
  * Licznik WSZYSTKICH bledow zapisu, takze tych, ktorych toast nie pokazal przez limit czestosci.
- * Operacje wsadowe (import workspace) porownuja go przed i po, zeby nie chwalic sie sukcesem,
+ * Operacje wsadowe (import projektu) porownuja go przed i po, zeby nie chwalic sie sukcesem,
  * gdy magazyn fallback po cichu polknal czesc zapisow.
  */
 export function getSaveErrorCount(): number { return saveErrorCount; }

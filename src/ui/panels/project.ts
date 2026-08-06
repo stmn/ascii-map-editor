@@ -1,10 +1,10 @@
 // Panel Project: wybor projektu, lista jego poziomow (miniatura, nazwa, duplikat, usuniecie),
-// wejscia do modali Export/Import poziomu i kopia zapasowa calego workspace. To jedyne miejsce
-// UI, ktore tworzy i kasuje rekordy magazynu - reszta paneli zna tylko biezacy poziom.
+// wejscia do modali Export/Import poziomu i eksport/import calego biezacego projektu. To jedyne
+// miejsce UI, ktore tworzy i kasuje rekordy magazynu - reszta paneli zna tylko biezacy poziom.
 import { createLevel } from '../../core/level';
 import { parseProject, serializeProject } from '../../core/project';
 import {
-  exportWorkspace, importWorkspace, nextName,
+  exportProject, importProject, nextName,
   type LevelRecord, type ProjectMeta, type WorkspaceStore,
 } from '../../core/store';
 import { button, el, iconButton, setIconTitle } from '../dom';
@@ -285,25 +285,27 @@ export function initProject(ctx: PanelsCtx, box: HTMLElement, modals: ProjectMod
     await render();
   }
 
-  // --- kopia zapasowa workspace ------------------------------------------------
+  // --- eksport/import calego projektu -------------------------------------------
 
-  async function exportWorkspaceFile(store: WorkspaceStore): Promise<void> {
-    // kopia zapasowa ma zawierac to, co widac na ekranie - ostatnie pociagniecia pedzla
-    // wisza jeszcze w debounce autozapisu, wiec bez flusha wyszlyby poza plik
+  async function exportProjectFile(store: WorkspaceStore, projectId: string): Promise<void> {
+    // plik ma zawierac to, co widac na ekranie - ostatnie pociagniecia pedzla wisza
+    // jeszcze w debounce autozapisu, wiec bez flusha wyszlyby poza plik
     flushSave();
     try {
-      download(await exportWorkspace(store), 'workspace.json', 'application/json');
+      download(await exportProject(store, projectId), 'project.json', 'application/json');
     } catch (e) {
       toast(errorMessage(e), 'error');
     }
   }
 
-  async function importWorkspaceFile(store: WorkspaceStore, file: File): Promise<void> {
+  async function importProjectFile(store: WorkspaceStore, file: File): Promise<void> {
     try {
-      // magazyn fallback polyka bledy zapisu (miekki kontrakt KvJsonStore), wiec importWorkspace
-      // moze wrocic "sukcesem" mimo niezapisanych rekordow - licznik bledow to jedyny slad
+      // magazyn fallback polyka bledy zapisu (miekki kontrakt KvJsonStore), wiec importProject
+      // moze wrocic "sukcesem" mimo niezapisanych rekordow - licznik bledow to jedyny slad.
+      // Plik akceptowany tu to zarowno pojedynczy projekt, jak i stary plik calego
+      // workspace (wersje 2.2-2.5) - wtedy dodajemy wszystkie jego projekty naraz.
       const errorsBefore = getSaveErrorCount();
-      const added = await importWorkspace(store, await file.text(), Date.now());
+      const added = await importProject(store, await file.text(), Date.now());
       playPop();
       if (getSaveErrorCount() > errorsBefore) {
         toast('Import may be incomplete - storage errors occurred', 'error');
@@ -327,8 +329,8 @@ export function initProject(ctx: PanelsCtx, box: HTMLElement, modals: ProjectMod
   function modalRow(): HTMLElement {
     const row = el('div', 'btn-row');
     row.append(
-      button('Export...', '', modals.openExport),
-      button('Import...', 'success', modals.openImport),
+      button('Export level...', '', modals.openExport),
+      button('Import level...', 'success', modals.openImport),
     );
     return row;
   }
@@ -421,16 +423,19 @@ export function initProject(ctx: PanelsCtx, box: HTMLElement, modals: ProjectMod
       const file = fileInput.files?.[0];
       // reset od razu, zeby ponowny wybor tego samego pliku znowu wywolal change
       fileInput.value = '';
-      if (file) runOp(importWorkspaceFile(store, file));
+      if (file) runOp(importProjectFile(store, file));
     });
 
-    const backup = el('div', 'btn-row');
-    backup.append(
-      button('Export workspace', 'btn-plain', () => { runOp(exportWorkspaceFile(store)); }),
-      button('Import workspace', 'btn-plain', () => fileInput.click()),
+    const projectIo = el('div', 'btn-row');
+    projectIo.append(
+      button('Export project', 'btn-plain', () => { runOp(exportProjectFile(store, projectId)); }),
+      button('Import project', 'btn-plain', () => fileInput.click()),
     );
-    // poziom nad workspace: gorny rzad dotyczy biezacej mapy, dolny calej kopii zapasowej
-    box.append(modalRow(), backup, fileInput);
+    // poziom nad projektem: gorny rzad dotyczy biezacej mapy, dolny calego projektu.
+    // Rzad projektu wymaga wybranego projektId, wiec stoi tu (po wczesniejszym `return`
+    // dla pustego workspace) - degenerowany wariant bez store'a ma go w ogole nie tworzyc,
+    // patrz galaz `if (!store)` w render().
+    box.append(modalRow(), projectIo, fileInput);
   }
 
   /**
@@ -452,6 +457,9 @@ export function initProject(ctx: PanelsCtx, box: HTMLElement, modals: ProjectMod
     const seq = ++renderSeq;
     const store = getStore();
     if (!store) {
+      // Degenerowany wariant bez magazynu: rzad level dziala na poziomie w pamieci (modale
+      // czytaja/podmieniaja tylko state.level), wiec zostaje widoczny. Rzad project potrzebuje
+      // WorkspaceStore do kazdej operacji - bez niego nie ma go tu wcale (nie disabled, usuniety).
       rows.clear(); // wiersze znikaja z DOM, wiec mapa nie moze zostac z odpietymi wezlami
       box.replaceChildren(
         el('p', 'hint', 'Storage unavailable - projects cannot be saved.'), modalRow(),

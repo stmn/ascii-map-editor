@@ -47,7 +47,7 @@ export function initImportModal(ctx: PanelsCtx): ImportPanel {
 
   /** Podmiana poziomu po udanym imporcie - wspolna sciezka pliku i wklejonego tekstu. */
   function applyImported(level: Level): void {
-    // import POZIOMU jest odwracalny (inaczej niz przelaczenie poziomu czy import workspace),
+    // import POZIOMU jest odwracalny (inaczej niz przelaczenie poziomu czy import projektu),
     // wiec zanim podmienimy stan, robimy migawke tego, co uzytkownik wlasnie traci
     const before = snapshotLevel(state.level);
     // wspolny helper podmiany poziomu; importowi dokladamy zapis, pop i podsumowanie

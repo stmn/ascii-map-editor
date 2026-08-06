@@ -563,7 +563,7 @@ button:disabled:active {
   min-width: 0;
 }
 
-/* Project: wybor projektu, lista poziomow z miniaturami i kopia workspace. */
+/* Project: wybor projektu, lista poziomow z miniaturami i eksport/import calego projektu. */
 .project-select {
   display: block;
   width: 100%;
