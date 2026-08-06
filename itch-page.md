@@ -147,6 +147,8 @@ It is pay what you want, and $2 is a fair nudge if the tool saved you an afterno
 
 ### Changelog
 
+**v2.5** - dungeon room count, floating center button, tidier project card.
+
 **v2.4** - simplified mode rebuilt as a v1 panel replica (with Show grid / Show colors and an
 Extra features card), first run chooser, brush sizes, layer dimming, UI icon polish.
 

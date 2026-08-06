@@ -45,7 +45,10 @@ itch.io-ready HTML project (`index.html` as the entry point) and it also contain
   or already painted somewhere on the map is rejected with a red toast and nothing changes;
   the remap is undoable like every other edit.
 - Generate builds a maze (recursive backtracker, with `S` and `E` placed) or a room and
-  corridor dungeon, replacing the active layer.
+  corridor dungeon, replacing the active layer. A **Rooms** field (1-50, default 8) sits next
+  to the Width/Height fields and sets the dungeon's target room count - the generator places
+  rooms until it reaches that target or hits an internal placement-attempt cap, so a small or
+  crowded map may end up with fewer rooms than requested. Rooms has no effect on the maze.
 - Export opens a dialog: a Scope selector (Active layer or Flattened), a copy-or-download
   button per format, and a Legacy (v1) section with its own format picker and preview.
 - Import opens a dialog: load a `.json`, `.txt` or REXPaint `.xp` file, or paste text
@@ -118,12 +121,11 @@ the same way again, so the rest of the history above and below it stays intact.
 
 ## Layout
 
-The nine panel cards (Project, Draw, Layers, Legend, Generate, Export, Import, Map, Extra
-features) live in two sidebar columns, one on each side of the canvas; the right column is
-where all nine start. Map and Extra features are the odd ones out: they only show in Simplified
-mode, see Modes below. Drag a card by its header - the collapsed title bar - into the other
-column, or up and down within the same column: a thin line shows where it will land before you
-drop it.
+The seven panel cards (Project, Draw, Layers, Legend, Generate, Map, Extra features) live in
+two sidebar columns, one on each side of the canvas; the right column is where all seven start.
+Map and Extra features are the odd ones out: they only show in Simplified mode, see Modes
+below. Drag a card by its header - the collapsed title bar - into the other column, or up and
+down within the same column: a thin line shows where it will land before you drop it.
 
 Both sidebar columns are always the full height of the window and top-aligned: cards stack
 from the top, and whatever space is left below the last card - or all of it, in a column with
@@ -143,6 +145,16 @@ moving a card between columns - which changes their widths - shifts the view hor
 re-center it, but only horizontally: vertical scroll and zoom level survive a drop untouched.
 Both columns keep a fixed 8px gap between their cards and the scrollbar, so a classic
 (non-overlay) scrollbar never touches a card's border.
+
+## Floating Center button
+
+A **Center** button floats fixed at the bottom-center of the screen in both modes, drawn on top
+of whichever cards happen to be underneath it. Clicking it re-centers the view on the paper -
+the same underlying view-centering call as the in-card Center button inside Simplified's Map
+card, so the two are always in sync. It lives outside the card layout entirely, so it stays
+visible regardless of scroll position, zoom, which cards are on screen or which sidebar column
+they are dragged into. Toasts are anchored a little higher, directly above the button, so a
+toast message and the floating Center button never overlap on screen.
 
 ## Modes
 
@@ -169,10 +181,10 @@ works for the rest of the session, but the Welcome dialog asks again on the next
 
 Simplified is a deliberate replica of the original v1 panel, so it shows at most two cards:
 **Map**, the main panel, and **Extra features**, which only appears when you tick its checkbox
-in Map. Everything else - **Project**, **Draw**, **Layers**, **Legend**, **Generate**,
-**Export** and **Import** - is hidden with plain CSS (`display: none` by `data-section`), so
-nothing about a hidden card's content is lost: switch back to Advanced and every card is
-exactly as you left it, including a custom position from dragging it between sidebar columns.
+in Map. Everything else - **Project**, **Draw**, **Layers**, **Legend** and **Generate** - is
+hidden with plain CSS (`display: none` by `data-section`), so nothing about a hidden card's
+content is lost: switch back to Advanced and every card is exactly as you left it, including a
+custom position from dragging it between sidebar columns.
 A hidden card also takes no space and cannot be dropped into, so drag and drop in Simplified
 only ever targets the cards you can actually see.
 
@@ -221,9 +233,12 @@ of its own, since those live in the cards Simplified hides.
 Ticking **Extra features** in Map opens a second card below it, holding the two generators:
 
 - **Maze generator** with a Generate button.
-- **Dungeon generator** with **Min. room size** (default 4) and **Max. room size** (default 8)
-  above its own Generate button. Room sides are drawn from that range inclusively; if you leave
-  min above max the two are simply swapped rather than rejected.
+- **Dungeon generator** with **Rooms** (target room count, 1-50, default 8), **Min. room
+  size** (default 4) and **Max. room size** (default 8) above its own Generate button. Room
+  sides are drawn from the min/max range inclusively; if you leave min above max the two are
+  simply swapped rather than rejected. The generator places rooms until it reaches the Rooms
+  target or hits an internal placement-attempt cap, so a small or crowded map may end up with
+  fewer rooms than requested.
 
 Both read the map size from Map's Width and Height fields and run through exactly the same
 path as the Generate card in Advanced: a confirmation if the active layer is not empty, then
@@ -239,6 +254,12 @@ a list of the current project's levels, each with a small thumbnail, an editable
 Duplicate / Delete buttons. Click a level (or its name field) to switch to it; New level adds
 a blank one. The last project cannot be deleted, and neither can a project's last level - there
 is always at least one of each.
+
+Below the level list the Project card has two more button rows. The first, **Export...** and
+**Import...**, opens the Export and Import modals for the current level - these buttons used to
+sit in their own Export and Import cards; the Project card is now the only place those dialogs
+are launched from, see Export and Import dialogs below. The second, **Export workspace** and
+**Import workspace**, is the whole-workspace backup described in Workspace backup below.
 
 Thumbnails are rendered offscreen at 120x80 as flat color rectangles, one per legend color
 (at that size, drawing the actual characters would be unreadable, so shapes and colors carry
@@ -277,9 +298,10 @@ anything, this path never runs again.
 
 ### Workspace backup
 
-The Project panel's "Export workspace" button downloads a `workspace.json` with every project
-and level (thumbnails are dropped to keep the file small; they regenerate on the next save).
-"Import workspace" reads that file back and merge-adds it into whatever is already open:
+The Project panel's second button row is the backup: "Export workspace" downloads a
+`workspace.json` with every project and level (thumbnails are dropped to keep the file small;
+they regenerate on the next save). "Import workspace" reads that file back and merge-adds it
+into whatever is already open:
 every imported project and level gets a fresh id, a project name that collides with an
 existing one gets a "Name N" suffix instead of overwriting it, and the import never deletes or
 replaces anything already in the workspace. An unrecognized file (wrong shape, foreign JSON)
@@ -343,7 +365,8 @@ and so on, bottom to top; rename them in the Layers panel afterwards if you want
 
 ### Export and Import dialogs
 
-Export and Import open modal dialogs rather than inline panels. The Export modal has the
+Export and Import open modal dialogs rather than inline panels, launched by the Export... and
+Import... buttons in the Project card (see Projects and levels above). The Export modal has the
 Scope selector, one copy-or-download button per format, and a "Legacy (v1)" section: a format
 picker with two of the three shapes the original v1 editor used to save - Array of strings and
 Array of arrays - a live preview textarea, and a Copy legacy button. The third shape, plain
@@ -393,7 +416,8 @@ src/
     panels/         one module per sidebar card, all fed state and callbacks by panels.ts
       context.ts    shared PanelsCtx/hooks, toast, workspace store handle, autosave scheduling
       history.ts    Undo/Redo buttons and shortcuts, History instance, clears on level switch
-      project.ts    Project card: project select, New/Rename/Delete, level list, backup JSON
+      project.ts    Project card: project select, New/Rename/Delete, level list,
+                     Export/Import modal launchers, backup JSON
       draw.ts       brush and recent chips
       layers.ts     Layers card: add/reorder/rename/hide/delete
       legend.ts     Legend card: name/color/usage per character, character remap
