@@ -7,7 +7,13 @@
 // przerysowywac ani rejestrowac na nowo.
 
 /** Uklad kolumn z poprzedniej sesji: listy id sekcji w kolejnosci od gory. */
-const STORAGE_KEY = 'ascii-level-editor-layout';
+const STORAGE_KEY = 'ascii-level-editor-layout2';
+/**
+ * Klucz sprzed v2.7 (domyslny uklad byl inny - lewa kolumna startowala pusta). Kasujemy go
+ * przy kazdym odczycie ukladu - jednorazowe, swiadome czyszczenie: userzy z recznym ukladem
+ * dostaja nowy domyslny raz, zamiast utknac na starym rozstawie kart na zawsze.
+ */
+const OLD_STORAGE_KEY = 'ascii-level-editor-layout';
 /** Odstep miedzy kartami (gap w styles.css) - wskaznik wstawienia staje w jego polowie. */
 const CARD_GAP = 12;
 
@@ -118,6 +124,9 @@ function idList(value: unknown): string[] {
 /** Uszkodzony wpis albo brak dostepu do localStorage traktujemy jak brak zapisu. */
 function readLayout(): SidebarLayout | null {
   try {
+    // czyszczenie starego klucza - patrz komentarz przy OLD_STORAGE_KEY; removeItem na
+    // nieobecnym kluczu jest cichym no-op, wiec kolejne odczyty juz nic tu nie robia
+    localStorage.removeItem(OLD_STORAGE_KEY);
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const parsed: unknown = JSON.parse(raw);

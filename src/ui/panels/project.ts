@@ -1,6 +1,7 @@
-// Panel Project: wybor projektu, lista jego poziomow (miniatura, nazwa, duplikat, usuniecie),
-// wejscia do modali Export/Import poziomu i eksport/import calego biezacego projektu. To jedyne
-// miejsce UI, ktore tworzy i kasuje rekordy magazynu - reszta paneli zna tylko biezacy poziom.
+// Panel Project: wybor projektu, lista jego poziomow (miniatura, nazwa, duplikat, usuniecie)
+// i eksport/import calego biezacego projektu. Export/Import BIEZACEGO poziomu mieszka w osobnej
+// karcie Level (panels/level.ts). To jedyne miejsce UI, ktore tworzy i kasuje rekordy magazynu -
+// reszta paneli zna tylko biezacy poziom.
 import { createLevel } from '../../core/level';
 import { parseProject, serializeProject } from '../../core/project';
 import {
@@ -42,14 +43,7 @@ function makeLevelRecord(projectId: string, name: string, order: number): LevelR
   };
 }
 
-export interface ProjectModals {
-  /** Otwiera modal Export (panels/exportModal.ts). */
-  openExport(): void;
-  /** Otwiera modal Import (panels/importModal.ts). */
-  openImport(): void;
-}
-
-export function initProject(ctx: PanelsCtx, box: HTMLElement, modals: ProjectModals): ProjectPanel {
+export function initProject(ctx: PanelsCtx, box: HTMLElement): ProjectPanel {
   /**
    * Wiersze listy po id poziomu - pozwalaja odswiezyc wiersz BEZ przebudowy DOM.
    * `record` to migawka z czasu renderu, ktora obsluga wiersza (nazwa, duplikat) trzyma w domknieciu;
@@ -320,21 +314,6 @@ export function initProject(ctx: PanelsCtx, box: HTMLElement, modals: ProjectMod
 
   // --- budowa karty ------------------------------------------------------------
 
-  /**
-   * Rzad wejsc do modali Export/Import BIEZACEGO poziomu (dawne karty Export i Import).
-   * Fabryka, bo kazdy render przebudowuje karte od zera - i stoi w KAZDYM wariancie karty,
-   * takze w tych bez listy poziomow: modale czytaja i podmieniaja sam poziom w pamieci,
-   * wiec dzialaja rowniez wtedy, gdy magazyn padl albo nie ma jeszcze zadnego projektu.
-   */
-  function modalRow(): HTMLElement {
-    const row = el('div', 'btn-row');
-    row.append(
-      button('Export level...', '', modals.openExport),
-      button('Import level...', 'success', modals.openImport),
-    );
-    return row;
-  }
-
   function levelRow(
     store: WorkspaceStore, record: LevelRecord, index: number, levels: LevelRecord[],
   ): HTMLElement {
@@ -408,7 +387,7 @@ export function initProject(ctx: PanelsCtx, box: HTMLElement, modals: ProjectMod
     box.append(select, actions);
 
     if (!projectId) {
-      box.append(el('p', 'hint', 'No projects yet - create one to start.'), modalRow());
+      box.append(el('p', 'hint', 'No projects yet - create one to start.'));
       return;
     }
 
@@ -431,11 +410,7 @@ export function initProject(ctx: PanelsCtx, box: HTMLElement, modals: ProjectMod
       button('Export project', 'btn-plain', () => { runOp(exportProjectFile(store, projectId)); }),
       button('Import project', 'btn-plain', () => fileInput.click()),
     );
-    // poziom nad projektem: gorny rzad dotyczy biezacej mapy, dolny calego projektu.
-    // Rzad projektu wymaga wybranego projektId, wiec stoi tu (po wczesniejszym `return`
-    // dla pustego workspace) - degenerowany wariant bez store'a ma go w ogole nie tworzyc,
-    // patrz galaz `if (!store)` w render().
-    box.append(modalRow(), projectIo, fileInput);
+    box.append(projectIo, fileInput);
   }
 
   /**
@@ -457,13 +432,11 @@ export function initProject(ctx: PanelsCtx, box: HTMLElement, modals: ProjectMod
     const seq = ++renderSeq;
     const store = getStore();
     if (!store) {
-      // Degenerowany wariant bez magazynu: rzad level dziala na poziomie w pamieci (modale
-      // czytaja/podmieniaja tylko state.level), wiec zostaje widoczny. Rzad project potrzebuje
-      // WorkspaceStore do kazdej operacji - bez niego nie ma go tu wcale (nie disabled, usuniety).
+      // Degenerowany wariant bez magazynu: karta Project potrzebuje WorkspaceStore do kazdej
+      // operacji, wiec tu nie ma nic wiecej niz hint. Export/Import poziomu zyja w osobnej
+      // karcie Level i dzialaja niezaleznie od magazynu (modale operuja na state.level).
       rows.clear(); // wiersze znikaja z DOM, wiec mapa nie moze zostac z odpietymi wezlami
-      box.replaceChildren(
-        el('p', 'hint', 'Storage unavailable - projects cannot be saved.'), modalRow(),
-      );
+      box.replaceChildren(el('p', 'hint', 'Storage unavailable - projects cannot be saved.'));
       return;
     }
     const projects = (await store.listProjects()).sort((a, b) => a.createdAt - b.createdAt);

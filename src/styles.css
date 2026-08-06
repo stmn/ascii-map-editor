@@ -256,11 +256,27 @@ button:disabled:active {
 /* Uklady przyciskow: rzad (rowne szerokosci) i kolumna (pelna szerokosc). */
 .btn-row {
   display: flex;
+  /* Para dluzszych etykiet (np. "Export project"/"Import project") nie miesci sie obok siebie
+     w 50/50 nawet przy najmniejszym foncie skali - bez zawijania rzedu flex wymuszalby na
+     przycisku szerokosc jego pelnej (nielamanej) tresci i wystawal poza karte (overflow:hidden
+     na .sidebar details ucinalby wtedy tekst). Zawiniecie rzedu przenosi drugi przycisk do wlasnego
+     wiersza (flex-grow rozciaga go tam na pelna szerokosc) - krotkie pary (np. Maze/Dungeon to
+     zawsze pojedynczy przycisk w rzedzie) tego nigdy nie dotyka i zostaja jak byly, obok siebie. */
+  flex-wrap: wrap;
   gap: 6px;
 }
 
 .btn-row button {
-  flex: 1;
+  flex: 1 1 auto;
+  /* Bez tego flex-item nie da sie zmniejszyc ponizej szerokosci wlasnej (nielamanej) tresci -
+     tu niepotrzebne przy wlaczonym zawijaniu (patrz .btn-row), ale trzymamy sie tego samego
+     zabezpieczenia co .field-row > *, gdyby rzad kiedys dostal wiecej niz dwa przyciski. */
+  min-width: 0;
+  /* Etykiety typu "Export level"/"Maze" nie moga zlamac sie do 2 linii przy rownym podziale
+     szerokosci karty - stopien nizej niz podstawowe 11px (skala 9/11/13) plus nowrap, zeby
+     przygotowana pod to zawijanie rzedu (wyzej) mialo w ogole co przenosic na nowa linie. */
+  font-size: 9px;
+  white-space: nowrap;
 }
 
 .btn-col {
@@ -852,7 +868,8 @@ body.mode-simplified .sidebar > details[data-section='project'],
 body.mode-simplified .sidebar > details[data-section='draw'],
 body.mode-simplified .sidebar > details[data-section='layers'],
 body.mode-simplified .sidebar > details[data-section='legend'],
-body.mode-simplified .sidebar > details[data-section='generate'] {
+body.mode-simplified .sidebar > details[data-section='generate'],
+body.mode-simplified .sidebar > details[data-section='level'] {
   display: none;
 }
 
