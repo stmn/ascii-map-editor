@@ -915,6 +915,16 @@ input[type='color'] {
   overflow-wrap: anywhere;
 }
 
+/* Blad detekcji importu - w dialogu (nie toast), zeby wsad dalo sie poprawic. Ten sam czerwony
+   co .toast.error, na bialym tle karty wiec dostaje pogrubienie zamiast wlasnego tla. */
+.import-error {
+  margin: 0;
+  color: #ef4444;
+  font-weight: 700;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
 /* Podtytul sekcji w modalu (np. Legacy) - oddzielony kreska jak bloki w v1. */
 .modal-heading {
   margin: 0;

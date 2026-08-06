@@ -87,8 +87,14 @@ export async function exportXp(level: Level): Promise<Uint8Array> {
   return new Uint8Array(await new Response(stream).arrayBuffer());
 }
 
-export async function importXp(gzipped: Uint8Array): Promise<{ layers: { name: string; grid: Grid }[]; colors: Map<string, string> }> {
+/**
+ * Rozpakowanie gzip .xp z dysku do surowego layoutu, ktory rozumie parseXpBytes (i detectImport
+ * w core/importDetect.ts - jego wariant Uint8Array oczekuje juz ROZPAKOWANYCH bajtow, tak samo
+ * jak testowy buildXpBytes). Dekompresja (Web Streams, async) zostaje osobno od parseXpBytes
+ * (sync) - wolajacy, ktory czyta plik z dysku (importModal.ts), robi ja PRZED detectImport.
+ */
+export async function decompressXpBytes(gzipped: Uint8Array): Promise<Uint8Array> {
   const stream = new Blob([gzipped.slice()]).stream()
     .pipeThrough(new DecompressionStream('gzip'));
-  return parseXpBytes(new Uint8Array(await new Response(stream).arrayBuffer()));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
 }
