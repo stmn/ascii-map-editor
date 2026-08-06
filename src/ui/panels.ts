@@ -88,7 +88,7 @@ export function initPanels(ctx: PanelsContext): Panels {
 
   initGenerate(panelsCtx, generateBox);
   // Export i Import nie maja wlasnej karty - moduly buduja same modale, a otwieraja je
-  // dropdowny Export/Import w karcie Project, wiec init musi wyprzedzic initProject
+  // przyciski Export/Import w karcie Project, wiec init musi wyprzedzic initProject
   const exportPanel = initExportModal(panelsCtx);
   const importPanel = initImportModal(panelsCtx);
   // Load w karcie Map to ten sam import co wklejony tekst - karta dostaje gotowa sciezke
@@ -101,8 +101,9 @@ export function initPanels(ctx: PanelsContext): Panels {
   initExtra(panelsCtx, extraBox, map);
   // karta projektow czyta magazyn asynchronicznie i sama rejestruje sie na zdarzenie zapisu
   // (odswiezanie miniatury biezacego poziomu) - nie potrzebuje wpisu w hookach miedzypanelowych.
-  // Dropdowny Export/Import poziomu dzialaja niezaleznie od magazynu/projektow (modale operuja
-  // na state.level), wiec zostaja widoczne nawet w degenerowanych galeziach karty.
+  // Przyciski Export/Import otwieraja dialogi z kontekstem magazynu/projektu (jesli jest) -
+  // bez niego zostaja widoczne w degenerowanych galeziach karty, dialogi same pokazuja
+  // sekcje/akcje na calym projekcie jako disabled.
   const project = initProject(
     panelsCtx, projectBox, { openExport: exportPanel.open, openImport: importPanel.open },
   );

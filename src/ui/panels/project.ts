@@ -1,27 +1,32 @@
 // Panel Project: wybor projektu, lista jego poziomow (miniatura, nazwa, duplikat, usuniecie)
-// i dwa dropdowny Export/Import - kazdy z pozycja dla biezacego poziomu (dziala zawsze, modale
-// operuja na state.level) i dla calego projektu (wymaga magazynu i wybranego projektu).
+// i rzad dwoch zwyklych przyciskow Export/Import, ktore otwieraja dialogi (panels/exportModal.ts,
+// panels/importModal.ts) z kontekstem biezacego magazynu/projektu - dialogi same wiedza, jak bez
+// niego pokazac sekcje/akcje na calym projekcie jako disabled.
 // To jedyne miejsce UI, ktore tworzy i kasuje rekordy magazynu - reszta paneli zna tylko biezacy poziom.
-import { createLevel } from '../../core/level';
+import { createLevel, type Level } from '../../core/level';
 import { parseProject, serializeProject } from '../../core/project';
 import {
-  exportProject, importProject, nextName,
+  nextName,
   type LevelRecord, type ProjectMeta, type WorkspaceStore,
 } from '../../core/store';
 import { button, el, iconButton, setIconTitle } from '../dom';
 import { icon } from '../icons';
-import { closeAnyMenu, menuButton } from '../menu';
 import { confirmModal, promptModal } from '../modal';
 import {
-  PanelsCtx, applyLevelToPanels, download, errorMessage, flushSave, getCurrentLevel,
-  getSaveErrorCount, getStore, playPop, reportSaveError, scheduleSave, setCurrentLevel,
+  PanelsCtx, applyLevelToPanels, errorMessage, flushSave, getCurrentLevel,
+  getStore, playPop, reportSaveError, scheduleSave, setCurrentLevel,
   setOnSaved, toast, updateCurrentLevel,
 } from './context';
 
-/** Modale poziomu (Export/Import) - buduje je panels.ts, tu tylko przycisk otwierajacy. */
+/**
+ * Modale Export/Import - buduje je panels.ts, tu tylko dwa przyciski otwierajace z kontekstem.
+ * Ksztalt kontekstu odpowiada ExportProjectContext/ImportProjectContext (exportModal.ts/
+ * importModal.ts) - project.ts celowo ich nie importuje (odwrotna zaleznosc juz nie zachodzi -
+ * importModal.ts importuje stad makeLevelRecord), zeby modul karty nie musial znac wnetrza modali.
+ */
 export interface LevelIoModals {
-  openExport(): void;
-  openImport(): void;
+  openExport(ctx?: { store?: WorkspaceStore; projectId?: string }): void;
+  openImport(ctx?: { store?: WorkspaceStore; projectId?: string; onChanged?: () => void }): void;
 }
 
 export interface ProjectPanel {
@@ -37,14 +42,20 @@ function runOp(op: Promise<unknown>): void {
   op.catch(reportSaveError);
 }
 
-/** Pusty poziom gotowy do zapisu - wspolny ksztalt dla "New level", nowego projektu i pustego projektu. */
-function makeLevelRecord(projectId: string, name: string, order: number): LevelRecord {
+/**
+ * Ksztalt rekordu poziomu gotowego do zapisu - JEDYNE miejsce, ktore go buduje. Domyslnie pusty
+ * Level (createLevel) dla "New level", nowego projektu i pustego projektu; importModal.ts
+ * przekazuje tu WGRANY poziom (Add as new level), zeby nie duplikowac tego samego literalu.
+ */
+export function makeLevelRecord(
+  projectId: string, name: string, order: number, level: Level = createLevel(),
+): LevelRecord {
   return {
     id: crypto.randomUUID(),
     projectId,
     name,
     order,
-    data: serializeProject(createLevel()),
+    data: serializeProject(level),
     thumb: null,
     updatedAt: Date.now(),
   };
@@ -286,74 +297,26 @@ export function initProject(ctx: PanelsCtx, box: HTMLElement, modals: LevelIoMod
     await render();
   }
 
-  // --- eksport/import calego projektu -------------------------------------------
-
-  async function exportProjectFile(store: WorkspaceStore, projectId: string): Promise<void> {
-    // plik ma zawierac to, co widac na ekranie - ostatnie pociagniecia pedzla wisza
-    // jeszcze w debounce autozapisu, wiec bez flusha wyszlyby poza plik
-    flushSave();
-    try {
-      download(await exportProject(store, projectId), 'project.json', 'application/json');
-    } catch (e) {
-      toast(errorMessage(e), 'error');
-    }
-  }
-
-  async function importProjectFile(store: WorkspaceStore, file: File): Promise<void> {
-    try {
-      // magazyn fallback polyka bledy zapisu (miekki kontrakt KvJsonStore), wiec importProject
-      // moze wrocic "sukcesem" mimo niezapisanych rekordow - licznik bledow to jedyny slad.
-      // Plik akceptowany tu to zarowno pojedynczy projekt, jak i stary plik calego
-      // workspace (wersje 2.2-2.5) - wtedy dodajemy wszystkie jego projekty naraz.
-      const errorsBefore = getSaveErrorCount();
-      const added = await importProject(store, await file.text(), Date.now());
-      playPop();
-      if (getSaveErrorCount() > errorsBefore) {
-        toast('Import may be incomplete - storage errors occurred', 'error');
-      } else {
-        toast(`Imported ${added.projects} projects, ${added.levels} levels`);
-      }
-      await render();
-    } catch (e) {
-      toast(errorMessage(e), 'error');
-    }
-  }
+  // --- rzad Export/Import -------------------------------------------------------
 
   /**
-   * Rzad Export/Import: dwa dropdowny 50/50, kazdy z pozycja "level" (zawsze aktywna - modale
-   * operuja na state.level, niezaleznie od magazynu) i pozycja "project" (wymaga wybranego
-   * projektu w istniejacym magazynie - disabled inaczej). Budowana od nowa przy kazdym renderze,
-   * wiec fileInput importu projektu tez jest swiezy (stary zostal juz odpiety razem z DOM).
+   * Rzad Export/Import: dwa zwykle przyciski 50/50 (Export niebieski/domyslny, Import zielony),
+   * kazdy otwiera odpowiedni dialog (exportModal.ts/importModal.ts) z aktualnym kontekstem
+   * magazynu i projektu - dialogi same wiedza, jak bez projektu pokazac Whole project/Add as
+   * new level/Add project(s) jako disabled (T3/T4). onChanged na Import odswieza karte po
+   * mutacji magazynu (Add as new level, Add project(s)) - dialog sam nie zna listy
+   * projektow/poziomow wolajacego.
    */
-  function ioRow(store: WorkspaceStore | null, projectId: string | null): HTMLElement[] {
-    const projectReady = !!store && !!projectId;
-
-    const fileInput = el('input', 'file-input');
-    fileInput.type = 'file';
-    fileInput.accept = '.json';
-    fileInput.addEventListener('change', () => {
-      const file = fileInput.files?.[0];
-      // reset od razu, zeby ponowny wybor tego samego pliku znowu wywolal change
-      fileInput.value = '';
-      if (file && store) runOp(importProjectFile(store, file));
-    });
-
-    const exportMenu = menuButton('Export', () => [
-      { label: 'Export level', onPick: modals.openExport },
-      {
-        label: 'Export project',
-        disabled: !projectReady,
-        onPick: () => { if (store && projectId) runOp(exportProjectFile(store, projectId)); },
-      },
-    ]);
-    const importMenu = menuButton('Import', () => [
-      { label: 'Import level', onPick: modals.openImport },
-      { label: 'Import project', disabled: !projectReady, onPick: () => fileInput.click() },
-    ]);
-
+  function ioRow(store: WorkspaceStore | null, projectId: string | null): HTMLElement {
+    const ctx = { store: store ?? undefined, projectId: projectId ?? undefined };
     const row = el('div', 'btn-row');
-    row.append(exportMenu, importMenu);
-    return [row, fileInput];
+    row.append(
+      button('Export...', '', () => modals.openExport(ctx)),
+      button('Import...', 'success', () => {
+        modals.openImport({ ...ctx, onChanged: () => { runOp(render()); } });
+      }),
+    );
+    return row;
   }
 
   // --- budowa karty ------------------------------------------------------------
@@ -431,14 +394,14 @@ export function initProject(ctx: PanelsCtx, box: HTMLElement, modals: LevelIoMod
     box.append(select, actions);
 
     if (!projectId) {
-      box.append(el('p', 'hint', 'No projects yet - create one to start.'), ...ioRow(store, projectId));
+      box.append(el('p', 'hint', 'No projects yet - create one to start.'), ioRow(store, projectId));
       return;
     }
 
     const list = el('div', 'level-list');
     levels.forEach((record, index) => list.append(levelRow(store, record, index, levels)));
     box.append(list, button('New level', 'btn-full', () => { runOp(newLevel(store, projectId, levels)); }));
-    box.append(...ioRow(store, projectId));
+    box.append(ioRow(store, projectId));
   }
 
   /**
@@ -450,11 +413,6 @@ export function initProject(ctx: PanelsCtx, box: HTMLElement, modals: LevelIoMod
    * wiec autozapis w trakcie pisania nadal nie rusza pola nazwy.
    */
   async function render(): Promise<void> {
-    // render przebudowuje CALY DOM karty (box.replaceChildren nizej), a panel otwartego
-    // dropdowna zyje POZA box (dopiety do document.body - patrz menu.ts) - bez tego zamkniecia
-    // zostalby osierocony ze starymi domknieciami az do najblizszego klikniecia poza/Esc
-    // (fix round 1, finding 2).
-    closeAnyMenu();
     const focused = document.activeElement;
     if (focused instanceof HTMLInputElement && box.contains(focused)) {
       focused.blur();
@@ -467,11 +425,11 @@ export function initProject(ctx: PanelsCtx, box: HTMLElement, modals: LevelIoMod
     if (!store) {
       // Degenerowany wariant bez magazynu: karta Project potrzebuje WorkspaceStore do listy
       // projektow/poziomow, wiec tu nie ma nic wiecej niz hint. Rzad Export/Import zostaje
-      // widoczny - Export level/Import level dzialaja niezaleznie od magazynu (modale operuja
-      // na state.level), pozycje project dostaja disabled od samego ioRow.
+      // widoczny - oba przyciski otwieraja dialog bez kontekstu, ktory sam pokazuje sekcje/akcje
+      // na projekcie jako disabled (T3/T4).
       rows.clear(); // wiersze znikaja z DOM, wiec mapa nie moze zostac z odpietymi wezlami
       box.replaceChildren(
-        el('p', 'hint', 'Storage unavailable - projects cannot be saved.'), ...ioRow(null, null),
+        el('p', 'hint', 'Storage unavailable - projects cannot be saved.'), ioRow(null, null),
       );
       return;
     }

@@ -4,8 +4,7 @@
 import { replaceCommand, snapshotLevel } from '../../core/commands';
 import { DetectedImport, detectImport } from '../../core/importDetect';
 import { Level, MAX_LAYERS } from '../../core/level';
-import { serializeProject } from '../../core/project';
-import { importProject, nextName, type LevelRecord, type WorkspaceStore } from '../../core/store';
+import { importProject, nextName, type WorkspaceStore } from '../../core/store';
 import { decompressXpBytes } from '../../export/rexpaint';
 import { button, el } from '../dom';
 import { ModalHandle, openModal } from '../modal';
@@ -13,6 +12,7 @@ import {
   PanelsCtx, applyLevelToPanels, errorMessage, getSaveErrorCount, guarded, playPop,
   scheduleSave, setCurrentLevel, toast,
 } from './context';
+import { makeLevelRecord } from './project';
 
 /**
  * Kontekst magazynu przekazywany przy otwarciu - ten sam wzorzec co ExportProjectContext w
@@ -85,15 +85,8 @@ export function initImportModal(ctx: PanelsCtx): ImportPanel {
   async function addAsNewLevel(store: WorkspaceStore, projectId: string, level: Level): Promise<void> {
     const levels = await store.listLevels(projectId);
     const order = levels.reduce((max, l) => Math.max(max, l.order), 0) + 1;
-    const record: LevelRecord = {
-      id: crypto.randomUUID(),
-      projectId,
-      name: nextName('Level', levels.map((l) => l.name)),
-      order,
-      data: serializeProject(level),
-      thumb: null,
-      updatedAt: Date.now(),
-    };
+    // ksztalt rekordu zyje w JEDNYM miejscu (project.ts) - tu tylko WGRANY poziom zamiast pustego
+    const record = makeLevelRecord(projectId, nextName('Level', levels.map((l) => l.name)), order, level);
     await store.putLevel(record);
     setCurrentLevel(record);
     const trimmed = applyLevelToPanels(ctx, level);
