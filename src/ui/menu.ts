@@ -73,7 +73,26 @@ export function menuButton(label: string, items: () => MenuItem[]): HTMLElement 
 
   function onOutside(e: PointerEvent): void {
     const target = e.target as Node;
-    if (panel && !wrap.contains(target) && !panel.contains(target)) closeSelf();
+    if (!panel || wrap.contains(target) || panel.contains(target)) return;
+    // Klik w mape ma tylko zamknac menu, bez odpalenia gestu malowania pod spodem: canvas #map
+    // ma wlasny listener pointerdown (input.ts, bubble na canvasie). Ten listener stoi na
+    // document w CAPTURE, wiec wyprzedza handler canvasa - stopPropagation tutaj przerywa
+    // dalsza propagacje do targetu i gest w ogole nie startuje. Dla reszty UI (przyciski,
+    // selecty) NIE przerywamy - maja jak dotad zamknac menu i normalnie wykonac swoja akcje.
+    if (target instanceof Element && target.closest('#map')) e.stopPropagation();
+    closeSelf();
+  }
+
+  /** Panel jest position:fixed i nie sledzi triggera - scroll (capture, bo sidebar
+   * scrolluje wewnetrznie, a zdarzenie 'scroll' nie ma fazy bubble - capture na document
+   * to jedyny sposob zeby je zlapac z zagniezdzonego elementu) albo resize okna zamykaja
+   * menu, zamiast zostawic panel odklejony od przycisku, ktory go otworzyl. */
+  function onScroll(): void {
+    closeSelf();
+  }
+
+  function onResize(): void {
+    closeSelf();
   }
 
   function onKey(e: KeyboardEvent): void {
@@ -107,6 +126,8 @@ export function menuButton(label: string, items: () => MenuItem[]): HTMLElement 
     trigger.setAttribute('aria-expanded', 'false');
     document.removeEventListener('pointerdown', onOutside, true);
     document.removeEventListener('keydown', onKey, true);
+    document.removeEventListener('scroll', onScroll, true);
+    window.removeEventListener('resize', onResize);
     if (closeOpenMenu === closeSelf) closeOpenMenu = null;
   }
 
@@ -141,6 +162,8 @@ export function menuButton(label: string, items: () => MenuItem[]): HTMLElement 
     // capture: pointerdown poza wraca PRZED ewentualnym klikiem, ktory otwiera inny dropdown
     document.addEventListener('pointerdown', onOutside, true);
     document.addEventListener('keydown', onKey, true);
+    document.addEventListener('scroll', onScroll, true);
+    window.addEventListener('resize', onResize);
   }
 
   const trigger = button(triggerContent(label), 'menu-trigger', () => {

@@ -265,19 +265,24 @@ export async function exportProject(store: WorkspaceStore, projectId: string): P
 
 // wspolne dla importu pojedynczego projektu i legacy-workspace: jeden zestaw
 // { name, levels } dostaje nowe id projektu (z nextName przy kolizji nazwy)
-// i remapuje poziomy na nowe id; niepoprawne rekordy sa pomijane po cichu
+// i remapuje poziomy na nowe id; niepoprawne rekordy sa pomijane po cichu.
+// createdAt jest oddzielony od now (uzywanego dla updatedAt/poziomow), zeby legacy-workspace
+// mogl nadac kazdemu kolejnemu projektowi rosnacy createdAt i tym samym zachowac kolejnosc
+// z pliku po imporcie (dropdown w project.ts sortuje projekty po createdAt) - domyslnie
+// (import pojedynczego projektu) createdAt = now, bez zmiany zachowania.
 async function importOneProject(
   store: WorkspaceStore,
   name: string,
   levels: LevelRecord[],
   now: number,
   existingNames: string[],
+  createdAt: number = now,
 ): Promise<{ levelCount: number }> {
   const newId = crypto.randomUUID();
   let finalName = name;
   if (existingNames.includes(finalName)) finalName = nextName(finalName, existingNames);
   existingNames.push(finalName);
-  await store.putProject({ id: newId, name: finalName, createdAt: now, updatedAt: now });
+  await store.putProject({ id: newId, name: finalName, createdAt, updatedAt: now });
 
   let levelCount = 0;
   for (const l of levels) {
@@ -326,7 +331,10 @@ export async function importProject(
 
     let projectCount = 0;
     let levelCount = 0;
-    for (const p of file.projects) {
+    // createdAt = now + index (pozycja w file.projects) zamiast identycznego now dla
+    // wszystkich - inaczej dropdown (sort po createdAt) traci oryginalna kolejnosc backupu
+    for (let i = 0; i < file.projects.length; i++) {
+      const p = file.projects[i]!;
       if (typeof p.name !== 'string') continue;
       const { levelCount: n } = await importOneProject(
         store,
@@ -334,6 +342,7 @@ export async function importProject(
         idToLevels.get(p.id) ?? [],
         now,
         existingNames,
+        now + i,
       );
       projectCount++;
       levelCount += n;

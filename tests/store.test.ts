@@ -86,6 +86,23 @@ describe('workspace store', () => {
     expect(projs.map((p) => p.name).sort()).toEqual(['Alpha', 'Beta']);
   });
 
+  it('importProject legacy: kolejnosc projektow z pliku przezywa import (createdAt rosnie o 1)', async () => {
+    const s = new KvJsonStore(memKv());
+    const json = JSON.stringify({
+      app: 'ascii-level-editor-workspace',
+      version: 1,
+      projects: [
+        { id: 'p1', name: 'First', createdAt: 500, updatedAt: 500 },
+        { id: 'p2', name: 'Second', createdAt: 500, updatedAt: 500 },
+      ],
+      levels: [],
+    });
+    await importProject(s, json, 99);
+    const projs = (await s.listProjects()).sort((a, b) => a.createdAt - b.createdAt);
+    expect(projs.map((p) => p.name)).toEqual(['First', 'Second']);
+    expect(projs[1]!.createdAt - projs[0]!.createdAt).toBe(1);
+  });
+
   it('importProject odrzuca obcy format', async () => {
     const s = new KvJsonStore(memKv());
     await expect(importProject(s, '{"foo":1}', 1)).rejects.toThrow('Unrecognized project file');

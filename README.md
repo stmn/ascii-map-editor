@@ -158,9 +158,9 @@ Both columns keep a fixed 8px gap between their cards and the scrollbar, so a cl
 
 A small square button with a crosshair icon floats fixed at the bottom-center of the screen in
 both modes, drawn on top of whichever cards happen to be underneath it. It only appears once the
-view has actually drifted away from centered - panning, zooming, resizing the window, switching
-mode or dragging a card between columns can all move the view off-center, checked against a
-~2px pan threshold so tiny rounding does not flicker the button. At load the view starts
+view has actually drifted away from centered - panning, zooming or resizing the window can all
+move the view off-center, checked against a ~2px pan threshold so tiny rounding does not
+flicker the button. At load the view starts
 centered, so the button is hidden until you move it. Its tooltip (and screen reader label) is
 "Center view", and clicking it re-centers the view on the paper - the same underlying
 view-centering call as the in-card Center button inside Simplified's Map card, so the two are
