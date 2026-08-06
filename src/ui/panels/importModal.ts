@@ -96,7 +96,7 @@ export function initImportModal(ctx: PanelsCtx): ImportPanel {
     projectCtx.onChanged?.();
   }
 
-  /** Add project(s): istniejaca sciezka merge-add importProject (project.ts/importProjectFile). */
+  /** Add project(s): istniejaca sciezka merge-add importProject (core/store.ts). */
   async function addProjects(store: WorkspaceStore, json: string): Promise<void> {
     // magazyn fallback polyka bledy zapisu (miekki kontrakt KvJsonStore), wiec importProject
     // moze wrocic "sukcesem" mimo niezapisanych rekordow - licznik bledow to jedyny slad
