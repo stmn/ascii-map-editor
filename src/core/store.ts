@@ -232,22 +232,57 @@ export async function ensureSeed(
   return { projectId: project.id, levelId: level.id, migrated };
 }
 
-interface ProjectFile {
+export interface ProjectFile {
   app: string;
   version: number;
   project: { name: string };
   levels: LevelRecord[];
 }
 
-interface WorkspaceFile {
+export interface WorkspaceFile {
   app: string;
   version: number;
   projects: ProjectMeta[];
   levels: LevelRecord[];
 }
 
+export type ProjectFileParsed =
+  | { kind: 'project'; file: ProjectFile }
+  | { kind: 'workspace'; file: WorkspaceFile };
+
 const PROJECT_APP_ID = 'ascii-level-editor-project';
 const LEGACY_WORKSPACE_APP_ID = 'ascii-level-editor-workspace';
+
+// wspolny rozpoznawacz naglowka pliku project-v1/legacy-workspace, uzywany przez importProject
+// PONIZEJ i detectImport (importDetect.ts) - jedyne miejsce tej walidacji dla obu sciezek.
+// null gdy json sie nie parsuje albo ksztaltem nie pasuje do zadnego znanego naglowka - NIGDY
+// nie rzuca, decyzje co z tym zrobic (throw czy proba innego formatu) podejmuje wolajacy.
+export function parseProjectFile(json: string): ProjectFileParsed | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(json);
+  } catch {
+    return null;
+  }
+  if (typeof parsed !== 'object' || parsed === null) return null;
+  const o = parsed as Record<string, unknown>;
+
+  if (o.app === LEGACY_WORKSPACE_APP_ID && Array.isArray(o.projects) && Array.isArray(o.levels)) {
+    return { kind: 'workspace', file: o as unknown as WorkspaceFile };
+  }
+
+  if (
+    o.app === PROJECT_APP_ID &&
+    typeof o.project === 'object' &&
+    o.project !== null &&
+    typeof (o.project as Record<string, unknown>).name === 'string' &&
+    Array.isArray(o.levels)
+  ) {
+    return { kind: 'project', file: o as unknown as ProjectFile };
+  }
+
+  return null;
+}
 
 export async function exportProject(store: WorkspaceStore, projectId: string): Promise<string> {
   const projects = await store.listProjects();
@@ -306,22 +341,14 @@ export async function importProject(
   json: string,
   now: number,
 ): Promise<{ projects: number; levels: number }> {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(json);
-  } catch {
-    throw new Error('Unrecognized project file');
-  }
-  if (typeof parsed !== 'object' || parsed === null) {
-    throw new Error('Unrecognized project file');
-  }
-  const o = parsed as Record<string, unknown>;
+  const parsed = parseProjectFile(json);
+  if (!parsed) throw new Error('Unrecognized project file');
   const existingNames = (await store.listProjects()).map((p) => p.name);
 
   // legacy: plik calego workspace (backup z wersji 2.2-2.5) - dodajemy
   // WSZYSTKIE jego projekty ta sama sciezka merge-add co pojedynczy projekt
-  if (o.app === LEGACY_WORKSPACE_APP_ID && Array.isArray(o.projects) && Array.isArray(o.levels)) {
-    const file = o as unknown as WorkspaceFile;
+  if (parsed.kind === 'workspace') {
+    const file = parsed.file;
     const idToLevels = new Map<string, LevelRecord[]>();
     for (const l of file.levels) {
       const bucket = idToLevels.get(l.projectId);
@@ -351,18 +378,7 @@ export async function importProject(
   }
 
   // plik pojedynczego projektu
-  if (
-    o.app === PROJECT_APP_ID &&
-    typeof o.project === 'object' &&
-    o.project !== null &&
-    typeof (o.project as Record<string, unknown>).name === 'string' &&
-    Array.isArray(o.levels)
-  ) {
-    const name = (o.project as { name: string }).name;
-    const levels = o.levels as LevelRecord[];
-    const { levelCount } = await importOneProject(store, name, levels, now, existingNames);
-    return { projects: 1, levels: levelCount };
-  }
-
-  throw new Error('Unrecognized project file');
+  const file = parsed.file;
+  const { levelCount } = await importOneProject(store, file.project.name, file.levels, now, existingNames);
+  return { projects: 1, levels: levelCount };
 }
