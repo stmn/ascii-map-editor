@@ -16,7 +16,6 @@ import { initLegend } from './panels/legend';
 import { initGenerate } from './panels/generate';
 import { initExportModal } from './panels/exportModal';
 import { initImportModal } from './panels/importModal';
-import { initLevelIo } from './panels/level';
 import { initMap } from './panels/map';
 import { initExtra } from './panels/extra';
 import { initProject } from './panels/project';
@@ -56,7 +55,6 @@ export function initPanels(ctx: PanelsContext): Panels {
   const generateBox = requireEl('panel-generate');
   const mapBox = requireEl('panel-map');
   const extraBox = requireEl('panel-extra');
-  const levelBox = requireEl('panel-level');
 
   initAutosave(state);
 
@@ -89,8 +87,8 @@ export function initPanels(ctx: PanelsContext): Panels {
   hooks.renderLegend = legend.render;
 
   initGenerate(panelsCtx, generateBox);
-  // Export i Import nie maja juz wlasnych kart - moduly buduja same modale, a otwieraja je
-  // przyciski z karty Level (nizej), wiec init musi wyprzedzic initLevelIo
+  // Export i Import nie maja wlasnej karty - moduly buduja same modale, a otwieraja je
+  // dropdowny Export/Import w karcie Project, wiec init musi wyprzedzic initProject
   const exportPanel = initExportModal(panelsCtx);
   const importPanel = initImportModal(panelsCtx);
   // Load w karcie Map to ten sam import co wklejony tekst - karta dostaje gotowa sciezke
@@ -101,11 +99,13 @@ export function initPanels(ctx: PanelsContext): Panels {
   hooks.syncBrush = map.syncBrush;
   // karta Extra features czyta z karty glownej rozmiar mapy i chowa sie przez jej checkbox
   initExtra(panelsCtx, extraBox, map);
-  // karta Level: eksport/import biezacego poziomu, dziala niezaleznie od magazynu/projektow
-  initLevelIo(levelBox, { openExport: exportPanel.open, openImport: importPanel.open });
   // karta projektow czyta magazyn asynchronicznie i sama rejestruje sie na zdarzenie zapisu
-  // (odswiezanie miniatury biezacego poziomu) - nie potrzebuje wpisu w hookach miedzypanelowych
-  const project = initProject(panelsCtx, projectBox);
+  // (odswiezanie miniatury biezacego poziomu) - nie potrzebuje wpisu w hookach miedzypanelowych.
+  // Dropdowny Export/Import poziomu dzialaja niezaleznie od magazynu/projektow (modale operuja
+  // na state.level), wiec zostaja widoczne nawet w degenerowanych galeziach karty.
+  const project = initProject(
+    panelsCtx, projectBox, { openExport: exportPanel.open, openImport: importPanel.open },
+  );
 
   draw.render();
   layers.render();

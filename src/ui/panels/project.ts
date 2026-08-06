@@ -1,7 +1,7 @@
 // Panel Project: wybor projektu, lista jego poziomow (miniatura, nazwa, duplikat, usuniecie)
-// i eksport/import calego biezacego projektu. Export/Import BIEZACEGO poziomu mieszka w osobnej
-// karcie Level (panels/level.ts). To jedyne miejsce UI, ktore tworzy i kasuje rekordy magazynu -
-// reszta paneli zna tylko biezacy poziom.
+// i dwa dropdowny Export/Import - kazdy z pozycja dla biezacego poziomu (dziala zawsze, modale
+// operuja na state.level) i dla calego projektu (wymaga magazynu i wybranego projektu).
+// To jedyne miejsce UI, ktore tworzy i kasuje rekordy magazynu - reszta paneli zna tylko biezacy poziom.
 import { createLevel } from '../../core/level';
 import { parseProject, serializeProject } from '../../core/project';
 import {
@@ -10,12 +10,19 @@ import {
 } from '../../core/store';
 import { button, el, iconButton, setIconTitle } from '../dom';
 import { icon } from '../icons';
+import { menuButton } from '../menu';
 import { confirmModal, promptModal } from '../modal';
 import {
   PanelsCtx, applyLevelToPanels, download, errorMessage, flushSave, getCurrentLevel,
   getSaveErrorCount, getStore, playPop, reportSaveError, scheduleSave, setCurrentLevel,
   setOnSaved, toast, updateCurrentLevel,
 } from './context';
+
+/** Modale poziomu (Export/Import) - buduje je panels.ts, tu tylko przycisk otwierajacy. */
+export interface LevelIoModals {
+  openExport(): void;
+  openImport(): void;
+}
 
 export interface ProjectPanel {
   render(): void;
@@ -43,7 +50,7 @@ function makeLevelRecord(projectId: string, name: string, order: number): LevelR
   };
 }
 
-export function initProject(ctx: PanelsCtx, box: HTMLElement): ProjectPanel {
+export function initProject(ctx: PanelsCtx, box: HTMLElement, modals: LevelIoModals): ProjectPanel {
   /**
    * Wiersze listy po id poziomu - pozwalaja odswiezyc wiersz BEZ przebudowy DOM.
    * `record` to migawka z czasu renderu, ktora obsluga wiersza (nazwa, duplikat) trzyma w domknieciu;
@@ -312,6 +319,43 @@ export function initProject(ctx: PanelsCtx, box: HTMLElement): ProjectPanel {
     }
   }
 
+  /**
+   * Rzad Export/Import: dwa dropdowny 50/50, kazdy z pozycja "level" (zawsze aktywna - modale
+   * operuja na state.level, niezaleznie od magazynu) i pozycja "project" (wymaga wybranego
+   * projektu w istniejacym magazynie - disabled inaczej). Budowana od nowa przy kazdym renderze,
+   * wiec fileInput importu projektu tez jest swiezy (stary zostal juz odpiety razem z DOM).
+   */
+  function ioRow(store: WorkspaceStore | null, projectId: string | null): HTMLElement[] {
+    const projectReady = !!store && !!projectId;
+
+    const fileInput = el('input', 'file-input');
+    fileInput.type = 'file';
+    fileInput.accept = '.json';
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files?.[0];
+      // reset od razu, zeby ponowny wybor tego samego pliku znowu wywolal change
+      fileInput.value = '';
+      if (file && store) runOp(importProjectFile(store, file));
+    });
+
+    const exportMenu = menuButton('Export', () => [
+      { label: 'Export level', onPick: modals.openExport },
+      {
+        label: 'Export project',
+        disabled: !projectReady,
+        onPick: () => { if (store && projectId) runOp(exportProjectFile(store, projectId)); },
+      },
+    ]);
+    const importMenu = menuButton('Import', () => [
+      { label: 'Import level', onPick: modals.openImport },
+      { label: 'Import project', disabled: !projectReady, onPick: () => fileInput.click() },
+    ]);
+
+    const row = el('div', 'btn-row');
+    row.append(exportMenu, importMenu);
+    return [row, fileInput];
+  }
+
   // --- budowa karty ------------------------------------------------------------
 
   function levelRow(
@@ -387,30 +431,14 @@ export function initProject(ctx: PanelsCtx, box: HTMLElement): ProjectPanel {
     box.append(select, actions);
 
     if (!projectId) {
-      box.append(el('p', 'hint', 'No projects yet - create one to start.'));
+      box.append(el('p', 'hint', 'No projects yet - create one to start.'), ...ioRow(store, projectId));
       return;
     }
 
     const list = el('div', 'level-list');
     levels.forEach((record, index) => list.append(levelRow(store, record, index, levels)));
     box.append(list, button('New level', 'btn-full', () => { runOp(newLevel(store, projectId, levels)); }));
-
-    const fileInput = el('input', 'file-input');
-    fileInput.type = 'file';
-    fileInput.accept = '.json';
-    fileInput.addEventListener('change', () => {
-      const file = fileInput.files?.[0];
-      // reset od razu, zeby ponowny wybor tego samego pliku znowu wywolal change
-      fileInput.value = '';
-      if (file) runOp(importProjectFile(store, file));
-    });
-
-    const projectIo = el('div', 'btn-row');
-    projectIo.append(
-      button('Export project', 'btn-plain', () => { runOp(exportProjectFile(store, projectId)); }),
-      button('Import project', 'btn-plain', () => fileInput.click()),
-    );
-    box.append(projectIo, fileInput);
+    box.append(...ioRow(store, projectId));
   }
 
   /**
@@ -432,11 +460,14 @@ export function initProject(ctx: PanelsCtx, box: HTMLElement): ProjectPanel {
     const seq = ++renderSeq;
     const store = getStore();
     if (!store) {
-      // Degenerowany wariant bez magazynu: karta Project potrzebuje WorkspaceStore do kazdej
-      // operacji, wiec tu nie ma nic wiecej niz hint. Export/Import poziomu zyja w osobnej
-      // karcie Level i dzialaja niezaleznie od magazynu (modale operuja na state.level).
+      // Degenerowany wariant bez magazynu: karta Project potrzebuje WorkspaceStore do listy
+      // projektow/poziomow, wiec tu nie ma nic wiecej niz hint. Rzad Export/Import zostaje
+      // widoczny - Export level/Import level dzialaja niezaleznie od magazynu (modale operuja
+      // na state.level), pozycje project dostaja disabled od samego ioRow.
       rows.clear(); // wiersze znikaja z DOM, wiec mapa nie moze zostac z odpietymi wezlami
-      box.replaceChildren(el('p', 'hint', 'Storage unavailable - projects cannot be saved.'));
+      box.replaceChildren(
+        el('p', 'hint', 'Storage unavailable - projects cannot be saved.'), ...ioRow(null, null),
+      );
       return;
     }
     const projects = (await store.listProjects()).sort((a, b) => a.createdAt - b.createdAt);

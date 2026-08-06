@@ -284,6 +284,40 @@ button:disabled:active {
   gap: 6px;
 }
 
+/* Przycisk-dropdown (menu.ts): wrapper jest flex-item w btn-row jak zwykly przycisk (Export/Import
+   w karcie Project, 50/50 obok siebie); .menu-trigger wypelnia go w calosci. */
+.btn-row .menu {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.menu-trigger {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Panel dropdowna: bialy card z czarna ramka jak reszta UI v1, position fixed policzony w JS
+   (patrz komentarz w menu.ts - karty sekcji maja overflow:hidden, ktore obcieloby zagniezdzony
+   panel absolute). z-index ponizej modalu (20). */
+.menu-panel {
+  position: fixed;
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-sizing: border-box;
+  padding: 4px;
+  background: #ffffff;
+  border: 2px solid #000000;
+  border-radius: 4px;
+}
+
+.menu-panel button {
+  font-size: 9px;
+  white-space: nowrap;
+}
+
 .field {
   display: flex;
   align-items: center;
@@ -868,8 +902,7 @@ body.mode-simplified .sidebar > details[data-section='project'],
 body.mode-simplified .sidebar > details[data-section='draw'],
 body.mode-simplified .sidebar > details[data-section='layers'],
 body.mode-simplified .sidebar > details[data-section='legend'],
-body.mode-simplified .sidebar > details[data-section='generate'],
-body.mode-simplified .sidebar > details[data-section='level'] {
+body.mode-simplified .sidebar > details[data-section='generate'] {
   display: none;
 }
 
