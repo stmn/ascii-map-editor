@@ -15,7 +15,7 @@ import { isSimplified } from './mode';
 const SIDES: readonly Side[] = ['left', 'right'];
 
 /** Klasa schowanej kolumny - kierunek transformu jest per-strona, patrz #sidebar(-left).hidden
- * w styles.css (prawa ucieka w prawo, lewa w lewo - stad dwie regoly dla jednej klasy). */
+ * w styles.css (prawa ucieka w prawo, lewa w lewo - stad dwie reguly dla jednej klasy). */
 const HIDDEN_CLASS = 'hidden';
 
 /** Strefa krawedzi okna: kursor blizej niz tyle px wysuwa schowana kolumne (brief pkt 2). */
@@ -58,7 +58,7 @@ function nearEdge(side: Side): boolean {
 }
 
 /** Kursor nad samym boxem - rozwinieta kolumna daleko od krawedzi (np. scrollujesz karte
- * w jej dolnej czesci) tez ma zostac wysunieta, nie tylko wask pasek proximity przy krawedzi.
+ * w jej dolnej czesci) tez ma zostac wysunieta, nie tylko waski pasek proximity przy krawedzi.
  * getBoundingClientRect() liczy sie PO transformie, wiec dziala tak samo w stanie schowanym
  * (trafia tylko w wystajacy pasek) i rozwinietym (trafia w cala kolumne). */
 function overBox(box: HTMLElement): boolean {

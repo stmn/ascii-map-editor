@@ -104,7 +104,7 @@ textarea {
 /* Odpieta kolumna schowana przez autohide.ts: przesuniecie o wlasna szerokosc minus 16px
    zostawia ten pasek widoczny jako "ucho" - fragment samego sidebara (kart), nie osobny
    element. Kierunek jest przeciwny dla kazdej strony (prawa ucieka w prawo ku krawedzi okna,
-   lewa w lewo), stad dwie regoly zamiast jednej wspolnej z .sidebar.hidden. */
+   lewa w lewo), stad dwie reguly zamiast jednej wspolnej z .sidebar.hidden. */
 #sidebar.hidden {
   transform: translateX(calc(100% - 16px));
 }
