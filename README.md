@@ -175,12 +175,12 @@ Clicking the pin (tooltip "Unpin sidebar", flipping to "Pin sidebar" once clicke
 column only; the two sides are independent.
 
 An unpinned column auto-hides once the cursor moves away and stays away: it slides sideways
-behind the window's edge, leaving only a roughly 16px sliver of itself (still the same sidebar,
-not a separate element) poking in from that edge. Hiding waits about 400ms after the cursor
-leaves, so a quick pass over the desk does not trigger it, and the slide itself is a smooth
-~150ms transform. Moving the cursor back within about 48px of the window's edge, or anywhere
-over the column itself (the sliver when hidden, the full column once open), brings it back the
-same way.
+behind the window's edge, leaving a 32px sliver of itself (still the same sidebar, not a
+separate element) poking in flush against that edge, evenly on both sides. Hiding waits about
+400ms after the cursor leaves, so a quick pass over the desk does not trigger it, and the slide
+itself is a smooth ~150ms transform. Moving the cursor back within about 48px of the window's
+edge, or anywhere over the column itself (the sliver when hidden, the full column once open),
+brings it back the same way.
 
 Auto-hide never fires while it would get in the way: dragging a card, keyboard focus on one of
 the column's own controls, or a modal dialog being open (Export, Import, a confirmation, the

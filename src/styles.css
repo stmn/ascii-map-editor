@@ -101,16 +101,25 @@ textarea {
   padding-left: 8px;
 }
 
-/* Odpieta kolumna schowana przez autohide.ts: przesuniecie o wlasna szerokosc minus 16px
-   zostawia ten pasek widoczny jako "ucho" - fragment samego sidebara (kart), nie osobny
-   element. Kierunek jest przeciwny dla kazdej strony (prawa ucieka w prawo ku krawedzi okna,
-   lewa w lewo), stad dwie reguly zamiast jednej wspolnej z .sidebar.hidden. */
+/* Odpieta kolumna schowana przez autohide.ts: przesuniecie tak, zeby zostal widoczny pasek
+   32px karty, przylegly do krawedzi okna (reszta karty wyjezdza poza okno - obcina ja sam
+   viewport, nie wlasny kontener). To "ucho" jest fragmentem samego sidebara (kart), nie
+   osobnym elementem. 100% w translateX to szerokosc border-box KONTENERA .sidebar, a nie
+   samej karty - kontenery obu stron maja rozna szerokosc (prawa: 300px contentu + padding
+   0/8 = 308px; lewa: 300px + padding 8/8 = 316px), stad rozne stale w calc() (20 vs 43),
+   mimo ze efekt koncowy (32px po obu stronach) jest identyczny. Roznica jest wieksza niz
+   same 8px paddingu by sugerowaly, bo lewa karta jest dodatkowo wezsza od prawej -
+   scrollbar-gutter: stable (patrz .sidebar wyzej) zabiera miejsce z contentu kontenera,
+   wiec obie stale zostaly dobrane empirycznie (CDP, getBoundingClientRect pierwszej
+   widocznej karty), nie samym wyliczeniem z box modelu. Kierunek jest przeciwny dla kazdej
+   strony (prawa ucieka w prawo ku krawedzi okna, lewa w lewo), stad dwie reguly zamiast
+   jednej wspolnej z .sidebar.hidden. */
 #sidebar.hidden {
-  transform: translateX(calc(100% - 16px));
+  transform: translateX(calc(100% - 20px));
 }
 
 #sidebar-left.hidden {
-  transform: translateX(calc(-100% + 16px));
+  transform: translateX(calc(-100% + 43px));
 }
 
 /* Karta sekcji: biale tlo, gruba czarna ramka 4px jak panele w v1. */
