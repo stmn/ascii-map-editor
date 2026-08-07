@@ -152,7 +152,9 @@ It is pay what you want, and $2 is a fair nudge if the tool saved you an afterno
 dungeon generator is now a BSP room splitter ported from v1 for more varied room shapes, and
 the maze generator is a recursive-division maze with a `D` door cell top and bottom, also
 ported from v1. In the Export dialog, the Legacy v1 export row is now two explicit rows: Array
-of strings and Array of arrays.
+of strings and Array of arrays. The This level format list is now a grid of format tiles with
+code previews - a small syntax-colored snippet of what each format actually looks like, instead
+of a plain text row.
 
 **v2.9** - auto-hiding sidebars with pin toggles, window-centered view: the map now always
 centers on the middle of the window instead of the space left between the two sidebars, so

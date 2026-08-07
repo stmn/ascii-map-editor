@@ -53,10 +53,10 @@ itch.io-ready HTML project (`index.html` as the entry point) and it also contain
   dungeon - it sets its target room count and the generator splits rooms until it reaches that
   target or the split stops being geometrically possible, so a small map or a large min room
   size may end up with fewer rooms than requested.
-- Export opens a dialog with a This level / Whole project switch and nine format rows (TXT,
-  Array of strings, Array of arrays, CSV, KaPlay, Godot, Tiled, REXPaint, Level JSON), each one
-  saying up front whether it keeps your layers or flattens them, plus a live preview and
-  Copy/Save file buttons.
+- Export opens a dialog with a This level / Whole project switch and a 3-column grid of nine
+  format tiles (TXT, Array of strings, Array of arrays, CSV, KaPlay, Godot, Tiled, REXPaint,
+  Level JSON), each with a small code preview and a badge saying up front whether it keeps your
+  layers or flattens them, plus a live preview and Copy/Save file buttons.
 - Import opens a dialog: load a file or paste text, and it auto-detects what it is (a level, a
   project, an old workspace backup, or a REXPaint `.xp`), then offers the actions that make
   sense for it - Replace current level, Add as new level, or Add project(s).
@@ -483,27 +483,32 @@ own To clipboard/Load/SWITCH FORMAT trio in Simplified mode is a separate, older
 same underlying data and still works exactly as before, see The Map card above.
 
 **Export** starts on a **This level / Whole project** switch, defaulting to This level. This
-level lists all nine formats as clickable rows - TXT, Array of strings, Array of arrays, CSV,
-KaPlay, Godot, Tiled `.tmx`, REXPaint `.xp`, Level `.json` - each with a one-line description
-and a badge honestly stating whether it keeps your layers or flattens them (`layers: kept` for
-Godot/Tiled/`.xp`/Level `.json`, `layers: flattened` for TXT/Array of strings/Array of
-arrays/CSV/KaPlay). Picking a row that supports layer choices reveals a Layers pill (All merged
-/ Active layer, plus Each layer separately for TXT and CSV only) right below it. Array of
-strings and Array of arrays are the two array shapes from the original v1 editor's Legacy
-export, each its own row here instead of a sub-picker under one shared Legacy row - the third
-v1 shape, plain Text, is left out here because it duplicates the TXT row already in the same
-dialog, and all three legacy shapes together are still available behind the SWITCH FORMAT link
-in Simplified mode's Map card, see Modes above. A live preview textarea below the options
-updates on every change; `.xp` being binary, its "preview" is just the first layer's own text
-and its Copy button is disabled with a tooltip, since there is nothing sensible to put on the
-clipboard - Save file still writes the real gzipped binary. Whole project shows a one-line
-description naming the current project and enables the same Copy/Save file pair for its
-`project.json`, or disables both with a hint if no project is open, see Project backup above.
-Copy and Save file are one fixed pair of buttons at the bottom of the dialog, retargeted to
-whatever is currently selected rather than duplicated per row, and keyboard navigation between
-format rows and the Layers pill never loses focus: only the small options area under the format
-list is rebuilt on a format change, while every interactive control is built once and lives for
-as long as the dialog does.
+level shows all nine formats as a 3-column grid of tiles - TXT, Array of strings, Array of
+arrays, CSV, KaPlay, Godot, Tiled `.tmx`, REXPaint `.xp`, Level `.json`. Each tile is a small
+static code preview (a syntax-colored snippet of sample output, not your own map - your live
+data stays in the preview textarea below the grid) over its name and a badge honestly stating
+whether it keeps your layers or flattens them (`layers: kept` for Godot/Tiled/`.xp`/Level
+`.json`, `layers: flattened` for TXT/Array of strings/Array of arrays/CSV/KaPlay). The selected
+tile gets a blue outline; the format's one-line description lives in a single spot below the
+grid instead of repeating on every tile. Picking a format that supports layer choices reveals a
+Layers pill (All merged / Active layer, plus Each layer separately for TXT and CSV only) right
+below that description. Array of strings and Array of arrays are the two array shapes from the
+original v1 editor's Legacy export, each its own tile here instead of a sub-picker under one
+shared Legacy row - the third v1 shape, plain Text, is left out here because it duplicates the
+TXT tile already in the same dialog, and all three legacy shapes together are still available
+behind the SWITCH FORMAT link in Simplified mode's Map card, see Modes above. A live preview
+textarea below the options updates on every change; `.xp` being a binary format, it replaces
+that textarea with a one-line hint instead - `Binary format (gzip) - N layer(s), WxH. Save the
+file and open it in REXPaint.` - and its Copy button is disabled with a tooltip, since there is
+nothing sensible to put on the clipboard - Save file still writes the real gzipped binary.
+Whole project shows a one-line description naming the current project and enables the same
+Copy/Save file pair for its `project.json`, or disables both with a hint if no project is open,
+see Project backup above. Copy and Save file are one fixed pair of buttons at the bottom of the
+dialog, retargeted to whatever is currently selected rather than duplicated per tile, and
+keyboard navigation - Tab into the format grid, arrow keys between tiles, Tab onward to the
+Layers pill and the preview - never loses focus: the grid of tiles is a native radiogroup built
+once, selecting a format only toggles classes/checked state on its existing tile, and only the
+small options area under the grid is rebuilt on a format change.
 
 **Import** starts with a **Load file...** button (any file, no extension filter) and a paste
 textarea, either of which runs the same auto-detection (`detectImport` in
@@ -578,8 +583,8 @@ src/
       generate.ts   maze/dungeon generator card, plus the generator path both cards share
       map.ts        Map card: the whole v1 main panel, Simplified mode only
       extra.ts      Extra features card: the two generators, Simplified mode only
-      exportModal.ts   Export dialog: This level/Whole project switch, 9 format rows with
-                        layer badges, Copy/Save file
+      exportModal.ts   Export dialog: This level/Whole project switch, 9 format tiles (code
+                        preview + layer badges) in a 3-column grid, Copy/Save file
       importModal.ts   Import dialog: file/paste input, detectImport summary, contextual actions
 tests/              Vitest specs for core/ and export/ only
 scripts/

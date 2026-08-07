@@ -114,10 +114,13 @@ function mount(card: HTMLElement, overlayClass: string, onClose: () => void): Mo
  * onClose odpala sie RAZ, niezaleznie od drogi zamkniecia (takze gdy modal zamknelo otwarcie
  * kolejnego) - wybor trybu przy pierwszym starcie potrzebuje tego, by zadna sciezka nie
  * zostawila edytora bez zapisanego trybu.
+ * cardClass - opcjonalna dodatkowa klasa na samej karcie (np. szerszy wariant dla Export z
+ * kafelkami formatow) - inne wywolania jej nie podaja, wiec ich karta zostaje przy bazowej
+ * szerokosci (.modal-card, 420px) - patrz .modal-card-wide w styles.css.
  */
-export function openModal(title: string, body: HTMLElement, onClose?: () => void): ModalHandle {
+export function openModal(title: string, body: HTMLElement, onClose?: () => void, cardClass?: string): ModalHandle {
   mainModal?.close();
-  const card = el('div', 'modal-card');
+  const card = el('div', cardClass ? `modal-card ${cardClass}` : 'modal-card');
   card.setAttribute('role', 'dialog');
   card.setAttribute('aria-modal', 'true');
   card.setAttribute('aria-label', title);

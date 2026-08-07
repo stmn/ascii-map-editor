@@ -504,10 +504,10 @@ button:disabled:active {
 }
 
 /* Layers: wiersz per warstwa, gora listy = wierzch stosu.
-   Wiersz poziomu (karta Project) i wiersz formatu (modal Export) korzystaja z tego samego wygladu. */
+   Wiersz poziomu (karta Project) korzysta z tego samego wygladu; format (modal Export) od
+   v2.10.3 jest kafelkiem, patrz .format-tiles nizej. */
 .layer-row,
-.level-row,
-.format-row {
+.level-row {
   display: flex;
   align-items: center;
   gap: 4px;
@@ -525,53 +525,120 @@ button:disabled:active {
 /* Aktywny wiersz czyta sie jako niebieski razem z polem nazwy - przyciski zostaja biale,
    zeby dalej wygladaly na kontrolki. */
 .layer-row.active,
-.level-row.active,
-.format-row.active {
+.level-row.active {
   color: #ffffff;
   background: #3b82f6;
 }
 
-/* Wiersz formatu (modal Export): natywny radio z lewej (klik gdziekolwiek w wiersz go zaznacza,
-   bo cale .format-row jest <label>), nazwa+opis na srodku, badge warstw w stalym miejscu z prawej. */
-.format-row input[type='radio'] {
-  flex: none;
+/* Kafelki formatow (modal Export, wariant A z mockupu): siatka 3 kolumny, kazdy kafelek to
+   <label> z ukrytym natywnym radio (radiogroup, strzalki dzialaja same z siebie) - u gory
+   statyczny "screenshot kodu" (patrz buildShot/.shot nizej), pod nim nazwa i badge warstw.
+   Opis formatu NIE siedzi tu - jest jeden, pod siatka (formatDescEl w exportModal.ts, styl .hint). */
+.format-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
 }
 
-.format-main {
+.format-tile {
+  position: relative;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-  flex: 1;
-}
-
-.format-name {
-  font-size: 11px;
-}
-
-.format-desc {
-  font-size: 9px;
-  line-height: 1.5;
-  color: #565a75;
-}
-
-.format-row.active .format-desc {
-  color: #e5e7eb;
-}
-
-.format-badge {
-  flex: none;
-  font-size: 9px;
-  color: #565a75;
-  background: #e5e7eb;
+  text-align: left;
+  background: #ffffff;
+  border: 3px solid #000000;
   border-radius: 4px;
-  padding: 2px 6px;
-  white-space: nowrap;
+  overflow: hidden;
 }
 
-.format-row.active .format-badge {
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.2);
+.format-tile:hover {
+  background: #e5e7eb;
+}
+
+/* Zaznaczenie: outline zamiast border, zeby nie przesuwac tresci kafelka o dodatkowy px -
+   dokladnie jak w zatwierdzonym mockupie (wariant A). */
+.format-tile.active {
+  outline: 4px solid #3b82f6;
+  outline-offset: -1px;
+}
+
+/* Radio zostaje w DOM (natywny radiogroup - Tab/strzalki dzialaja bez wlasnego JS), ale
+   caly kafelek jest jego duza etykieta, wiec sam input jest wizualnie niewidoczny. */
+.format-tile-radio {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Fokus klawiatury na ukrytym radiu pokazujemy na calym kafelku, inaczej zniknalby calkiem. */
+.format-tile:focus-within {
+  outline: 2px solid #1a1c2c;
+  outline-offset: 2px;
+}
+
+/* "Screenshot kodu": statyczny, ciemny blok z kolorowanymi spanami (nie zywy podglad usera -
+   ten zostaje w .modal-text pod siatka). Wlasny font (nie pikselowy Press Start 2P reszty UI),
+   zeby czytal sie jak zrzut ekranu edytora kodu. */
+.shot {
+  height: 74px;
+  overflow: hidden;
+  box-sizing: border-box;
+  padding: 7px 8px;
+  background: #1f2430;
+  color: #d8dee9;
+  border-bottom: 3px solid #000000;
+  font-family: 'Courier New', ui-monospace, monospace;
+  font-size: 8.5px;
+  line-height: 1.35;
+  white-space: pre;
+}
+
+.shot .p {
+  color: #88c0d0;
+}
+
+.shot .s {
+  color: #a3be8c;
+}
+
+.shot .k {
+  color: #81a1c1;
+}
+
+.shot .n {
+  color: #d08770;
+}
+
+.shot .w {
+  color: #e5e9f0;
+}
+
+.shot .f {
+  color: #6b7280;
+}
+
+.shot .d1 {
+  color: #ebcb8b;
+}
+
+.tile-name {
+  font-size: 10px;
+  padding: 6px 8px 2px;
+}
+
+.tile-badge {
+  font-size: 8px;
+  padding: 0 8px 7px;
+  color: #565a75;
+}
+
+.tile-badge.kept {
+  color: #16a34a;
 }
 
 .layer-name,
@@ -839,6 +906,14 @@ input[type='color'] {
   border-radius: 4px;
 }
 
+/* Wariant scoped przez wlasna klase (patrz openModal cardClass) - na razie tylko Export, bo
+   jego siatka 3 kolumn kafelkow potrzebuje wiecej oddechu niz bazowe 420px; inne modale (Welcome,
+   Import) nie podaja cardClass, wiec zostaja przy bazowej szerokosci - patrz "nie psuj innych
+   modali" w specyfikacji. Szerokosc jak w zatwierdzonym mockupie (wariant A). */
+.modal-card-wide {
+  max-width: 640px;
+}
+
 /* Naglowek jak summary sekcji: szary pasek, tytul, X po prawej. */
 .modal-head {
   flex: none;
@@ -943,6 +1018,15 @@ input[type='color'] {
 /* Karta jest wezsza od modalu, a pod polem musza sie jeszcze zmiescic Load i Copy. */
 .map-text {
   height: 140px;
+}
+
+/* Export .xp: textarea podgladu schowana, w jej miejscu jedno zdanie hinta (xpHintEl, klasy
+   .hint.help-box jak inne info w aplikacji) - oba wezly zyja caly czas (patrz refreshLevelActions
+   w exportModal.ts), przelacza sie tylko klasa .hidden. .help-box.hidden jest ogolne (dowolny
+   help-box moze chciec zniknac tym samym mechanizmem), .modal-text.hidden - tylko textarea. */
+.modal-text.hidden,
+.help-box.hidden {
+  display: none;
 }
 
 .btn-full {

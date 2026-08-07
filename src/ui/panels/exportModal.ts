@@ -1,9 +1,10 @@
 // Modal Export: dwa zakresy w jednym dialogu.
-// "This level" - lista formatow jako klikalne wiersze (radio), z opcjami warstw kontekstowymi
+// "This level" - kafelki formatow w siatce 3 kolumn (radio, jak dawniej wiersze - tylko wyglad
+// sie zmienil), kazdy z statycznym "screenshotem kodu" u gory, z opcjami warstw kontekstowymi
 // dla formatu i zywym podgladem. "Whole project" - caly projekt jako project.json (dziala
 // tylko gdy wolajacy przekazal store+projectId przy otwarciu - patrz open()).
 // Akcje sa zawsze te same dwa przyciski w tym samym miejscu (Copy/Save file), retargetowane
-// na aktualnie wybrany format/zakres - nie ma osobnej pary przyciskow na kazdy wiersz.
+// na aktualnie wybrany format/zakres - nie ma osobnej pary przyciskow na kazdy kafelek.
 //
 // Fokus klawiatury (fix round 1, finding 1): kontrolki, ktore MOGA miec fokus (przyciski pigulek,
 // radia formatow, textarea podgladu, Copy/Save) sa budowane RAZ i zyja przez caly czas zycia
@@ -11,6 +12,11 @@
 // setActiveLayer w layers.ts), nigdy ich nie zastepuje. Przebudowie (replaceChildren) podlega
 // WYLACZNIE sekcja opcji formatu (optionsSlot) i to tylko przy zmianie samego formatu - wtedy
 // fokus i tak stoi na klikanym radiu, ktorego przebudowa nie dotyka.
+//
+// Kafelki (v2.10.3): "screenshot kodu" to statyczny blok DOM zbudowany raz przy tworzeniu
+// kafelka (buildShot), nie zywy podglad - dane (linie/tokeny/kolory) siedza per format w tabeli
+// FORMATS (pole shot), sam buildShot jest jeden dla wszystkich 9 formatow. Opis tekstowy formatu
+// (kiedys obok kazdego wiersza) teraz zyje w JEDNYM miejscu pod siatka - formatDescEl.
 import { Bounds, Grid } from '../../core/grid';
 import { activeGrid } from '../../core/editorState';
 import { flattenLayers, unionBounds } from '../../core/level';
@@ -42,6 +48,15 @@ type Scope = 'level' | 'project';
 type LayersMode = 'merged' | 'active' | 'each';
 type FormatKey = 'txt' | 'array-strings' | 'array-arrays' | 'csv' | 'kaplay' | 'godot' | 'tmx' | 'xp' | 'json';
 
+/**
+ * Jeden token "screenshotu kodu": string = niepokolorowany tekst (bialy szum np. wciecie),
+ * [klasa, tekst] = kolorowany span - klasy (p/s/k/n/w/f/d1) i palety patrz .shot w styles.css,
+ * ustalone razem z zatwierdzonym mockupem (wariant A).
+ */
+type ShotClass = 'p' | 's' | 'k' | 'n' | 'w' | 'f' | 'd1';
+type ShotToken = string | [ShotClass, string];
+type ShotLine = ShotToken[];
+
 interface FormatSpec {
   key: FormatKey;
   label: string;
@@ -51,6 +66,8 @@ interface FormatSpec {
   mime: string;
   /** null = format nie ma opcji Layers (bierze zawsze cale warstwy - Godot/tmx/xp/json). */
   layerChoices: LayersMode[] | null;
+  /** Statyczna, przykladowa tresc na kafelku (NIE dane usera) - linie tokenow do buildShot(). */
+  shot: ShotLine[];
 }
 
 const LAYERS_ALL: LayersMode[] = ['merged', 'active', 'each'];
@@ -60,44 +77,102 @@ const LAYERS_LABELS: Record<LayersMode, string> = {
   merged: 'All merged', active: 'Active layer', each: 'Each layer separately',
 };
 
-// Kolejnosc = kolejnosc wierszy w dialogu. Opisy i nazwy formatow sa verbatim ze specyfikacji
-// Taska 3 - nie parafrazowac, testy odbiorcze porownuja dokladnie ten tekst.
+// Kolejnosc = kolejnosc kafelkow w siatce dialogu. Opisy i nazwy formatow sa verbatim ze
+// specyfikacji Taska 3 - nie parafrazowac, testy odbiorcze porownuja dokladnie ten tekst.
+// Tresc pola shot jest verbatim z zatwierdzonego mockupu (wariant A) - nie parafrazowac.
 const FORMATS: FormatSpec[] = [
   {
     key: 'txt', label: 'TXT', desc: 'Plain text grid, one char per cell', badge: 'flattened',
     filename: 'map.txt', mime: 'text/plain', layerChoices: LAYERS_ALL,
+    shot: [
+      [['w', '##########']],
+      [['w', '#'], ['f', '........'], ['w', '#']],
+      [['w', '#'], ['f', '..'], ['w', '##'], ['f', '....'], ['w', '#']],
+      [['w', '#'], ['f', '........'], ['w', '#']],
+      [['w', '##########']],
+    ],
   },
   {
     key: 'array-strings', label: 'Array of strings', desc: 'JS array, one quoted string per row', badge: 'flattened',
     filename: 'array-strings.txt', mime: 'text/plain', layerChoices: LAYERS_NO_EACH,
+    shot: [
+      [['p', '[']],
+      ['  ', ['s', '"##########"'], ['p', ',']],
+      ['  ', ['s', '"#........#"'], ['p', ',']],
+      ['  ', ['s', '"#..##....#"'], ['p', ',']],
+      [['p', ']']],
+    ],
   },
   {
     key: 'array-arrays', label: 'Array of arrays', desc: 'JS array of arrays, one char per cell', badge: 'flattened',
     filename: 'array-arrays.txt', mime: 'text/plain', layerChoices: LAYERS_NO_EACH,
+    shot: [
+      [['p', '[']],
+      ['  ', ['p', '['], ['s', '"#"'], ['p', ','], ['s', '"#"'], ['p', ','], ['s', '"#"'], ['p', '],']],
+      ['  ', ['p', '['], ['s', '"#"'], ['p', ','], ['s', '"."'], ['p', ','], ['s', '"#"'], ['p', '],']],
+      [['p', ']']],
+    ],
   },
   {
     key: 'csv', label: 'CSV', desc: 'Comma separated grid', badge: 'flattened',
     filename: 'map.csv', mime: 'text/csv', layerChoices: LAYERS_ALL,
+    shot: [
+      [['w', '#'], ['p', ','], ['w', '#'], ['p', ','], ['w', '#'], ['p', ','], ['w', '#'], ['p', ','], ['w', '#']],
+      [['w', '#'], ['p', ','], ['f', '.'], ['p', ','], ['f', '.'], ['p', ','], ['f', '.'], ['p', ','], ['w', '#']],
+      [['w', '#'], ['p', ','], ['f', '.'], ['p', ','], ['w', '#'], ['p', ','], ['f', '.'], ['p', ','], ['w', '#']],
+      [['w', '#'], ['p', ','], ['w', '#'], ['p', ','], ['w', '#'], ['p', ','], ['w', '#'], ['p', ','], ['w', '#']],
+    ],
   },
   {
     key: 'kaplay', label: 'KaPlay', desc: 'addLevel snippet for kaplayjs.com', badge: 'flattened',
     filename: 'kaplay.js', mime: 'text/javascript', layerChoices: LAYERS_NO_EACH,
+    shot: [
+      [['k', 'const'], ' tiles ', ['p', '= {']],
+      ['  ', ['s', '"#"'], ['p', ': () => ['], ['k', 'sprite'], ['p', '('], ['s', '"wall"'], ['p', ')],']],
+      [['p', '};']],
+      [['k', 'addLevel'], ['p', '(['], ['s', '"####"'], ['p', '], {']],
+    ],
   },
   {
     key: 'godot', label: 'Godot', desc: 'GDScript dictionaries, one per layer', badge: 'kept',
     filename: 'godot.gd', mime: 'text/plain', layerChoices: null,
+    shot: [
+      [['k', 'var'], ' level ', ['p', '= {']],
+      ['  ', ['s', '"layer_0"'], ['p', ': {']],
+      ['    ', ['s', '"#"'], ['p', ': ['], ['n', 'Vector2'], ['p', '('], ['n', '0'], ['p', ','], ['n', '0'], ['p', ')],']],
+      [['p', '}}']],
+    ],
   },
   {
     key: 'tmx', label: 'Tiled .tmx', desc: 'One tile layer per editor layer', badge: 'kept',
     filename: 'map.tmx', mime: 'application/xml', layerChoices: null,
+    shot: [
+      [['p', '<'], ['k', 'map'], ' ', ['n', 'width'], ['p', '='], ['s', '"10"'], ['p', '>']],
+      [' ', ['p', '<'], ['k', 'layer'], ' ', ['n', 'name'], ['p', '='], ['s', '"walls"'], ['p', '>']],
+      ['  ', ['p', '<'], ['k', 'data'], ['p', '>'], ['n', '1,1,1,0'], ['p', '</'], ['k', 'data'], ['p', '>']],
+      [' ', ['p', '</'], ['k', 'layer'], ['p', '>']],
+    ],
   },
   {
     key: 'xp', label: 'REXPaint .xp', desc: 'Native multi-layer format', badge: 'kept',
     filename: 'map.xp', mime: 'application/octet-stream', layerChoices: null,
+    shot: [
+      [['d1', 'REXPaint']],
+      [['p', 'layers:'], ' ', ['n', '3']],
+      [['p', '['], ['w', 'binary .xp'], ['p', ']']],
+      [['f', 'gzip']],
+    ],
   },
   {
     key: 'json', label: 'Level .json', desc: 'Full level for re-import: layers and legend', badge: 'kept',
     filename: 'level.json', mime: 'application/json', layerChoices: null,
+    shot: [
+      [['p', '{']],
+      ['  ', ['s', '"app"'], ['p', ':'], ' ', ['s', '"ascii-le..."'], ['p', ',']],
+      ['  ', ['s', '"layers"'], ['p', ': ['], ['n', '2'], ['p', '],']],
+      ['  ', ['s', '"legend"'], ['p', ': {...}']],
+      [['p', '}']],
+    ],
   },
 ];
 
@@ -147,17 +222,24 @@ export function initExportModal(ctx: PanelsCtx): ExportPanel {
     return eachLayerBlocks((name) => `# ${name}\n`, exportCsv).join('\n');
   }
 
-  /** .xp jest binarny (gzip) - podglad to zwykly tekst pierwszej warstwy, albo info gdy pusta. */
-  function xpPreview(): string {
-    const layer = state.level.layers[0];
-    const bounds = layer?.grid.bounds() ?? null;
-    if (!layer || !bounds) return '(binary format - nothing to preview)';
-    return exportTxt(layer.grid, bounds);
+  /**
+   * .xp jest binarny (gzip) - nie ma tu ani siatki znakow (mylila sie z TXT), ani w ogole
+   * textarea podgladu (user: "po co pokazujesz textarea, jak w REXPaint jest plik binarny") -
+   * to jedno zdanie hinta w xpHintEl (patrz refreshLevelActions), a nie tresc do Copy/Save.
+   * Liczby licza sie z realnego stanu poziomu: liczba warstw + wspolny rozmiar (union bounds,
+   * jak w buildXpBytes - stad fallback 1x1 dla pustej mapy).
+   */
+  function xpSummary(): string {
+    const layers = state.level.layers;
+    const bounds = levelBounds();
+    const w = bounds ? bounds.maxX - bounds.minX + 1 : 1;
+    const h = bounds ? bounds.maxY - bounds.minY + 1 : 1;
+    return `Binary format (gzip) - ${layers.length} layer(s), ${w}x${h}. Save the file and open it in REXPaint.`;
   }
 
   /**
-   * Tresc formatu do podgladu i (poza .xp) do Copy/Save file. .xp ma tu tylko podglad -
-   * prawdziwy zapis idzie osobna asynchroniczna sciezka (gzip), a Copy jest dla niego wylaczony.
+   * Tresc formatu do podgladu i (poza .xp) do Copy/Save file. .xp ma tu tylko informacyjny
+   * hint (Copy jest dla niego wylaczony) - prawdziwy zapis idzie osobna asynchroniczna sciezka (gzip).
    */
   function formatText(spec: FormatSpec): string {
     const bounds = levelBounds();
@@ -180,7 +262,7 @@ export function initExportModal(ctx: PanelsCtx): ExportPanel {
       case 'array-arrays':
         return exportLegacy(modeGrid(merged), 'array-array', bounds);
       case 'xp':
-        return xpPreview();
+        return xpSummary();
     }
   }
 
@@ -235,6 +317,11 @@ export function initExportModal(ctx: PanelsCtx): ExportPanel {
   previewText.readOnly = true;
   previewText.setAttribute('aria-label', 'Export preview');
 
+  /** .xp: zamiast textarea (binarny plik, tekstowy podglad by mylil) - jedno zdanie hinta w tym
+   *  samym miejscu. Oba elementy zyja przez caly czas modalu (patch-in-place, bez gubienia
+   *  fokusu) - refreshLevelActions przelacza tylko klase .hidden na kazdym z nich. */
+  const xpHintEl = el('p', 'hint help-box hint-small');
+
   // --- pigulka Layers: bufor aktualnie zbudowanych przyciskow (przebudowana tylko przy
   // zmianie formatu w rebuildOptions - patrz setFormat) - setLayersMode juz ich nie odtwarza. ---
   let layersBtns: { mode: LayersMode; btn: HTMLButtonElement }[] = [];
@@ -269,11 +356,23 @@ export function initExportModal(ctx: PanelsCtx): ExportPanel {
     if (spec.layerChoices) optionsSlot.append(labeled('Layers', buildLayersPill(spec.layerChoices)));
   }
 
+  /** Opis wybranego formatu - jedyne miejsce, kafelki go juz nie pokazuja (patrz mockup wariant A). */
+  function syncFormatDesc(spec: FormatSpec): void {
+    formatDescEl.textContent = spec.desc;
+  }
+
   /** Podglad + Copy/Save dla This level - wolane po kazdej zmianie (format/warstwy). */
   function refreshLevelActions(spec: FormatSpec): void {
-    previewText.value = safePreview(spec);
-    copyBtn.disabled = spec.key === 'xp';
-    copyBtn.title = spec.key === 'xp' ? 'Binary format - save as file' : '';
+    const isXp = spec.key === 'xp';
+    // .xp: textarea zastapiona jednym zdaniem hinta (binarny plik - tekstowy "podglad" mylil,
+    // patrz xpSummary); reszta formatow ma textarea jak dotad. Oba wezly zyja caly czas,
+    // przelacza sie tylko .hidden - patch-in-place, fokus na nich nigdy nie ginie.
+    previewText.classList.toggle('hidden', isXp);
+    xpHintEl.classList.toggle('hidden', !isXp);
+    if (isXp) xpHintEl.textContent = xpSummary();
+    else previewText.value = safePreview(spec);
+    copyBtn.disabled = isXp;
+    copyBtn.title = isXp ? 'Binary format - save as file' : '';
     saveBtn.disabled = false;
     saveBtn.title = '';
     doCopy = () => copyLevelFormat(spec);
@@ -313,6 +412,7 @@ export function initExportModal(ctx: PanelsCtx): ExportPanel {
     // moze zostac wybrane niewidocznie pod KaPlay/Array of strings/Array of arrays, ktore go nie oferuja)
     if (spec.layerChoices && !spec.layerChoices.includes(layersMode)) layersMode = 'merged';
     syncFormatRows();
+    syncFormatDesc(spec);
     rebuildOptions(spec);
     refreshLevelActions(spec);
   }
@@ -343,26 +443,40 @@ export function initExportModal(ctx: PanelsCtx): ExportPanel {
     projectScopeBtn.title = projectReady ? '' : 'Open a project to enable whole-project export';
   }
 
-  /** Wiersze formatow - budowane raz; wybor przelacza tylko .active/checked (patrz syncFormatRows). */
-  const formatListEl = el('div', 'btn-col');
-  formatListEl.setAttribute('role', 'radiogroup');
-  formatListEl.setAttribute('aria-label', 'Export format');
+  /**
+   * Buduje statyczny "screenshot kodu" jednego kafelka z tokenow FormatSpec.shot - jedyny
+   * budowniczy dla wszystkich 9 formatow, tresc/kolory sa danymi (patrz tabela FORMATS),
+   * nie kodem. String w linii = niepokolorowany tekst (np. wciecie), [klasa, tekst] = span.
+   */
+  function buildShot(lines: ShotLine[]): HTMLElement {
+    const shot = el('div', 'shot');
+    lines.forEach((line, i) => {
+      if (i > 0) shot.append('\n');
+      for (const tok of line) shot.append(typeof tok === 'string' ? tok : el('span', tok[0], tok[1]));
+    });
+    return shot;
+  }
+
+  /** Kafelki formatow - budowane raz (siatka 3 kolumny, mockup wariant A); wybor przelacza
+   *  tylko .active/checked na istniejacych wezlach (patrz syncFormatRows) - fokus nie ginie. */
+  const formatTilesEl = el('div', 'format-tiles');
+  formatTilesEl.setAttribute('role', 'radiogroup');
+  formatTilesEl.setAttribute('aria-label', 'Export format');
   const formatRowEls = new Map<FormatKey, { row: HTMLElement; radio: HTMLInputElement }>();
 
-  function buildFormatRow(f: FormatSpec): void {
-    const row = el('label', format === f.key ? 'format-row active' : 'format-row');
-    const radio = el('input');
+  function buildFormatTile(f: FormatSpec): void {
+    const row = el('label', format === f.key ? 'format-tile active' : 'format-tile');
+    const radio = el('input', 'format-tile-radio');
     radio.type = 'radio';
     radio.name = 'export-format';
     radio.value = f.key;
     radio.checked = format === f.key;
     radio.setAttribute('aria-label', f.label);
     radio.addEventListener('change', () => setFormat(f.key));
-    const main = el('div', 'format-main');
-    main.append(el('span', 'format-name', f.label), el('span', 'format-desc', f.desc));
-    row.append(radio, main, el('span', 'format-badge', `layers: ${f.badge}`));
+    const badge = el('div', f.badge === 'kept' ? 'tile-badge kept' : 'tile-badge', `layers: ${f.badge}`);
+    row.append(radio, buildShot(f.shot), el('div', 'tile-name', f.label), badge);
     formatRowEls.set(f.key, { row, radio });
-    formatListEl.append(row);
+    formatTilesEl.append(row);
   }
 
   function syncFormatRows(): void {
@@ -373,12 +487,14 @@ export function initExportModal(ctx: PanelsCtx): ExportPanel {
     }
   }
 
-  for (const f of FORMATS) buildFormatRow(f);
+  for (const f of FORMATS) buildFormatTile(f);
 
   const optionsSlot = el('div');
+  /** Opis wybranego formatu - jedno stale miejsce pod siatka kafelkow, nad opcjami Layers. */
+  const formatDescEl = el('p', 'hint help-box hint-small');
 
   const levelPanelEl = el('div', 'field-col');
-  levelPanelEl.append(formatListEl, optionsSlot, previewText);
+  levelPanelEl.append(formatTilesEl, formatDescEl, optionsSlot, previewText, xpHintEl);
 
   const projectDescEl = el('p', 'hint help-box hint-small');
   const projectPanelEl = el('div');
@@ -414,9 +530,10 @@ export function initExportModal(ctx: PanelsCtx): ExportPanel {
       panelSlot.replaceChildren(levelPanelEl);
       const spec = currentSpec();
       syncFormatRows();
+      syncFormatDesc(spec);
       rebuildOptions(spec);
       refreshLevelActions(spec);
-      openModal('Export', body);
+      openModal('Export', body, undefined, 'modal-card-wide');
     },
   };
 }
