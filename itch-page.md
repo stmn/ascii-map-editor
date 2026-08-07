@@ -51,16 +51,15 @@ locally as you draw.
 - Projects and levels: organize your maps into projects, each holding as many levels as you
   want, with a thumbnail per level so you can find the one you need at a glance.
 - Autosave. Close the tab, come back, your level is still there.
-- Two IO scopes in the Project card: export or import a single level as `level.json`, or the
-  whole current project (every level it holds) as `project.json` - old `workspace.json` backups
-  from earlier versions still import too.
-- An Export dialog: TXT, CSV, KaPlay snippet, Godot GDScript, Tiled `.tmx`, REXPaint `.xp`
-  and a level `.json` that keeps every layer and the legend - plus a Legacy (v1) tab with
-  the two array formats the original editor used to save (the third, plain text, is covered
-  by Copy TXT in the same dialog, and all three stay available behind SWITCH FORMAT in
-  Simplified mode).
-- An Import dialog: load a file or paste text straight in, for level `.json` files, plain text,
-  REXPaint `.xp` and both old v1 array formats.
+- An Export dialog with a This level / Whole project switch: export the current level to any
+  of eight formats - TXT, CSV, KaPlay, Godot, Tiled `.tmx`, REXPaint `.xp`, a level `.json`
+  that keeps every layer and the legend, or Legacy v1 - each one labeled up front with whether
+  it keeps your layers or flattens them, with a live preview and Copy/Save file buttons; or
+  export the whole current project (every level it holds) as one `project.json`.
+- An Import dialog that just wants a file or pasted text: it figures out on its own whether
+  you gave it a level, a whole project, or an old `workspace.json` backup, shows a one-line
+  summary of what it found, and offers Replace current level, Add as new level, or Add
+  project(s) - only the actions that actually make sense for it.
 - Mouse wheel zoom, drag to pan, Alt or Ctrl to erase - or flip the Draw card's tool switch to
   Eraser and erase with a plain drag, no modifier needed.
 - Clean, high-contrast icon buttons (thick-stroke Lucide icons) across every panel and dialog.
@@ -68,7 +67,7 @@ locally as you draw.
 ### Works with your engine
 
 **KaPlay.** Copy and paste, it is the level format KaPlay already speaks: a shared `tiles`
-object, then one `addLevel(...)` call per visible layer, referencing it:
+object, then one `addLevel(...)` call:
 
 ```js
 const tiles = {
@@ -77,7 +76,6 @@ const tiles = {
   "@": () => [sprite("player")],
 };
 
-// layer: main
 addLevel([
   "####",
   "#@.#",
@@ -89,9 +87,9 @@ addLevel([
 });
 ```
 
-Multiple layers repeat the `// layer: <name>` / `addLevel(...)` pair for each visible one,
-still sharing that same `tiles`. Legend names become sprite names, so name the entries after
-the sprites you already load.
+Multiple layers still come out as this one block - pick whether it is your visible layers
+merged together or just the active layer in the Export dialog, then export runs on that single
+grid. Legend names become sprite names, so name the entries after the sprites you already load.
 
 **Tiled.** Download a `.tmx` with one orthogonal CSV layer per level layer (hidden layers
 included, just marked invisible). Every tile keeps its legend name and its original character
@@ -148,6 +146,12 @@ cursors and sound baked in. Double click it, no install, no internet, no browser
 It is pay what you want, and $2 is a fair nudge if the tool saved you an afternoon.
 
 ### Changelog
+
+**v2.8** - redesigned export and import dialogs (This level/Whole project scope switch, eight
+format rows with honest kept/flattened layer badges, Copy/Save file), a single `addLevel`
+KaPlay snippet instead of one per layer, import auto-detection (level, project, legacy
+workspace, or REXPaint `.xp`) with Replace/Add as new level/Add project(s) actions, and
+remembered sidebar card collapse state across sessions.
 
 **v2.7** - eraser tool (an icon switch in the Draw card, erases on drag with no modifier held),
 a split default sidebar layout (Project/Generate/Draw on the left, Legend/Layers on the right),

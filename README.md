@@ -52,10 +52,12 @@ itch.io-ready HTML project (`index.html` as the entry point) and it also contain
   **Dungeon** button, since Rooms only affects the dungeon - it sets its target room count and
   the generator places rooms until it reaches that target or hits an internal
   placement-attempt cap, so a small or crowded map may end up with fewer rooms than requested.
-- Export opens a dialog: a Scope selector (Active layer or Flattened), a copy-or-download
-  button per format, and a Legacy (v1) section with its own format picker and preview.
-- Import opens a dialog: load a `.json`, `.txt` or REXPaint `.xp` file, or paste text
-  directly - both routes run through the same tolerant parser.
+- Export opens a dialog with a This level / Whole project switch and eight format rows (TXT,
+  CSV, KaPlay, Godot, Tiled, REXPaint, Level JSON, Legacy v1), each one saying up front whether
+  it keeps your layers or flattens them, plus a live preview and Copy/Save file buttons.
+- Import opens a dialog: load a file or paste text, and it auto-detects what it is (a level, a
+  project, an old workspace backup, or a REXPaint `.xp`), then offers the actions that make
+  sense for it - Replace current level, Add as new level, or Add project(s).
 
 ## Brush size
 
@@ -113,7 +115,8 @@ What is on the stack:
 
 What is NOT on the stack, because it is a workspace-level operation rather than an edit to
 the currently open level's content: switching levels or projects, New/Duplicate/Delete level,
-New/Rename/Delete project, and Export project/Import project (the whole-project backup JSON).
+New/Rename/Delete project, and the Whole project scope of the Export/Import dialogs (the
+`project.json` backup).
 
 Undoing or redoing normally cannot fail, but the character remap command is symmetric (it
 remaps in the other direction) and can hit the same "Character already in use" collision the
@@ -139,14 +142,18 @@ has no card drawn around it and lets clicks fall straight through to the map und
 an empty or half-full column never gets in the way of painting; the column only turns into a
 visible dashed drop zone while a card is actually being dragged over it.
 
-The arrangement is saved to `localStorage` under the key `ascii-level-editor-layout2` (two
-lists of card ids, left and right, top to bottom) and is re-applied before the very first
-paint of the next session, so a saved custom layout never flashes the default one first. A
+The arrangement is saved to `localStorage` under the key `ascii-level-editor-layout2`: two
+lists of card ids (left and right column, top to bottom) plus a list of the ids of whichever
+cards you have collapsed. All of it is re-applied before the very first paint of the next
+session, so neither a custom column layout nor a collapsed card flashes back open first. A
 card id missing from a saved layout (an older save, or a future card that did not exist yet
-when it was written) is placed at the bottom of the right column instead of disappearing.
+when it was written) is placed at the bottom of the right column instead of disappearing, and
+a card absent from the saved collapsed list simply starts open - an older save written before
+collapse state existed reads back as "nothing collapsed", not an error.
 The key was bumped from `ascii-level-editor-layout` in v2.7, when the default layout above
 changed; the old key is deleted the first time the layout loads, so anyone with a saved
-custom layout gets the new default once, then goes back to arranging cards as before.
+custom layout gets the new default once, then goes back to arranging and collapsing cards as
+before.
 
 The canvas centers itself in whatever horizontal space is left between the two columns, so
 moving a card between columns - which changes their widths - shifts the view horizontally to
@@ -272,16 +279,13 @@ Duplicate / Delete buttons. Click a level (or its name field) to switch to it; N
 a blank one. The last project cannot be deleted, and neither can a project's last level - there
 is always at least one of each.
 
-Below the level list the Project card has one more button row: two dropdown buttons, **Export**
-and **Import**, each labeled with a chevron and 50/50 in the same row. Export opens a menu with
-"Export level" (opens the Export modal for the current level, see Export and Import dialogs
-below) and "Export project" (downloads the whole current project as one file, see Project
-backup below); Import opens a matching menu with "Import level" and "Import project". The level
-items work with no store or project open at all, since the Export/Import modals operate on the
-in-memory level; the project items are disabled until there is a project to read from or write
-into. Each menu opens right below its button, closes on picking an item, clicking outside, or
-Esc, and only one of the two can be open at a time; arrow keys move between its items, Enter or
-Space picks one, and Esc closes it and returns focus to the button.
+Below the level list the Project card has one more button row: two plain buttons, **Export...**
+and **Import...**, 50/50 in the same row, that open the Export and Import dialogs described
+below (see Export and Import dialogs) with the current store and project passed in as context.
+Both dialogs work with no store or project open at all: the Whole project scope in Export and
+the Add as new level/Add project(s) actions in Import simply disable themselves with a hint
+explaining why, while everything that only needs the in-memory current level - This level
+export, Replace current level - stays enabled either way.
 
 Thumbnails are rendered offscreen at 120x80 as flat color rectangles, one per legend color
 (at that size, drawing the actual characters would be unreadable, so shapes and colors carry
@@ -320,32 +324,35 @@ anything, this path never runs again.
 
 ### Project backup
 
-"Export project" and "Import project", the second item in each of the Project card's Export and
-Import dropdown menus, are a whole-project backup, one file per project rather than one file for
-the whole workspace. "Export project" downloads a `project.json` with every
-level in the CURRENT project (thumbnails are dropped to keep the file small; they regenerate on
-the next save). "Import project" reads a project file back and adds it as a brand new project,
-merged into whatever is already open: it gets a fresh id, a name that collides with an existing
-project gets a "Name N" suffix instead of overwriting it, every level inside it gets a fresh id
-too, and the import never deletes or replaces anything already in the workspace. An unrecognized
-file (wrong shape, foreign JSON) is rejected up front with a red toast; inside an otherwise
-valid file, individual malformed level records are skipped silently while the rest of the file
-still imports. On success the toast reads `Imported P projects, L levels`; if a storage write
-failed partway through the batch (full quota, closed database) it shows a red toast, `Import may
-be incomplete - storage errors occurred`, instead - the same soft-failure handling as autosave,
-see Storage above.
+The **Whole project** scope of the Export and Import dialogs is a whole-project backup, one
+file per project rather than one file for the whole workspace. Clicking Copy or Save file there
+flushes any pending autosave first, so the file always reflects your latest brush strokes, then
+writes a `project.json` with every level in the CURRENT project (thumbnails are dropped to keep
+the file small; they regenerate on the next save). Pasting or
+loading that same file into Import is recognized as a project and offered an "Add project"
+button, which reads it back and adds it as a brand new project, merged into whatever is already
+open: it gets a fresh id, a name that collides with an existing project gets a "Name N" suffix
+instead of overwriting it, every level inside it gets a fresh id too, and the import never
+deletes or replaces anything already in the workspace. An unrecognized file (wrong shape,
+foreign JSON) is rejected up front with a red message in the dialog; inside an otherwise valid
+file, individual malformed level records are skipped silently while the rest of the file still
+imports. On success the toast reads `Imported P projects, L levels`; if a storage write failed
+partway through the batch (full quota, closed database) it shows a red toast, `Import may be
+incomplete - storage errors occurred`, instead - the same soft-failure handling as autosave, see
+Storage above.
 
-"Import project" also reads the older whole-workspace backup format from versions 2.2-2.5 (back
-then the file was named `workspace.json` and came from an "Export workspace" button that no
-longer exists): instead of one project it then adds every project the old file contains, through
-the exact same merge-add path described above. There is no whole-workspace export anymore - to
-back up several projects, export each one separately with "Export project" - but a
-`workspace.json` saved by an older version of the editor still loads through "Import project".
+Import also recognizes the older whole-workspace backup format from versions 2.2-2.5 (back then
+the file was named `workspace.json` and came from an "Export workspace" button that no longer
+exists): auto-detection reports it as a set of projects and offers an "Add projects" button,
+which then adds every project the old file contains through the exact same merge-add path
+described above. There is no whole-workspace export anymore - to back up several projects,
+export each one separately with Whole project - but a `workspace.json` saved by an older
+version of the editor still loads through Import.
 
-The single-level export, "Export level" in the Export dropdown's first item, is a different
-file: it opens the Export modal, whose Download .json button saves that one level's own
-full-fidelity JSON (every layer plus the legend) as `level.json` - see Export and Import
-dialogs below.
+The single-level export - the This level scope, Level `.json` row - is a different file: its
+Save file button writes that one level's own full-fidelity JSON (every layer plus the legend) as
+`level.json`, and pasting or loading it back into Import is recognized as a level, with a
+Replace current level / Add as new level choice - see Export and Import dialogs below.
 
 ### Multi-tab and other caveats
 
@@ -380,20 +387,26 @@ to match that stacking order.
 ### Union bounds
 
 Each layer keeps its own grid and its own bounding box, so one layer can be smaller than or
-offset from another. Every export that lays layers on top of each other - Tiled TMX, the
-Godot `LEVELS` dict, one `addLevel` per layer in KaPlay, and the `.xp` binary - uses the union
-of all layers' bounding boxes as a common frame, so every layer's lines come out the same
-width and height and line up cell for cell. TXT, CSV and the Legacy (v1) formats use that same
-union bounds regardless of Scope, so a file exported with Active layer lines up with one
-exported as Flattened; Scope only changes which cells are exported (one layer's content, or
-every visible layer merged), never the frame around them.
+offset from another. Every export that lays multiple layers into the same file - Tiled TMX, the
+Godot `LEVELS` dict, and the `.xp` binary - uses the union of ALL layers' bounding boxes
+(visible and hidden alike) as a common frame, so every layer's lines come out the same width and
+height and line up cell for cell. TXT, CSV and Legacy (v1) in the Export dialog use that same
+union bounds for every Layers option (All merged, Active layer, or Each layer separately), so a
+file exported as Active layer lines up with one exported as All merged; the Layers option only
+changes which cells get exported, never the frame around them.
+
+KaPlay is the exception: since v2.8 it always exports a single `addLevel` from one source grid
+(the flattened visible layers, or the active layer if you choose it), so its bounds are just
+that grid's own bounding box, not the shared union - the All merged case only spans the
+**visible** layers (a hidden layer's cells outside that box are cropped away, same as everywhere
+else that flattens), and the Active layer case is not padded to match any other export's frame.
 
 ### Per-exporter mapping
 
 | Export | Layers become |
 | --- | --- |
-| TXT / CSV / Legacy (v1) | one grid, chosen by the Scope dropdown: Active layer, or Flattened (visible layers merged bottom to top, hidden layers skipped) |
-| KaPlay | one `addLevel(...)` block per **visible** layer, each after a `// layer: <name>` comment, sharing one `tiles` object |
+| TXT / CSV / Legacy (v1) | one grid, chosen by the Layers option in the Export dialog: All merged (visible layers merged bottom to top, hidden layers skipped, on the shared union bounds), Active layer (also padded to the union bounds), or Each layer separately - TXT/CSV only, one block per visible layer on the union bounds, headed `:: name` (TXT) or `# name` (CSV) |
+| KaPlay | a single `addLevel([...], { tiles })` call from one source grid - the flattened visible layers (top-wins), or the active layer - not padded to any shared frame |
 | Godot | one entry per layer in the `LEVELS` dictionary, keyed by layer name, plus a shared `TILES` dict and a `load_layer(tile_map, layer_name)` helper |
 | Tiled `.tmx` | one `<layer>` element per layer, in the same order as the level; hidden layers are exported too, marked `visible="0"` |
 | REXPaint `.xp` | native multi-layer binary, one binary layer per level layer, in the same bottom-to-top order |
@@ -404,17 +417,45 @@ and so on, bottom to top; rename them in the Layers panel afterwards if you want
 
 ### Export and Import dialogs
 
-Export and Import open modal dialogs rather than inline panels, launched by "Export level" and
-"Import level" in the Project card's Export and Import dropdown menus (see Projects and levels
-above). The Export modal has the
-Scope selector, one copy-or-download button per format, and a "Legacy (v1)" section: a format
-picker with two of the three shapes the original v1 editor used to save - Array of strings and
-Array of arrays - a live preview textarea, and a Copy legacy button. The third shape, plain
-Text, is left out of this picker because it duplicates the Copy TXT button already in the same
-dialog; all three legacy shapes together are still available behind the SWITCH FORMAT link in
-Simplified mode's Map card, see Modes above. The Import modal has a file picker for `.json` / `.txt` / `.xp` plus a paste
-box; both routes run through the same tolerant parser, so pasting an old v1 export works
-exactly like importing its file.
+Export and Import open modal dialogs rather than inline panels, launched by the **Export...**
+and **Import...** buttons in the Project card (see Projects and levels above). The Map card's
+own To clipboard/Load/SWITCH FORMAT trio in Simplified mode is a separate, older path to the
+same underlying data and still works exactly as before, see The Map card above.
+
+**Export** starts on a **This level / Whole project** switch, defaulting to This level. This
+level lists all eight formats as clickable rows - TXT, CSV, KaPlay, Godot, Tiled `.tmx`,
+REXPaint `.xp`, Level `.json`, Legacy v1 - each with a one-line description and a badge honestly
+stating whether it keeps your layers or flattens them (`layers: kept` for Godot/Tiled/`.xp`/
+Level `.json`, `layers: flattened` for TXT/CSV/KaPlay/Legacy v1). Picking a row that supports
+layer choices reveals a Layers pill (All merged / Active layer, plus Each layer separately for
+TXT and CSV only) right below it; picking Legacy v1 also reveals its own Array of strings/Array
+of arrays picker - the third v1 shape, plain Text, is left out here because it duplicates the
+TXT row already in the same dialog, and all three legacy shapes together are still available
+behind the SWITCH FORMAT link in Simplified mode's Map card, see Modes above. A live preview
+textarea below the options updates on every change; `.xp` being binary, its "preview" is just
+the first layer's own text and its Copy button is disabled with a tooltip, since there is
+nothing sensible to put on the clipboard - Save file still writes the real gzipped binary.
+Whole project shows a one-line description naming the current project and enables the same
+Copy/Save file pair for its `project.json`, or disables both with a hint if no project is open,
+see Project backup above. Copy and Save file are one fixed pair of buttons at the bottom of the
+dialog, retargeted to whatever is currently selected rather than duplicated per row, and
+keyboard navigation between format rows, the Layers pill and the Legacy picker never loses
+focus: only the small options area under the format list is rebuilt on a format change, while
+every interactive control is built once and lives for as long as the dialog does.
+
+**Import** starts with a **Load file...** button (any file, no extension filter) and a paste
+textarea, either of which runs the same auto-detection (`detectImport` in
+`core/importDetect.ts`) as soon as you provide something: a `.xp` file is gzip-decompressed
+first, everything else is handed over as text. Detection recognizes a level (`level.json`
+v3/v2/v1 shapes, plain v1 text, or a decompressed `.xp` layout), a single project file, or an
+older whole-workspace `workspace.json` from versions 2.2-2.5, and shows a one-line, human
+summary - `Level 24x12, 3 layers`, `Project 'My project', 3 levels`, or `2 projects, 5 levels`
+- along with only the actions that make sense for what it found: a level offers **Replace
+current level** (always enabled, undoable, see Undo and redo above) and **Add as new level**
+(disabled with a hint if no project is open); a project or workspace file offers **Add
+project**/**Add projects** (disabled with a hint if storage is unavailable), see Project backup
+above. Anything unrecognized shows a red message inside the dialog instead of a toast, so you
+can fix the pasted text or pick another file without reopening the dialog.
 
 ## Architecture
 
@@ -439,10 +480,12 @@ src/
     history.ts      History: undo/redo stacks, cap 100, onChange hook
     commands.ts     Command factories: stroke, level-replace snapshot, layer ops, legend edit, remap
     remap.ts        remapChar: change a legend entry's character, remapping every cell on every layer
+    importDetect.ts detectImport: level / project / legacy workspace / .xp autodetection plus
+                     human summaries for the Import dialog (decompressed .xp bytes only)
   export/           pure functions Level (or Grid + Legend) -> string or bytes
     text.ts         TXT and CSV, given a grid and optional bounds
-    legacy.ts       v1 legacy text / array-text / array-array formats, used by the Export modal
-    kaplay.ts       addLevel(...) snippet, one block per visible layer
+    legacy.ts       v1 legacy text / array-text / array-array formats, used by the Export dialog
+    kaplay.ts       single addLevel(...) snippet from one source grid (flattened or given)
     godot.ts        GDScript LEVELS dict + load_layer(...) helper, layer name key dedupe
     tiled.ts        TMX with one <layer> element per level layer
     rexpaint.ts     native multi-layer .xp binary layout plus gzip, both write and read
@@ -452,9 +495,8 @@ src/
     modal.ts        generic modal dialog + confirm() replacement, stacked overlay, a11y + focus trap
     thumb.ts        level thumbnail: flat-color 120x80 canvas -> JPEG data URL
     dom.ts          tiny element builder helpers shared by every panel
-    menu.ts         dropdown button primitive (Export/Import menus in the Project card):
-                     trigger with a chevron, content-width panel, full keyboard nav (ARIA menu)
-    layout.ts       dual sidebar: card drag and drop, localStorage layout, canvas centering offset
+    layout.ts       dual sidebar: card drag and drop, collapsed-card state, localStorage layout,
+                     canvas centering offset
     center.ts       floating center button, fixed at the bottom of the screen in both modes,
                      shown only while the view is off-center
     mode.ts         Advanced/Simplified switch, first-run mode chooser, mode stored in localStorage
@@ -464,15 +506,16 @@ src/
       context.ts    shared PanelsCtx/hooks, toast, workspace store handle, autosave scheduling
       history.ts    Undo/Redo buttons and shortcuts, History instance, clears on level switch
       project.ts    Project card: project select, New/Rename/Delete, level list,
-                     Export/Import dropdown menus (level via modal, project via project.json)
+                     Export.../Import... buttons that open exportModal.ts/importModal.ts
       draw.ts       Brush/Eraser tool switch, brush character, brush size chips, clear layer
       layers.ts     Layers card: add/reorder/rename/hide/delete
       legend.ts     Legend card: name/color/usage per character, character remap
       generate.ts   maze/dungeon generator card, plus the generator path both cards share
       map.ts        Map card: the whole v1 main panel, Simplified mode only
       extra.ts      Extra features card: the two generators, Simplified mode only
-      exportModal.ts   Export dialog
-      importModal.ts   Import dialog
+      exportModal.ts   Export dialog: This level/Whole project switch, 8 format rows with
+                        layer badges, Copy/Save file
+      importModal.ts   Import dialog: file/paste input, detectImport summary, contextual actions
 tests/              Vitest specs for core/ and export/ only
 scripts/
   build-standalone.mjs   inlines dist/ into a single offline HTML file
@@ -489,13 +532,16 @@ and `scripts/build-standalone.mjs` is plain Node with no packages at all.
 
 | Export | Output | Notes |
 | --- | --- | --- |
-| TXT | clipboard | Scope-dependent lines (active layer or flattened), trailing blank space trimmed to the bounding box |
-| CSV | clipboard | Scope-dependent, one character per cell, commas escaped |
-| KaPlay | clipboard | a shared `const tiles = {...}`, then one `addLevel([...], { tiles })` block per visible layer, referencing that same `tiles` |
-| Godot | clipboard | GDScript with a `LEVELS` dict keyed by layer name, shared `TILES`, and a `load_layer(tile_map, layer_name)` helper |
-| Tiled | `map.tmx` | orthogonal map, one `<layer>` element per level layer (hidden ones get `visible="0"`), legend exported as tile properties |
-| REXPaint | `map.xp` | gzipped `.xp`, native multi-layer (up to 8), legend colors as foreground |
-| Level | `level.json` | every layer plus the shared legend, the format to re-import later without any loss |
+| TXT | clipboard or `map.txt` | Layers-option-dependent lines (all merged, active layer, or each layer separately), trailing blank space trimmed to the bounding box |
+| CSV | clipboard or `map.csv` | Layers-option-dependent, one character per cell, commas escaped |
+| KaPlay | clipboard or `kaplay.js` | a shared `const tiles = {...}`, then a single `addLevel([...], { tiles })` call from the flattened visible layers or the active layer |
+| Godot | clipboard or `godot.gd` | GDScript with a `LEVELS` dict keyed by layer name, shared `TILES`, and a `load_layer(tile_map, layer_name)` helper |
+| Tiled | clipboard or `map.tmx` | orthogonal map, one `<layer>` element per level layer (hidden ones get `visible="0"`), legend exported as tile properties |
+| REXPaint | `map.xp` only (Copy is disabled - it is a binary format) | gzipped `.xp`, native multi-layer (up to 8), legend colors as foreground |
+| Level | clipboard or `level.json` | every layer plus the shared legend, the format to re-import later without any loss |
+
+Every row above (except REXPaint) offers both Copy and Save file for its exact same content; the
+`Output` column above lists what Save file writes.
 
 Specifications and API docs:
 
@@ -507,9 +553,10 @@ Specifications and API docs:
 
 ### KaPlay
 
-The export is always a shared `tiles` object first, then one `addLevel(...)` call per
-**visible** layer, each after a `// layer: <name>` comment and referencing that same `tiles`.
-A level with one layer ("main") looks like this:
+`addLevel` takes one map, not a stack of layers, so the export is always a shared `tiles`
+object followed by exactly ONE `addLevel(...)` call, whichever Layers option you picked in the
+Export dialog: the flattened visible layers (top-wins, hidden layers skipped), or the active
+layer on its own. A level with one layer ("main") looks like this:
 
 ```js
 const tiles = {
@@ -518,7 +565,6 @@ const tiles = {
   "@": () => [sprite("player")],
 };
 
-// layer: main
 addLevel([
   "####",
   "#@.#",
@@ -530,10 +576,10 @@ addLevel([
 });
 ```
 
-A level with more layers repeats the `// layer: <name>` / `addLevel(...)` pair for each
-visible one, still sharing the single `tiles` declared at the top; call them in order so later
-layers stack on top of earlier ones. Legend names become sprite names, so name your legend
-entries after the sprites you loaded with `loadSprite`.
+A level with more layers still produces this same single block - the extra layers are already
+merged into the one grid passed to `addLevel` before export runs, top layer wins where two
+layers paint the same cell. Legend names become sprite names, so name your legend entries after
+the sprites you loaded with `loadSprite`.
 
 ### Godot 4
 
@@ -607,10 +653,11 @@ Being explicit about what has actually been checked:
   running game.
 - The production build was loaded from a subdirectory (the way itch.io serves HTML games)
   and `standalone.html` was loaded from `file://`, both rendering with no console errors.
-- Clipboard copy (Copy TXT, CSV, KaPlay, Godot) from `file://` in the standalone build is
-  browser-dependent: the Clipboard API is not guaranteed on an opaque origin, and when it is
-  refused the editor shows a red toast instead of copying. File downloads (`.tmx`, `.xp`,
-  `.json`) use blob URLs and are unaffected.
+- Clipboard copy (the Copy button, every format except REXPaint `.xp`, which is binary and
+  disables it) from `file://` in the standalone build is browser-dependent: the Clipboard API
+  is not guaranteed on an opaque origin, and when it is refused the editor shows a red toast
+  instead of copying. Save file (`.tmx`, `.xp`, `.json`, and every other format) uses blob URLs
+  and is unaffected.
 
 ## Packaging
 
