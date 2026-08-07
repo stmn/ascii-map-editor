@@ -143,23 +143,55 @@ an empty or half-full column never gets in the way of painting; the column only 
 visible dashed drop zone while a card is actually being dragged over it.
 
 The arrangement is saved to `localStorage` under the key `ascii-level-editor-layout2`: two
-lists of card ids (left and right column, top to bottom) plus a list of the ids of whichever
-cards you have collapsed. All of it is re-applied before the very first paint of the next
+lists of card ids (left and right column, top to bottom), a list of the ids of whichever cards
+you have collapsed, and (since v2.9) a list of which side or sides you have unpinned, see
+Sidebar auto-hide below. All of it is re-applied before the very first paint of the next
 session, so neither a custom column layout nor a collapsed card flashes back open first. A
 card id missing from a saved layout (an older save, or a future card that did not exist yet
 when it was written) is placed at the bottom of the right column instead of disappearing, and
 a card absent from the saved collapsed list simply starts open - an older save written before
-collapse state existed reads back as "nothing collapsed", not an error.
+collapse state existed reads back as "nothing collapsed", not an error. The unpinned list works
+the same way: absent from an older save, it reads back as empty, both columns pinned.
 The key was bumped from `ascii-level-editor-layout` in v2.7, when the default layout above
 changed; the old key is deleted the first time the layout loads, so anyone with a saved
 custom layout gets the new default once, then goes back to arranging and collapsing cards as
 before.
 
-The canvas centers itself in whatever horizontal space is left between the two columns, so
-moving a card between columns - which changes their widths - shifts the view horizontally to
-re-center it, but only horizontally: vertical scroll and zoom level survive a drop untouched.
-Both columns keep a fixed 8px gap between their cards and the scrollbar, so a classic
-(non-overlay) scrollbar never touches a card's border.
+The canvas always fills the whole window and centers itself on the window's own center point,
+not on whatever space happens to be left between the two columns - both sidebar columns are
+fixed overlays that float on top of the map rather than sharing the window with it. Moving a
+card between columns, dragging a card within a column, and switching between Advanced and
+Simplified all leave the view exactly where it was: pan, zoom and vertical scroll survive every
+one of them untouched, and re-centering only ever happens through the Center button or the
+floating center button below. Both columns keep a fixed 8px gap between their cards and the
+scrollbar, so a classic (non-overlay) scrollbar never touches a card's border.
+
+### Sidebar auto-hide
+
+Each sidebar column has its own pin button docked at the column's outer top corner - the right
+edge of the right column, the left edge of the left one. Both columns start pinned, and a
+pinned column behaves exactly as it always has: always fully on screen, nothing to opt into.
+Clicking the pin (tooltip "Unpin sidebar", flipping to "Pin sidebar" once clicked) unpins that
+column only; the two sides are independent.
+
+An unpinned column auto-hides once the cursor moves away and stays away: it slides sideways
+behind the window's edge, leaving only a roughly 16px sliver of itself (still the same sidebar,
+not a separate element) poking in from that edge. Hiding waits about 400ms after the cursor
+leaves, so a quick pass over the desk does not trigger it, and the slide itself is a smooth
+~150ms transform. Moving the cursor back within about 48px of the window's edge, or anywhere
+over the column itself (the sliver when hidden, the full column once open), brings it back the
+same way.
+
+Auto-hide never fires while it would get in the way: dragging a card, keyboard focus on one of
+the column's own controls, or a modal dialog being open (Export, Import, a confirmation, the
+legend character prompt) all keep an unpinned column fully visible for as long as they last,
+then normal auto-hiding resumes once they end.
+
+A freshly loaded page never guesses at the cursor position, so an unpinned column starts
+visible and only begins auto-hiding after you actually move the mouse. Simplified mode turns
+auto-hide off entirely: both pin buttons are hidden and both columns stay fully visible no
+matter what, the same as before this feature existed. Switching back to Advanced restores
+whatever pin state each column had.
 
 ## Floating center button
 
@@ -495,8 +527,11 @@ src/
     modal.ts        generic modal dialog + confirm() replacement, stacked overlay, a11y + focus trap
     thumb.ts        level thumbnail: flat-color 120x80 canvas -> JPEG data URL
     dom.ts          tiny element builder helpers shared by every panel
-    layout.ts       dual sidebar: card drag and drop, collapsed-card state, localStorage layout,
-                     canvas centering offset
+    layout.ts       dual sidebar: card drag and drop, collapsed-card and pin state, localStorage
+                     layout
+    autohide.ts     per-column auto-hide for an unpinned sidebar: proximity/hover reveal, hide
+                     delay, stays visible while dragging/focused/a modal is open, off in
+                     Simplified
     center.ts       floating center button, fixed at the bottom of the screen in both modes,
                      shown only while the view is off-center
     mode.ts         Advanced/Simplified switch, first-run mode chooser, mode stored in localStorage
