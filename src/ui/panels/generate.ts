@@ -100,6 +100,7 @@ export function initGenerate(ctx: PanelsCtx, generateBox: HTMLElement): void {
   // sa wspolne dla obu sekcji, a nie naleza do zadnej z nich.
   generateBox.append(
     sizes,
+    el('hr', 'card-sep'),
     el('p', 'card-heading', 'Maze generator'),
     button('Generate', 'btn-full', () => generate('maze')),
     el('hr', 'card-sep'),
