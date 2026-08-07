@@ -85,6 +85,9 @@ textarea {
   scrollbar-gutter: stable;
   padding: 6px 8px 6px 0;
   pointer-events: none;
+  /* Auto-hide (ui/autohide.ts): jedyna zmienna wlasciwosc to transform (patrz .hidden nizej),
+     wiec transition ogranicza sie do niej - 150ms w obie strony (wysuwanie i chowanie). */
+  transition: transform 150ms ease;
 }
 
 #sidebar {
@@ -96,6 +99,18 @@ textarea {
 #sidebar-left {
   left: 12px;
   padding-left: 8px;
+}
+
+/* Odpieta kolumna schowana przez autohide.ts: przesuniecie o wlasna szerokosc minus 16px
+   zostawia ten pasek widoczny jako "ucho" - fragment samego sidebara (kart), nie osobny
+   element. Kierunek jest przeciwny dla kazdej strony (prawa ucieka w prawo ku krawedzi okna,
+   lewa w lewo), stad dwie regoly zamiast jednej wspolnej z .sidebar.hidden. */
+#sidebar.hidden {
+  transform: translateX(calc(100% - 16px));
+}
+
+#sidebar-left.hidden {
+  transform: translateX(calc(-100% + 16px));
 }
 
 /* Karta sekcji: biale tlo, gruba czarna ramka 4px jak panele w v1. */
@@ -573,7 +588,8 @@ button:disabled:active {
 
 .layer-btn,
 .level-btn,
-.legend-edit {
+.legend-edit,
+.pin-btn {
   flex: none;
   width: 24px;
   padding: 5px 0;
@@ -586,14 +602,29 @@ button:disabled:active {
 
 .layer-btn:hover,
 .level-btn:hover,
-.legend-edit:hover {
+.legend-edit:hover,
+.pin-btn:hover {
   background: #e5e7eb;
 }
 
 .layer-btn:active,
 .level-btn:active,
-.legend-edit:active {
+.legend-edit:active,
+.pin-btn:active {
   background: #d1d5db;
+}
+
+/* Pinezka (ui/autohide.ts): jedyne dziecko sidebara, ktore NIE jest karta - siedzi bezposrednio
+   w kolumnie (pointer-events: none), wiec musi sobie sama przywrocic auto, tak jak karty robia
+   to przez ".sidebar details". Przyklejona do zewnetrznej krawedzi kolumny (tej, w ktora
+   kolumna "ucieka" po schowaniu) - prawa w prawej, lewa w lewej. */
+.pin-btn {
+  align-self: flex-end;
+  pointer-events: auto;
+}
+
+#sidebar-left .pin-btn {
+  align-self: flex-start;
 }
 
 /* Ten sam kontrast co przy zwyklym przycisku: #6b7280 na #e5e7eb to ~3.9:1 (bylo ~2:1). */
@@ -940,6 +971,13 @@ body.mode-simplified .sidebar > details[data-section='draw'],
 body.mode-simplified .sidebar > details[data-section='layers'],
 body.mode-simplified .sidebar > details[data-section='legend'],
 body.mode-simplified .sidebar > details[data-section='generate'] {
+  display: none;
+}
+
+/* Simplified wylacza auto-hide calkowicie (brief pkt 5): pinezki nie maja tu sensu, bo obie
+   kolumny zachowuja sie jak przypiete - autohide.ts widzi to przez isSimplified() i nie chowa
+   (patrz evaluate()), a tu tylko chowamy sam przycisk. */
+body.mode-simplified .pin-btn {
   display: none;
 }
 

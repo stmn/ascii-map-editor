@@ -17,12 +17,18 @@ const OLD_STORAGE_KEY = 'ascii-level-editor-layout';
 /** Odstep miedzy kartami (gap w styles.css) - wskaznik wstawienia staje w jego polowie. */
 const CARD_GAP = 12;
 
+/** Strona kolumny - 'left'/'right', tak jak wartosci pola `unpinned` w zapisie. */
+export type Side = 'left' | 'right';
+
 export interface SidebarLayout {
   left: string[];
   right: string[];
   /** Id sekcji aktualnie zwinietych (<details> bez open). Brak pola w starym zapisie czyta
    * sie jak pusta lista - wszystko otwarte, wstecznie zgodne. */
   closed: string[];
+  /** Strony aktualnie odpiete (auto-hide, ui/autohide.ts) - wartosci 'left'/'right'. Brak pola
+   * w starym zapisie czyta sie jak pusta lista - obie przypiete, wstecznie zgodne (jak `closed`). */
+  unpinned: string[];
 }
 
 // --- dostep do kolumn i kart ---------------------------------------------------
@@ -37,6 +43,12 @@ function rightBox(): HTMLElement | null {
 
 function boxes(): HTMLElement[] {
   return [leftBox(), rightBox()].filter((b): b is HTMLElement => b !== null);
+}
+
+/** Kolumna danej strony - jedyne miejsce mapujace Side na element; autohide.ts uzywa tego
+ * samego dostepu do DOM zamiast powielac leftBox/rightBox. */
+export function sidebarBox(side: Side): HTMLElement | null {
+  return side === 'left' ? leftBox() : rightBox();
 }
 
 /** Karty danej kolumny w kolejnosci od gory; wskaznik wstawienia nie jest karta, wiec odpada. */
@@ -86,9 +98,36 @@ function closedIds(): string[] {
   return allCards().filter((card) => !card.open).map(sectionId);
 }
 
+/** Strony aktualnie odpiete - czytane z klasy na kolumnie (patrz isUnpinned), nie z osobnego
+ * stanu modulu - DOM zostaje jedynym zrodlem prawdy, tak jak `open` kart przy closedIds(). */
+function unpinnedSides(): Side[] {
+  return (['left', 'right'] as const).filter(isUnpinned);
+}
+
 /** Uklad odczytany z DOM - jedyne zrodlo prawdy przy zapisie. */
 export function currentLayout(): SidebarLayout {
-  return { left: idsOf(leftBox()), right: idsOf(rightBox()), closed: closedIds() };
+  return {
+    left: idsOf(leftBox()), right: idsOf(rightBox()), closed: closedIds(), unpinned: unpinnedSides(),
+  };
+}
+
+/** Klasa odpietej (auto-hide) kolumny - kolumna sama jest jedynym zrodlem prawdy o pinie,
+ * tak jak atrybut `open` jest zrodlem prawdy o zwinieciu karty. */
+const UNPINNED_CLASS = 'unpinned';
+
+export function isUnpinned(side: Side): boolean {
+  return sidebarBox(side)?.classList.contains(UNPINNED_CLASS) ?? false;
+}
+
+/**
+ * Pin/unpin kolumny - autohide.ts wola to po kliknieciu pinezki. Realna zmiana (nie no-op)
+ * zapisuje uklad od razu, tak samo jak kazda inna decyzja uzytkownika w tym module (bindToggle).
+ */
+export function setUnpinned(side: Side, value: boolean): void {
+  const box = sidebarBox(side);
+  if (!box || box.classList.contains(UNPINNED_CLASS) === value) return;
+  box.classList.toggle(UNPINNED_CLASS, value);
+  saveLayout();
 }
 
 function idList(value: unknown): string[] {
@@ -106,7 +145,10 @@ function readLayout(): SidebarLayout | null {
     const parsed: unknown = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object') return null;
     const rec = parsed as Record<string, unknown>;
-    return { left: idList(rec.left), right: idList(rec.right), closed: idList(rec.closed) };
+    return {
+      left: idList(rec.left), right: idList(rec.right), closed: idList(rec.closed),
+      unpinned: idList(rec.unpinned),
+    };
   } catch {
     return null;
   }
@@ -168,6 +210,9 @@ function applyLayout(saved: SidebarLayout): void {
   }
   const closed = new Set(saved.closed);
   for (const card of allCards()) setOpenSilently(card, !closed.has(sectionId(card)));
+  for (const side of ['left', 'right'] as const) {
+    sidebarBox(side)?.classList.toggle(UNPINNED_CLASS, saved.unpinned.includes(side));
+  }
 }
 
 /**

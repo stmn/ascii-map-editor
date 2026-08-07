@@ -48,7 +48,7 @@ export interface PanelsCtx {
   state: EditorState;
   /** Zamawia przerysowanie canvasu. */
   markDirty(): void;
-  /** Centruje widok na papierze - app zna rozmiar canvasu i offset panelu. */
+  /** Centruje widok na papierze - zawsze wzgledem srodka okna. */
   centerOnPaper(): void;
   /** Wolane przez app po kazdej mutacji mapy (malowanie, gumka). */
   onMutate(): void;

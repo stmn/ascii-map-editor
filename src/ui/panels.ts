@@ -3,6 +3,7 @@
 // dzieki czemu nie powstaje cykl importow (app.ts -> panels.ts, nigdy odwrotnie).
 import type { Command } from '../core/history';
 import type { EditorState } from '../core/editorState';
+import { initAutoHide } from './autohide';
 import { initCenterButton } from './center';
 import { initLayout } from './layout';
 import { initModeUi, isSimplified } from './mode';
@@ -35,7 +36,7 @@ export interface PanelsContext {
   state: EditorState;
   /** Zamawia przerysowanie canvasu. */
   markDirty(): void;
-  /** Centruje widok na papierze - app zna rozmiar canvasu i offset panelu. */
+  /** Centruje widok na papierze - zawsze wzgledem srodka okna. */
   centerOnPaper(): void;
 }
 
@@ -118,6 +119,9 @@ export function initPanels(ctx: PanelsContext): Panels {
   // miedzy kolumnami nie rusza ich sluchaczy (element zmienia rodzica, nie tozsamosc). Mapa
   // centruje sie wzgledem okna (v2.9), wiec drop karty nie rusza juz widoku.
   initLayout();
+  // auto-chowanie odpietych kolumn (pinezka, proximity) - po initLayout, kolumny musza juz
+  // miec swoje karty. Modul jest samowystarczalny (obserwuje klasy sam), wiec tylko to jedno wywolanie.
+  initAutoHide();
 
   // plywajacy Center: stoi poza kartami, wiec dziala w obu trybach i przy kazdym ukladzie kolumn
   initCenterButton(() => recenterView(panelsCtx));

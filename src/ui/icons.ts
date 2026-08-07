@@ -16,6 +16,8 @@ export type IconName =
   | 'eye-off'
   | 'copy'
   | 'crosshair'
+  | 'pin'
+  | 'pin-off'
   | 'x';
 
 /** Pojedynczy wezel potomny <svg> - ten zestaw ikon Lucide korzysta tylko z path/circle/rect. */
@@ -68,6 +70,18 @@ const ICONS: Record<IconName, IconShape[]> = {
     path('M6 12H2'),
     path('M12 6V2'),
     path('M12 22v-4'),
+  ],
+  // szpilka: przypieta kolumna (auto-hide.ts) - stan przypiety
+  pin: [
+    path('M12 17v5'),
+    path('M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z'),
+  ],
+  // szpilka przekreslona: stan auto-hide (odpieta)
+  'pin-off': [
+    path('M12 17v5'),
+    path('M15 9.34V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H7.89'),
+    path('m2 2 20 20'),
+    path('M9 9v1.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h11'),
   ],
   x: [
     path('M18 6 6 18'),
