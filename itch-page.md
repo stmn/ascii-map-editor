@@ -147,6 +147,11 @@ It is pay what you want, and $2 is a fair nudge if the tool saved you an afterno
 
 ### Changelog
 
+**v2.10** - the original v1 maze and dungeon generators are back (BSP rooms, doors): the
+dungeon generator is now a BSP room splitter ported from v1 for more varied room shapes, and
+the maze generator is a recursive-division maze with a `D` door cell top and bottom, also
+ported from v1.
+
 **v2.9** - auto-hiding sidebars with pin toggles, window-centered view: the map now always
 centers on the middle of the window instead of the space left between the two sidebars, so
 moving cards between columns or switching modes never shifts it, and each sidebar column can be

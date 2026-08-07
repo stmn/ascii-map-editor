@@ -46,12 +46,13 @@ itch.io-ready HTML project (`index.html` as the entry point) and it also contain
   one. A new character that collides with one already in the legend (even if currently unused)
   or already painted somewhere on the map is rejected with a red toast and nothing changes;
   the remap is undoable like every other edit.
-- Generate builds a maze (recursive backtracker, with `S` and `E` placed) or a room and
-  corridor dungeon, replacing the active layer. The Generate card has Width and Height side by
-  side, then a **Maze** button, then a **Rooms** field (1-50, default 8) directly above the
-  **Dungeon** button, since Rooms only affects the dungeon - it sets its target room count and
-  the generator places rooms until it reaches that target or hits an internal
-  placement-attempt cap, so a small or crowded map may end up with fewer rooms than requested.
+- Generate builds a maze or a dungeon, replacing the active layer, both ported from the
+  original v1 generators (see Generators below) for more varied shapes than a plain grid. The
+  Generate card has Width and Height side by side, then a **Maze** button, then a **Rooms**
+  field (1-50, default 8) directly above the **Dungeon** button, since Rooms only affects the
+  dungeon - it sets its target room count and the generator splits rooms until it reaches that
+  target or the split stops being geometrically possible, so a small map or a large min room
+  size may end up with fewer rooms than requested.
 - Export opens a dialog with a This level / Whole project switch and eight format rows (TXT,
   CSV, KaPlay, Godot, Tiled, REXPaint, Level JSON, Legacy v1), each one saying up front whether
   it keeps your layers or flattens them, plus a live preview and Copy/Save file buttons.
@@ -84,6 +85,30 @@ layer, so a partly faded map there would look like a rendering bug with nothing 
 explain it - the canvas draws every cell at full opacity in Simplified regardless of the
 checkbox. The setting itself is untouched, so switching back to Advanced restores whatever you
 had chosen.
+
+## Generators
+
+Both generators (`core/generators.ts`) are ports of the two v1 generators, brought back in
+v2.10 for more varied shapes than a plain grid - see LICENSES.md for the exact source files
+and licenses.
+
+- **Dungeon**: a BSP (binary space partition) room generator, ported from v1's
+  `DungeonGenerator.js`. The whole Width x Height area is recursively split in half
+  (vertically or horizontally, whichever side is picked) as long as either side is bigger than
+  Max. room size, each split keeping both halves at least Min. room size; every leaf of that
+  split becomes a room with a 1-cell wall border, and every split point gets a 2-cell corridor
+  carved through the wall between its two halves, so the whole area ends up covered - no empty
+  margins the way the old random-rectangle placer left. Rooms sets a target count: once the
+  mandatory splitting is done, the generator keeps splitting the largest remaining room (as
+  long as both halves would still be at least Min. room size) until it reaches that count, but
+  it never merges rooms back together - if mandatory splitting alone already produced more
+  rooms than Rooms asks for, the extra rooms stay; if Min. room size makes the target
+  physically impossible to reach, it stops at the most it could fit.
+- **Maze**: a recursive-division maze, ported from v1's `MazeGenerator.js`, with a `D` door
+  cell in the top row and another in the bottom row. Width and Height are halved and
+  rebuilt as `2 * floor(n / 2) + 1` on each axis, so an even input comes back one cell bigger
+  (and odd) than what you typed - the W/H fields in Map sync themselves to the actual result
+  after generating, same as the dungeon.
 
 ## Undo and redo
 
@@ -290,11 +315,12 @@ Ticking **Extra features** in Map opens a second card below it, holding the two 
 
 - **Maze generator** with a Generate button.
 - **Dungeon generator** with **Rooms** (target room count, 1-50, default 8), **Min. room
-  size** (default 4) and **Max. room size** (default 8) above its own Generate button. Room
-  sides are drawn from the min/max range inclusively; if you leave min above max the two are
-  simply swapped rather than rejected. The generator places rooms until it reaches the Rooms
-  target or hits an internal placement-attempt cap, so a small or crowded map may end up with
-  fewer rooms than requested.
+  size** (default 4) and **Max. room size** (default 8) above its own Generate button. Min and
+  max bound the BSP split (see Generators above); if you leave min above max the two are
+  simply swapped rather than rejected. The generator keeps splitting rooms until it reaches
+  the Rooms target, but never merges rooms back together, so a small map or a large min room
+  size may end up with fewer or more rooms than requested (see Generators above for exactly
+  when each happens).
 
 Both read the map size from Map's Width and Height fields and run through exactly the same
 path as the Generate card in Advanced: a confirmation if the active layer is not empty, then
@@ -503,7 +529,7 @@ src/
     legend.ts       char -> {name, color}, auto names and palette, shared by a whole level
     level.ts        Layer/Level model, MAX_LAYERS = 8, unionBounds, flattenLayers, export bounds cap
     project.ts      v3 layered JSON serialize plus a tolerant parser for v2, v1 and foreign formats
-    generators.ts   seeded RNG (mulberry32), maze and dungeon generators
+    generators.ts   seeded RNG (mulberry32), maze and dungeon generators (v1 ports, see Generators)
     editorState.ts  EditorState type, activeLayer/activeGrid helpers, applyLevelToState
     store.ts        WorkspaceStore interface, ProjectMeta/LevelRecord, KvJsonStore fallback,
                      ensureSeed (bootstrap + migration), export/importProject (project backup

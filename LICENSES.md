@@ -36,8 +36,10 @@ SOFTWARE.
 
 Source: https://github.com/stmn/ascii-map-editor
 
-Applies to the visual style, the cursor sprites (`cursor.png`, `cursor-click.png`)
-and the sound effect (`pop.wav`) reused in this project.
+Applies to the visual style, the cursor sprites (`cursor.png`, `cursor-click.png`),
+the sound effect (`pop.wav`) reused in this project, and the dungeon generator (BSP room
+algorithm, ported to `src/core/generators.ts` from `src/vendor/DungeonGenerator.js` in the
+source repo above for v2.10).
 
 ```
 MIT License
@@ -63,7 +65,23 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## 3. Press Start 2P font
+## 3. MazeGenerator - Chirp Internet
+
+Applies to the maze generator (recursive division algorithm with entrance/exit doors),
+ported to `src/core/generators.ts` for v2.10 from `src/vendor/MazeGenerator.js` in
+ASCII Map Editor v1 (see section 2), which itself carries this header on the original code:
+
+Source: https://chirpinternet.eu
+
+```
+Original JavaScript code by Chirp Internet: chirpinternet.eu
+Please acknowledge use of this code by including this header.
+```
+
+The header above is reproduced verbatim in `src/core/generators.ts` next to the ported code,
+per its acknowledgment requirement.
+
+## 4. Press Start 2P font
 
 Applies to `PressStart2P-Regular.ttf`, bundled in the build and embedded as a
 `data:` URI inside `standalone.html`.
@@ -166,7 +184,7 @@ FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
 OTHER DEALINGS IN THE FONT SOFTWARE.
 ```
 
-## 4. Lucide icons
+## 5. Lucide icons
 
 Applies to the icon glyphs (pencil, trash, chevron-up, chevron-down, eye, eye-off,
 copy, crosshair, x) inlined as SVG path data in `src/ui/icons.ts`. Path data was copied
