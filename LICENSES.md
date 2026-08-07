@@ -1,16 +1,16 @@
 # Licenses
 
-This file travels with every copy of ASCII Level Editor, including the itch.io zip
+This file travels with every copy of ASCII Map Editor, including the itch.io zip
 and the offline `standalone.html`, because the build bundles third-party assets whose
 licenses require the license text to be distributed alongside them.
 
-## 1. ASCII Level Editor v2
+## 1. ASCII Map Editor v2
 
 MIT License
 
 Copyright (c) 2023-2026 stmn
 
-ASCII Level Editor v2 is a rewrite of ASCII Map Editor by the same author and it reuses
+ASCII Map Editor v2 is a rewrite of ASCII Map Editor by the same author and it reuses
 assets from that project (cursor sprites and `pop.wav`). The original license of that
 project is reproduced verbatim in section 2.
 

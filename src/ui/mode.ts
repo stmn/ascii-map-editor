@@ -8,7 +8,11 @@ export type EditorMode = 'advanced' | 'simplified';
 
 /** Wybor trybu z poprzedniej sesji; brak klucza = uzytkownik jeszcze nie wybieral. */
 const MODE_KEY = 'ascii-level-editor-mode';
-/** Klasa na body, po ktorej CSS chowa karty Advanced i pokazuje karte Map. */
+/**
+ * Klasa na body, po ktorej CSS chowa karty Advanced i pokazuje karte Map.
+ * UI etykieta tego trybu to teraz "Basic" - 'simplified' to tylko historyczna wartosc
+ * (localStorage, klasa CSS, nazwy funkcji), zmiana zresetowalaby tryb userom.
+ */
 const SIMPLIFIED_CLASS = 'mode-simplified';
 /**
  * Klasa na body wlaczajaca karte Extra features. To CALE zrodlo prawdy o jej widocznosci:
@@ -114,7 +118,7 @@ function openChooser(setMode: (value: EditorMode) => void): void {
   const choices = el('div', 'btn-col');
   choices.append(
     choiceButton('advanced', 'Advanced', 'Full editor: projects, layers, engine exports.', pick),
-    choiceButton('simplified', 'Simplified', 'Classic editor like the original: map, characters, generators.', pick),
+    choiceButton('simplified', 'Basic', 'Classic editor like the original: map, characters, generators.', pick),
   );
   const body = el('div');
   body.append(
@@ -133,7 +137,7 @@ function openChooser(setMode: (value: EditorMode) => void): void {
 export function initModeUi(onChange: () => void): void {
   onVisibilityChange = onChange;
   const advancedBtn = button('Advanced', 'mode-seg', () => setMode('advanced'));
-  const simplifiedBtn = button('Simplified', 'mode-seg', () => setMode('simplified'));
+  const simplifiedBtn = button('Basic', 'mode-seg', () => setMode('simplified'));
   const pill = el('div', 'mode-switch');
   pill.setAttribute('role', 'group');
   pill.setAttribute('aria-label', 'Editor mode');

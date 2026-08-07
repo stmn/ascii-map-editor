@@ -1,4 +1,4 @@
-# ASCII Level Editor
+# ASCII Map Editor
 
 Paint a level with plain ASCII characters across named layers, name and color the tiles in
 one shared legend, then export the result straight into your engine: KaPlay, Tiled, Godot or
@@ -81,9 +81,9 @@ drawn at 50% opacity on the canvas, so the layer you are currently painting on s
 the rest of the stack. It is a view-only setting: it never changes the saved level, is not
 part of undo/redo, and is not persisted between sessions - it always starts on.
 
-Dimming is an Advanced-mode aid. Simplified mode has no Layers card and no notion of an active
+Dimming is an Advanced-mode aid. Basic mode has no Layers card and no notion of an active
 layer, so a partly faded map there would look like a rendering bug with nothing in the UI to
-explain it - the canvas draws every cell at full opacity in Simplified regardless of the
+explain it - the canvas draws every cell at full opacity in Basic regardless of the
 checkbox. The setting itself is untouched, so switching back to Advanced restores whatever you
 had chosen.
 
@@ -134,7 +134,7 @@ What is on the stack:
 - a whole paint or erase stroke - the full mouse-down-to-mouse-up gesture is one command, not
   one per cell
 - Generate (maze or dungeon)
-- Clear layer, and the whole-map Clear in Simplified mode's Map card
+- Clear layer, and the whole-map Clear in Basic mode's Map card
 - loading a file or pasted text through the Import dialog, or through Load in the Map card
 - every layer operation: add, delete, move, show/hide, rename
 - every legend edit: renaming an entry, changing its color, changing its character
@@ -156,7 +156,7 @@ the same way again, so the rest of the history above and below it stays intact.
 The seven panel cards (Project, Generate, Draw, Map, Extra features, Legend, Layers) live in
 two sidebar columns, one on each side of the canvas. By default the left column starts with
 Project, Generate and Draw, and the right column starts with Map, Extra features, Legend and
-Layers. Map and Extra features are the odd ones out: they only show in Simplified mode, see
+Layers. Map and Extra features are the odd ones out: they only show in Basic mode, see
 Modes below, so in Advanced mode the right column visually starts with just Legend and Layers.
 Drag a card by its header - the collapsed title bar - into the other column, or up and down
 within the same column: a thin line shows where it will land before you drop it.
@@ -187,7 +187,7 @@ The canvas always fills the whole window and centers itself on the window's own 
 not on whatever space happens to be left between the two columns - both sidebar columns are
 fixed overlays that float on top of the map rather than sharing the window with it. Moving a
 card between columns, dragging a card within a column, and switching between Advanced and
-Simplified all leave the view exactly where it was: pan, zoom and vertical scroll survive every
+Basic all leave the view exactly where it was: pan, zoom and vertical scroll survive every
 one of them untouched, and re-centering only ever happens through the Center button or the
 floating center button below. Both columns hide their scrollbar entirely (the wheel and
 trackpad still scroll a column that overflows), so the two columns stay geometrically
@@ -214,7 +214,7 @@ legend character prompt) all keep an unpinned column fully visible for as long a
 then normal auto-hiding resumes once they end.
 
 A freshly loaded page never guesses at the cursor position, so an unpinned column starts
-visible and only begins auto-hiding after you actually move the mouse. Simplified mode turns
+visible and only begins auto-hiding after you actually move the mouse. Basic mode turns
 auto-hide off entirely: both pin buttons are hidden and both columns stay fully visible no
 matter what, the same as before this feature existed. Switching back to Advanced restores
 whatever pin state each column had.
@@ -228,7 +228,7 @@ move the view off-center, checked against a ~2px pan threshold so tiny rounding 
 flicker the button. At load the view starts
 centered, so the button is hidden until you move it. Its tooltip (and screen reader label) is
 "Center view", and clicking it re-centers the view on the paper - the same underlying
-view-centering call as the in-card Center button inside Simplified's Map card, so the two are
+view-centering call as the in-card Center button inside Basic's Map card, so the two are
 always in sync, and the button hides itself again once the view lands back on center. It lives
 outside the card layout entirely, so whenever visible it stays on screen regardless of scroll
 position, zoom, which cards are on screen or which sidebar column they are dragged into. Toasts
@@ -237,7 +237,7 @@ floating center button never overlap on screen.
 
 ## Modes
 
-The editor has two modes: **Advanced**, the full editor with every card, and **Simplified**,
+The editor has two modes: **Advanced**, the full editor with every card, and **Basic**,
 a smaller layout closer to the original v1 tool. Both modes share the same underlying level,
 history and storage; switching modes never changes what is on the map, only which cards are
 on screen.
@@ -245,7 +245,7 @@ on screen.
 ### Choosing and switching
 
 The first time the editor runs, before any mode is stored, a "Welcome" dialog asks which mode
-to start in. Clicking Advanced or Simplified there sets the mode. Closing the dialog any other
+to start in. Clicking Advanced or Basic there sets the mode. Closing the dialog any other
 way - Esc, the X button, or a click on the overlay behind it - also sets a mode, falling back
 to Advanced, so the editor is never left without one stored; the dialog does not ask again
 once a mode is stored.
@@ -256,15 +256,15 @@ under the key `ascii-level-editor-mode` (value `advanced` or `simplified`), so i
 reload. If `localStorage` is unavailable (private browsing, for example) the switch still
 works for the rest of the session, but the Welcome dialog asks again on the next load.
 
-### What Simplified shows
+### What Basic shows
 
-Simplified is a deliberate replica of the original v1 panel, so it shows at most two cards:
+Basic is a deliberate replica of the original v1 panel, so it shows at most two cards:
 **Map**, the main panel, and **Extra features**, which only appears when you tick its checkbox
 in Map. Everything else - **Project**, **Draw**, **Layers**, **Legend** and **Generate** - is
 hidden with plain CSS (`display: none` by `data-section`), so nothing about a hidden card's
 content is lost: switch back to Advanced and every card is exactly as you left it, including a
 custom position from dragging it between sidebar columns.
-A hidden card also takes no space and cannot be dropped into, so drag and drop in Simplified
+A hidden card also takes no space and cannot be dropped into, so drag and drop in Basic
 only ever targets the cards you can actually see.
 
 Hiding the Draw card does not take its two keyboard behaviours away, because both are bound to
@@ -302,13 +302,13 @@ Map is the whole v1 editor in one card, in the original order:
   level, undo history or autosave, and both start on. Unticking Show grid drops the grid lines
   while keeping the paper and its outline; unticking Show colors draws every glyph in one ink
   color instead of its legend color, like v1's gray mode. Extra features shows and hides the
-  second card. These two checkboxes only exist here, in Simplified's Map card, so switching to
+  second card. These two checkboxes only exist here, in Basic's Map card, so switching to
   Advanced mode always turns Show grid and Show colors back on - otherwise unticking one in
-  Simplified and switching to Advanced would leave no control to turn it back on. Switching to
-  Simplified does not touch either setting, it just shows whatever the checkboxes already say.
+  Basic and switching to Advanced would leave no control to turn it back on. Switching to
+  Basic does not touch either setting, it just shows whatever the checkboxes already say.
 
 Map only views or replaces the whole map as text; it has no per-layer or per-legend controls
-of its own, since those live in the cards Simplified hides.
+of its own, since those live in the cards Basic hides.
 
 ### The Extra features card
 
@@ -479,7 +479,7 @@ and so on, bottom to top; rename them in the Layers panel afterwards if you want
 
 Export and Import open modal dialogs rather than inline panels, launched by the **Export...**
 and **Import...** buttons in the Project card (see Projects and levels above). The Map card's
-own To clipboard/Load/SWITCH FORMAT trio in Simplified mode is a separate, older path to the
+own To clipboard/Load/SWITCH FORMAT trio in Basic mode is a separate, older path to the
 same underlying data and still works exactly as before, see The Map card above.
 
 **Export** starts on a **This level / Whole project** switch, defaulting to This level. This
@@ -496,7 +496,7 @@ below that description. Array of strings and Array of arrays are the two array s
 original v1 editor's Legacy export, each its own tile here instead of a sub-picker under one
 shared Legacy row - the third v1 shape, plain Text, is left out here because it duplicates the
 TXT tile already in the same dialog, and all three legacy shapes together are still available
-behind the SWITCH FORMAT link in Simplified mode's Map card, see Modes above. A live preview
+behind the SWITCH FORMAT link in Basic mode's Map card, see Modes above. A live preview
 textarea below the options updates on every change; `.xp` being a binary format, it replaces
 that textarea with a one-line hint instead - `Binary format (gzip) - N layer(s), WxH. Save the
 file and open it in REXPaint.` - and its Copy button is disabled with a tooltip, since there is
@@ -566,10 +566,10 @@ src/
                      layout
     autohide.ts     per-column auto-hide for an unpinned sidebar: proximity/hover reveal, hide
                      delay, stays visible while dragging/focused/a modal is open, off in
-                     Simplified
+                     Basic
     center.ts       floating center button, fixed at the bottom of the screen in both modes,
                      shown only while the view is off-center
-    mode.ts         Advanced/Simplified switch, first-run mode chooser, mode stored in localStorage
+    mode.ts         Advanced/Basic switch, first-run mode chooser, mode stored in localStorage
     icons.ts        Lucide icon path data inlined as constants, no runtime network fetch
     panels.ts       composition root: wires the panels/ modules together through initPanels(ctx)
     panels/         one module per sidebar card, all fed state and callbacks by panels.ts
@@ -581,8 +581,8 @@ src/
       layers.ts     Layers card: add/reorder/rename/hide/delete
       legend.ts     Legend card: name/color/usage per character, character remap
       generate.ts   maze/dungeon generator card, plus the generator path both cards share
-      map.ts        Map card: the whole v1 main panel, Simplified mode only
-      extra.ts      Extra features card: the two generators, Simplified mode only
+      map.ts        Map card: the whole v1 main panel, Basic mode only
+      extra.ts      Extra features card: the two generators, Basic mode only
       exportModal.ts   Export dialog: This level/Whole project switch, 9 format tiles (code
                         preview + layer badges) in a 3-column grid, Copy/Save file
       importModal.ts   Import dialog: file/paste input, detectImport summary, contextual actions
@@ -654,7 +654,7 @@ the sprites you loaded with `loadSprite`.
 ### Godot 4
 
 ```gdscript
-# generated by ASCII Level Editor
+# generated by ASCII Map Editor
 const LEVELS = {
 	"main": [
 		"####",
