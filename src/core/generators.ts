@@ -38,6 +38,9 @@ export function generateMaze(w: number, h: number, rng: () => number = Math.rand
   return g;
 }
 
+/** Prostokat pokoju w wynikowej siatce lochu - wspolrzedne lewego-gornego rogu i bok/wysokosc. */
+export interface DungeonRoom { x: number; y: number; w: number; h: number }
+
 /** Opcje generatora lochu - patrz {@link generateDungeonDetailed}. */
 export interface DungeonOpts {
   /** Liczba prob postawienia pokoju gdy roomTarget nie jest podany (dotychczasowe zachowanie). */
@@ -58,7 +61,8 @@ export interface DungeonOpts {
  * minRoom/maxRoom to bok pokoju (obie osie losowane z tego samego zakresu) - karta Extra features
  * wystawia je uzytkownikowi. Odwrocone wartosci zamieniamy miejscami zamiast rzucac: pole liczbowe
  * w UI latwo zostawic w takim stanie w trakcie pisania, a pusty zakres dalby ujemne boki pokoi.
- * Zwraca tez roomsPlaced - liczenie pokoi z gotowej siatki jest zawodne (korytarze zlepiaja podloge).
+ * Zwraca tez roomsPlaced i rooms (prostokaty) - liczenie/rozmiary pokoi z gotowej siatki sa zawodne
+ * (korytarze zlepiaja podloge, wiec nie da sie ich odtworzyc z samych komorek '.').
  *
  * Tryb roomTarget gwarantuje roomsPlaced === roomTarget, kiedy jest to geometrycznie mozliwe przy
  * minRoom: faza losowa degraduje gorna granice rozmiaru pokoju po serii nieudanych prob (male
@@ -68,20 +72,23 @@ export interface DungeonOpts {
  * ratunku to siatka regularna: pakowanie identycznych kwadratow bez nakladania jest matematycznie
  * najgesciej upakowane wlasnie na regularnej siatce (zweryfikowane brute-force'em na malych
  * przypadkach), wiec to jedyny sposob na TWARDA gwarancje bez kosztownego, potencjalnie wolnego
- * backtrackingu (patrz komentarze przy hasTarget nizej).
+ * backtrackingu. Zeby siatkowe pokoje nie zostaly identycznymi kwadratami lo x lo (maxRoom
+ * "po cichu martwy" dla usera), kazdy z nich potem losowo DORASTA w strone hi w wolna przestrzen
+ * (patrz komentarze przy hasTarget nizej).
  */
 export function generateDungeonDetailed(
   w: number, h: number, opts: DungeonOpts = {},
-): { grid: Grid; roomsPlaced: number } {
+): { grid: Grid; roomsPlaced: number; rooms: ReadonlyArray<DungeonRoom> } {
   const { roomTries = 30, rng = Math.random, minRoom = 4, maxRoom = 10, roomTarget } = opts;
   const lo = Math.min(minRoom, maxRoom), hi = Math.max(minRoom, maxRoom);
   const g = new Grid();
-  interface Room { x: number; y: number; w: number; h: number }
-  const rooms: Room[] = [];
+  const rooms: DungeonRoom[] = [];
   const ri = (a: number, b: number) => a + Math.floor(rng() * (b - a + 1));
-  // jedna funkcja kolizji dla obu faz trybu roomTarget (losowej i scan fallbacku) oraz dla trybu roomTries.
-  const collides = (rx: number, ry: number, rw: number, rh: number) => rooms.some((r) =>
-    rx <= r.x + r.w && rx + rw >= r.x && ry <= r.y + r.h && ry + rh >= r.y);
+  // jedna funkcja kolizji dla wszystkich faz trybu roomTarget (losowej, scan fallbacku, rozrostu
+  // siatki) oraz dla trybu roomTries. `except` pozwala rozrostowi sprawdzac kolizje wlasnego
+  // powiekszonego prostokata z INNYMI pokojami, pomijajac siebie samego.
+  const collides = (rx: number, ry: number, rw: number, rh: number, except?: DungeonRoom) => rooms.some((r) =>
+    r !== except && rx <= r.x + r.w && rx + rw >= r.x && ry <= r.y + r.h && ry + rh >= r.y);
 
   // tryb "roomTries" (roomTarget nie podany): stala liczba prob niezaleznie od trafien - dotychczasowe
   // zachowanie. tryb "roomTarget": probuje az postawi tyle pokoi ile trzeba, z twardym limitem prob,
@@ -161,6 +168,49 @@ export function generateDungeonDetailed(
         const [sx, sy] = slots[i]!;
         rooms.push({ x: sx, y: sy, w: lo, h: lo });
       }
+      // Rozrost siatkowych pokoi w strone hi (tylko gdy hi > lo - inaczej kazdy cel rozrostu i tak
+      // wychodzi lo, nic by sie nie ruszylo). Kolejnosc pokoi i kierunkow losowa (rng), kazdy pokoj
+      // dostaje WLASNY losowy cel rozmiaru per os z [lo,hi] - stad rozne rozmiary, nie wszystkie
+      // rosna do maksimum. Liczba pokoi jest juz ustalona (siatka) i rozrost jej NIE zmienia -
+      // tylko rozszerza krawedzie istniejacego pokoju o 1 na raz, dopoki miesci sie w granicach
+      // planszy (margines 1, ta sama konwencja co reszta funkcji), nie zderza z innym pokojem
+      // (collides(), pomijajac siebie) i nie przekroczyl wlasnego losowego celu na tej osi.
+      if (hi > lo) {
+        const order = rooms.map((_, i) => i);
+        for (let i = order.length - 1; i > 0; i--) {
+          const j = Math.floor(rng() * (i + 1));
+          const tmp = order[i]!; order[i] = order[j]!; order[j] = tmp;
+        }
+        for (const idx of order) {
+          const room = rooms[idx]!;
+          const targetW = ri(lo, hi), targetH = ri(lo, hi);
+          for (;;) {
+            const options: Array<'left' | 'right' | 'up' | 'down'> = [];
+            if (room.w < targetW) {
+              if (room.x - 1 >= 1 && !collides(room.x - 1, room.y, room.w + 1, room.h, room)) {
+                options.push('left');
+              }
+              if (room.x + room.w + 1 <= w - 2 && !collides(room.x, room.y, room.w + 1, room.h, room)) {
+                options.push('right');
+              }
+            }
+            if (room.h < targetH) {
+              if (room.y - 1 >= 1 && !collides(room.x, room.y - 1, room.w, room.h + 1, room)) {
+                options.push('up');
+              }
+              if (room.y + room.h + 1 <= h - 2 && !collides(room.x, room.y, room.w, room.h + 1, room)) {
+                options.push('down');
+              }
+            }
+            if (!options.length) break;
+            const dir = options[Math.floor(rng() * options.length)]!;
+            if (dir === 'left') { room.x -= 1; room.w += 1; }
+            else if (dir === 'right') { room.w += 1; }
+            else if (dir === 'up') { room.y -= 1; room.h += 1; }
+            else { room.h += 1; }
+          }
+        }
+      }
     }
   }
   const floor = (x: number, y: number) => g.set(x, y, '.');
@@ -181,7 +231,7 @@ export function generateDungeonDetailed(
       if (g.get(x, y) !== '.') g.set(x, y, '#');
     }
   }
-  return { grid: g, roomsPlaced: rooms.length };
+  return { grid: g, roomsPlaced: rooms.length, rooms };
 }
 
 /**

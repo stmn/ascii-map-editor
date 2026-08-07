@@ -156,6 +156,47 @@ describe('generateDungeonDetailed: roomTarget', () => {
     }
   });
 
+  // Fix round 2 (review): na tym samym scenariuszu faza 3 (siatka regularna) jest DOMINUJACA
+  // sciezka (80-86% seedow wg pomiaru recenzenta) - bez rozrostu wszystkie 3 pokoje wychodzily
+  // identycznymi kwadratami lo x lo, wiec maxRoom byl po cichu martwy (nowy wymiar tego samego
+  // "slabo respektowane ustawienia"). Test odtwarza problem estetyczny: rozmiary NIE moga byc
+  // wszystkie identyczne w wiekszosci seedow.
+  it('rozrost siatkowych pokoi: rozmiary nie sa wszystkie identyczne lo x lo (>=15/20 seedow)', () => {
+    let diverse = 0;
+    for (let seed = 1; seed <= 20; seed++) {
+      const { rooms } = generateDungeonDetailed(24, 16, {
+        roomTarget: 3, minRoom: 6, maxRoom: 12, rng: mulberry32(seed),
+      });
+      const distinctSizes = new Set(rooms.map((r) => `${r.w}x${r.h}`));
+      if (distinctSizes.size >= 2) diverse++;
+    }
+    expect(diverse).toBeGreaterThanOrEqual(15);
+  });
+
+  // Ten sam scenariusz: rozrost nie moze zlamac twardych granic - zaden pokoj nie przekracza
+  // maxRoom (hi) na zadnej osi, zaden nie schodzi ponizej minRoom (lo), i zadne dwa pokoje po
+  // rozroscie nie zachodza na siebie (kolizja liczona niezaleznie od wewnetrznej collides()).
+  it('rozrost siatkowych pokoi: nikt nie przekracza hi, nikt nie schodzi ponizej lo, brak nakladania', () => {
+    for (let seed = 1; seed <= 20; seed++) {
+      const { rooms } = generateDungeonDetailed(24, 16, {
+        roomTarget: 3, minRoom: 6, maxRoom: 12, rng: mulberry32(seed),
+      });
+      for (const r of rooms) {
+        expect(r.w).toBeGreaterThanOrEqual(6);
+        expect(r.w).toBeLessThanOrEqual(12);
+        expect(r.h).toBeGreaterThanOrEqual(6);
+        expect(r.h).toBeLessThanOrEqual(12);
+      }
+      for (let i = 0; i < rooms.length; i++) {
+        for (let j = i + 1; j < rooms.length; j++) {
+          const a = rooms[i]!, b = rooms[j]!;
+          const overlap = a.x <= b.x + b.w && a.x + a.w >= b.x && a.y <= b.y + b.h && a.y + a.h >= b.y;
+          expect(overlap).toBe(false);
+        }
+      }
+    }
+  });
+
   // Ciasna plansza (10x8) z nierealnym celem (50 pokoi min 4x4) - fallback scan musi konczyc
   // sie deterministycznie zamiast zawieszac generator, i musi postawic co najmniej 1 pokoj.
   it('ciasna plansza z nierealnym celem konczy sie bez zawieszenia', () => {
