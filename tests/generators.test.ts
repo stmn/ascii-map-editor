@@ -144,6 +144,51 @@ describe('generateDungeonDetailed: roomTarget', () => {
   // (272 komorki, ten sam zestaw x,y) wzgledem golden sprzed fixu - roznica jest WYLACZNIE w tym,
   // ze puste komorki w ramce 40x24 sa teraz '#' zamiast spacji/nieobecne, a bounds() to teraz caly
   // zamowiony prostokat (0,0)-(39,23) zamiast ciasnego obrysu wokol podlogi.
+  // Zgloszenie usera: Rooms 2/3, Min 6, Max 12 na mapie ~24x16 czasami stawia tylko 1 pokoj.
+  // Duze pokoje wzgledem malej mapy latwo koliduja w fazie losowej - fix ma to gwarantowac
+  // zawsze (degradacja rozmiaru + deterministyczny scan fallback), gdy jest to geometrycznie mozliwe.
+  it('reprodukcja zgloszenia: 24x16, target 3, min 6 max 12 - zawsze trafia 3 pokoje', () => {
+    for (let seed = 1; seed <= 20; seed++) {
+      const { roomsPlaced } = generateDungeonDetailed(24, 16, {
+        roomTarget: 3, minRoom: 6, maxRoom: 12, rng: mulberry32(seed),
+      });
+      expect(roomsPlaced).toBe(3);
+    }
+  });
+
+  // Ciasna plansza (10x8) z nierealnym celem (50 pokoi min 4x4) - fallback scan musi konczyc
+  // sie deterministycznie zamiast zawieszac generator, i musi postawic co najmniej 1 pokoj.
+  it('ciasna plansza z nierealnym celem konczy sie bez zawieszenia', () => {
+    const { roomsPlaced } = generateDungeonDetailed(10, 8, {
+      roomTarget: 50, minRoom: 4, rng: mulberry32(1),
+    });
+    expect(roomsPlaced).toBeGreaterThanOrEqual(1);
+    expect(roomsPlaced).toBeLessThan(50);
+  });
+
+  // Recznie dobrana plansza gdzie zmiesci sie dokladnie k pokoi lo x lo (min === max, wiec rozmiar
+  // pokoju jest ustalony): w=17,h=7,lo=4 -> maxX=11,maxY=1, siatka co (lo+1)=5 daje dokladnie
+  // 3 kolumny x 1 rzad = 3 sloty. roomTarget=3 trafia dokladnie w ten geometryczny sufit -
+  // dowodzi, ze fallback (scan + siatka regularna) dobija do maksimum, nie mniej.
+  it('recznie dobrana plansza: zmiesci sie dokladnie k pokoi - roomsPlaced == k', () => {
+    for (let seed = 1; seed <= 10; seed++) {
+      const { roomsPlaced } = generateDungeonDetailed(17, 7, {
+        roomTarget: 3, minRoom: 4, maxRoom: 4, rng: mulberry32(seed),
+      });
+      expect(roomsPlaced).toBe(3);
+    }
+  });
+
+  // Ta sama plansza, ale cel (5) przekracza geometryczny sufit (3) - roomsPlaced ma sie zatrzymac
+  // dokladnie na maksimum, nie mniej i nie wiecej (dowod, ze siatka regularna daje SUFIT, nie tylko
+  // "cos wiecej niz przedtem").
+  it('recznie dobrana plansza: cel powyzej geometrycznego sufitu zatrzymuje sie na suficie', () => {
+    const { roomsPlaced } = generateDungeonDetailed(17, 7, {
+      roomTarget: 5, minRoom: 4, maxRoom: 4, rng: mulberry32(3),
+    });
+    expect(roomsPlaced).toBe(3);
+  });
+
   it('dungeon: legacy roomTries (bez roomTarget) daje zamrozony wynik dla seeda 7 (golden)', () => {
     const golden = [
       '########################################',
