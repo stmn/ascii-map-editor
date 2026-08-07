@@ -32,6 +32,27 @@ const FORMAT_NAMES: Record<LegacyFormat, string> = {
   'array-array': 'Array of arrays',
 };
 
+/** Wybor formatu podgladu z poprzedniej sesji; brak/nieznany klucz = domyslny 'text'. */
+const FORMAT_KEY = 'ascii-level-editor-format';
+
+/** localStorage potrafi rzucac (tryb prywatny) - brak dostepu traktujemy jak brak zapisu. */
+function readStoredFormat(): LegacyFormat {
+  try {
+    const raw = localStorage.getItem(FORMAT_KEY);
+    return (FORMATS as readonly string[]).includes(raw ?? '') ? (raw as LegacyFormat) : 'text';
+  } catch {
+    return 'text';
+  }
+}
+
+function writeStoredFormat(value: LegacyFormat): void {
+  try {
+    localStorage.setItem(FORMAT_KEY, value);
+  } catch {
+    // brak miejsca albo tryb prywatny - format zyje do konca sesji, to nie powod do bledu
+  }
+}
+
 export interface MapPanel {
   /** Przepisuje podglad z aktualnego stanu; wolane przez hook renderMap po kazdej zmianie tresci. */
   refresh(): void;
@@ -163,8 +184,8 @@ export function initMap(
   }
 
   // --- mapa jako tekst ---
-  /** Format podgladu jest sesyjny, jak w v1 - zaczynamy od zwyklego tekstu. */
-  let format: LegacyFormat = 'text';
+  /** Format podgladu przezywa sesje w localStorage (patrz FORMAT_KEY); nieznany zapis = 'text'. */
+  let format: LegacyFormat = readStoredFormat();
   /**
    * Czy w polu siedzi tresc UZYTKOWNIKA (wklejka, wlasne poprawki). Dopoki tak jest, zaden
    * refresh jej nie nadpisze - inaczej klikniecie w mape (albo cofniecie zmiany) kasowaloby
@@ -241,6 +262,7 @@ export function initMap(
 
   function cycleFormat(): void {
     format = FORMATS[(FORMATS.indexOf(format) + 1) % FORMATS.length]!;
+    writeStoredFormat(format);
     syncFormatTitle();
     // jawna akcja uzytkownika - przepisujemy nawet gdy pole ma fokus albo wlasna wklejke (jak v1)
     write();

@@ -16,6 +16,16 @@ const DEFAULT_H = 21;
 export const MIN_ROOMS = 1;
 export const MAX_ROOMS = 50;
 export const DEFAULT_ROOMS = 8;
+/**
+ * Zakres i domyslna wartosc bok pokoju (Min./Max. room size) - wspolne dla karty Generate
+ * i karty Extra features. Mniej niz 2 nie da sciany, wiecej niz 40 i tak nie zmiesci sie na
+ * mapie. Domyslne 4/10 to defaulty silnika (patrz minRoom/maxRoom w generateDungeonDetailed),
+ * nie osobny wybor UI - stad jedna para stalych zamiast kopii w kazdej karcie.
+ */
+export const MIN_ROOM = 2;
+export const MAX_ROOM = 40;
+export const DEFAULT_MIN_ROOM = 4;
+export const DEFAULT_MAX_ROOM = 10;
 
 export type GeneratorKind = 'maze' | 'dungeon';
 
@@ -58,25 +68,44 @@ export function initGenerate(ctx: PanelsCtx, generateBox: HTMLElement): void {
   const widthInput = numberInput(DEFAULT_W, 'Width', MIN_SIZE, MAX_SIZE);
   const heightInput = numberInput(DEFAULT_H, 'Height', MIN_SIZE, MAX_SIZE);
   const roomsInput = numberInput(DEFAULT_ROOMS, 'Rooms', MIN_ROOMS, MAX_ROOMS);
+  const minRoomInput = numberInput(DEFAULT_MIN_ROOM, 'Minimum room size', MIN_ROOM, MAX_ROOM);
+  const maxRoomInput = numberInput(DEFAULT_MAX_ROOM, 'Maximum room size', MIN_ROOM, MAX_ROOM);
 
   function generate(kind: GeneratorKind): void {
     void runGenerator(
       ctx, kind, readNumber(widthInput, DEFAULT_W), readNumber(heightInput, DEFAULT_H),
-      kind === 'dungeon' ? { roomTarget: readNumber(roomsInput, DEFAULT_ROOMS) } : undefined,
+      kind === 'dungeon' ? {
+        roomTarget: readNumber(roomsInput, DEFAULT_ROOMS),
+        minRoom: readNumber(minRoomInput, DEFAULT_MIN_ROOM),
+        maxRoom: readNumber(maxRoomInput, DEFAULT_MAX_ROOM),
+      } : undefined,
     );
   }
 
-  // W i H obok siebie 50/50 w jednym rzedzie (etykieta nad kazdym polem) - ten sam wzorzec
-  // co Width/Height w karcie Map (Simplified), patrz .field-row w styles.css.
+  // Width i Height obok siebie 50/50 w jednym rzedzie (etykieta nad kazdym polem) - ten sam
+  // wzorzec co w karcie Map (Simplified), patrz .field-row w styles.css. Rozmiar dotyczy OBU
+  // generatorow nizej, wiec stoi nad nimi, poza ktorakolwiek sekcja.
   const sizes = el('div', 'field-row');
-  sizes.append(labeledStack('W', widthInput), labeledStack('H', heightInput));
-  const mazeButton = el('div', 'btn-row');
-  mazeButton.append(button('Maze', '', () => generate('maze')));
-  const roomsField = labeledStack('Rooms', roomsInput);
-  const dungeonButton = el('div', 'btn-row');
-  dungeonButton.append(button('Dungeon', '', () => generate('dungeon')));
+  sizes.append(labeledStack('Width', widthInput), labeledStack('Height', heightInput));
+
+  const rooms = el('div', 'field-col');
+  rooms.append(
+    labeledStack('Rooms', roomsInput),
+    labeledStack('Min. room size:', minRoomInput), labeledStack('Max. room size:', maxRoomInput),
+  );
+
+  // Naglowek+przycisk per generator jak w karcie Extra features (Simplified) - te same klasy
+  // (card-heading, card-sep, btn-full), zeby obie karty czytaly sie tak samo mimo osobnych DOM
+  // (patrz panels/extra.ts). Dzieki temu widac na pierwszy rzut oka, ze Width/Height wyzej
+  // sa wspolne dla obu sekcji, a nie naleza do zadnej z nich.
   generateBox.append(
-    sizes, mazeButton, roomsField, dungeonButton,
+    sizes,
+    el('p', 'card-heading', 'Maze generator'),
+    button('Generate', 'btn-full', () => generate('maze')),
+    el('hr', 'card-sep'),
+    el('p', 'card-heading', 'Dungeon generator'),
+    rooms,
+    button('Generate', 'btn-full', () => generate('dungeon')),
     el('p', 'hint help-box hint-small hint-gap', 'Generating replaces the active layer.'),
   );
 }

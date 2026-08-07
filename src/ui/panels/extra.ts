@@ -4,14 +4,11 @@
 import { button, el, iconButton, labeledStack, numberInput, readNumber } from '../dom';
 import { icon } from '../icons';
 import { PanelsCtx } from './context';
-import { DEFAULT_ROOMS, GeneratorKind, MAX_ROOMS, MIN_ROOMS, RoomRange, runGenerator } from './generate';
+import {
+  DEFAULT_MAX_ROOM, DEFAULT_MIN_ROOM, DEFAULT_ROOMS, GeneratorKind, MAX_ROOM, MAX_ROOMS,
+  MIN_ROOM, MIN_ROOMS, RoomRange, runGenerator,
+} from './generate';
 import type { MapPanel } from './map';
-
-/** Bok pokoju: mniej niz 2 nie da sciany, wiecej niz 40 i tak nie zmiesci sie na mapie. */
-const MIN_ROOM = 2;
-const MAX_ROOM = 40;
-const DEFAULT_MIN_ROOM = 4;
-const DEFAULT_MAX_ROOM = 8;
 
 export function initExtra(ctx: PanelsCtx, extraBox: HTMLElement, map: MapPanel): void {
   const roomsInput = numberInput(DEFAULT_ROOMS, 'Rooms', MIN_ROOMS, MAX_ROOMS);
