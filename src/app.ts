@@ -6,7 +6,7 @@ import {
   KvJsonStore, WORKSPACE_KEY, ensureSeed, type Kv, type LevelRecord, type WorkspaceStore,
 } from './core/store';
 import { Renderer, centeredPan, paperRect } from './ui/renderer';
-import { applySavedLayout, sidebarWidths } from './ui/layout';
+import { applySavedLayout } from './ui/layout';
 import { applyStoredMode } from './ui/mode';
 import { setCenterFabVisible } from './ui/center';
 import { InputController } from './ui/input';
@@ -50,17 +50,13 @@ let dirty = true;
 export function markDirty(): void { dirty = true; }
 
 /**
- * Docelowy pan wysrodkowujacy papier w wolnym obszarze miedzy kolumnami sekcji: srodek tego
- * obszaru lezy o (left - right) / 2 od srodka okna, wiec widok idzie w lewo o (right - left) / 2.
- * Pusta kolumna ma szerokosc 0, wiec domyslny uklad (wszystko po prawej) zachowuje sie
- * jak wczesniejszy staly offset panelu. Czysta funkcja (centeredPan w renderer.ts) - JEDYNA
- * implementacja tej matematyki: centerOnPaper stosuje wynik do widoku, isViewCentered
- * porownuje go z biezacym panem (fab centrowania, patrz Task 6 brief).
+ * Docelowy pan wysrodkowujacy papier wzgledem srodka OKNA - sidebary moga na niego nachodzic,
+ * mapa zawsze centruje sie na pelnym oknie (v2.9, patrz spec pkt 1). Czysta funkcja
+ * (centeredPan w renderer.ts) - JEDYNA implementacja tej matematyki: centerOnPaper stosuje
+ * wynik do widoku, isViewCentered porownuje go z biezacym panem (fab centrowania).
  */
 function targetPan(): { panX: number; panY: number } {
-  const { left, right } = sidebarWidths();
-  const offsetX = (right - left) / 2;
-  return centeredPan(paperRect(state.level), state.view.scale, canvas.clientWidth, canvas.clientHeight, offsetX);
+  return centeredPan(paperRect(state.level), state.view.scale, canvas.clientWidth, canvas.clientHeight);
 }
 
 function centerOnPaper(): void {

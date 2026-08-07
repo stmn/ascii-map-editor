@@ -188,15 +188,15 @@ export class Renderer {
  * JEDYNA implementacja tej matematyki: app.ts uzywa jej i do faktycznego centrowania
  * (centerOnPaper stosuje wynik wprost do state.view), i do sprawdzenia, czy widok JEST
  * wycentrowany (fab centrowania - patrz Task 6 brief) - porownuje biezacy pan z tym,
- * co zwrocilaby ta funkcja.
- * offsetX przesuwa mape w lewo - robi miejsce na panel boczny (v1 uzywal +140).
+ * co zwrocilaby ta funkcja. Centrowanie liczy sie wylacznie z wymiarow okna/canvasa - srodek
+ * mapy laduje w srodku EKRANU, bez odejmowania szerokosci sidebarow (v2.9, patrz spec pkt 1).
  */
 export function centeredPan(
-  rect: Bounds, scale: number, w: number, h: number, offsetX = 0,
+  rect: Bounds, scale: number, w: number, h: number,
 ): { panX: number; panY: number } {
   const cx = (rect.minX + (rect.maxX - rect.minX + 1) / 2) * scale;
   const cy = (rect.minY + (rect.maxY - rect.minY + 1) / 2) * scale;
-  return { panX: cx - (w / 2 - offsetX), panY: cy - h / 2 };
+  return { panX: cx - w / 2, panY: cy - h / 2 };
 }
 
 export function screenToCell(px: number, py: number, view: View): { x: number; y: number } {

@@ -114,27 +114,17 @@ export function initPanels(ctx: PanelsContext): Panels {
   map.refresh();
   project.render();
 
-  /**
-   * Zmiana skladu widocznych kart (upuszczenie karty, przelaczenie trybu) zmienia szerokosci
-   * kolumn, wiec mape przesuwamy TYLKO w poziomie o roznice offsetu - pelne centrowanie
-   * skasowaloby reczne przewiniecie w pionie. Jedno zachowanie dla obu zrodel zmiany.
-   */
-  function shiftView(offsetShift: number): void {
-    state.view.panX += offsetShift;
-    ctx.markDirty();
-  }
-
   // przeciaganie kart podpinamy na koncu: karty maja juz tresc, a przeniesienie <details>
-  // miedzy kolumnami nie rusza ich sluchaczy (element zmienia rodzica, nie tozsamosc)
-  initLayout(shiftView);
+  // miedzy kolumnami nie rusza ich sluchaczy (element zmienia rodzica, nie tozsamosc). Mapa
+  // centruje sie wzgledem okna (v2.9), wiec drop karty nie rusza juz widoku.
+  initLayout();
 
   // plywajacy Center: stoi poza kartami, wiec dziala w obu trybach i przy kazdym ukladzie kolumn
   initCenterButton(() => recenterView(panelsCtx));
 
   // przelacznik trybu (i pytanie o tryb przy pierwszym starcie) na samym koncu: modal wyboru
   // ma wypasc nad gotowym edytorem, a wejscie w Simplified musi zastac karte Map do odswiezenia
-  initModeUi((offsetShift) => {
-    shiftView(offsetShift);
+  initModeUi(() => {
     hooks.renderMap();
     // karta Draw (i jej gumka) jest w Simplified ukryta - narzedzie wraca do Brush, zeby
     // gumka nie mogla zostac wlaczona bez widocznej kontrolki do jej wylaczenia

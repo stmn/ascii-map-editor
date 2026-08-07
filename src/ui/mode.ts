@@ -2,7 +2,6 @@
 // Modul trzyma wybor w localStorage, rysuje przelacznik na gorze ekranu i przy pierwszym
 // uruchomieniu pyta o tryb. Samo chowanie kart robi CSS po klasie na body - tu jest sterowanie.
 import { button, el } from './dom';
-import { withOffsetShift } from './layout';
 import { openModal } from './modal';
 
 export type EditorMode = 'advanced' | 'simplified';
@@ -25,11 +24,11 @@ const EXTRA_CLASS = 'show-extra';
 let mode: EditorMode = 'advanced';
 
 /**
- * Obserwator zmian skladu widocznych kart (tryb, karta Extra) - panels.ts przesuwa nim mape
- * i odswieza podglad. Trzymany w module, bo widocznosc karty Extra przelacza sie tez spoza
- * przelacznika trybu i obie sciezki maja zachowac sie identycznie.
+ * Obserwator zmian skladu widocznych kart (tryb, karta Extra) - panels.ts nim odswieza podglad
+ * i pilnuje spojnosci narzedzia/checkboxow. Trzymany w module, bo widocznosc karty Extra
+ * przelacza sie tez spoza przelacznika trybu i obie sciezki maja zachowac sie identycznie.
  */
-let onVisibilityChange: ((offsetShift: number) => void) | null = null;
+let onVisibilityChange: (() => void) | null = null;
 
 export function currentMode(): EditorMode {
   return mode;
@@ -68,15 +67,12 @@ export function isExtraVisible(): boolean {
 }
 
 /**
- * Pokazanie/ukrycie karty Extra features. Zmiana skladu kart moze zwezic albo poszerzyc kolumne
- * (karta da sie przeciagnac do pustej kolumny), wiec idzie ta sama sciezka co przelaczenie trybu:
- * withOffsetShift mierzy offset centrowania przed i po, a wolajacy przesuwa mape o roznice.
+ * Pokazanie/ukrycie karty Extra features. Idzie ta sama sciezka co przelaczenie trybu -
+ * onVisibilityChange odswieza to, co zalezy od skladu widocznych kart.
  */
 export function setExtraVisible(visible: boolean): void {
-  const shift = withOffsetShift(() => {
-    document.body.classList.toggle(EXTRA_CLASS, visible);
-  });
-  onVisibilityChange?.(shift);
+  document.body.classList.toggle(EXTRA_CLASS, visible);
+  onVisibilityChange?.();
 }
 
 /**
@@ -133,10 +129,8 @@ function openChooser(setMode: (value: EditorMode) => void): void {
 /**
  * Przelacznik trybu (staly pasek na gorze) i - przy pierwszym uruchomieniu - pytanie o wybor.
  * Wolane po zlozeniu paneli, wiec modal wyboru wypada juz nad dzialajacym edytorem.
- * onChange dostaje o ile przesunal sie offset centrowania: chowanie kart zmienia szerokosci
- * kolumn dokladnie tak jak przeciagniecie karty, wiec wolajacy przesuwa mape ta sama sciezka.
  */
-export function initModeUi(onChange: (offsetShift: number) => void): void {
+export function initModeUi(onChange: () => void): void {
   onVisibilityChange = onChange;
   const advancedBtn = button('Advanced', 'mode-seg', () => setMode('advanced'));
   const simplifiedBtn = button('Simplified', 'mode-seg', () => setMode('simplified'));
@@ -154,13 +148,11 @@ export function initModeUi(onChange: (offsetShift: number) => void): void {
   }
 
   function setMode(next: EditorMode): void {
-    const shift = withOffsetShift(() => {
-      mode = next;
-      applyClass();
-      syncPill();
-    });
+    mode = next;
+    applyClass();
+    syncPill();
     writeStored(next);
-    onVisibilityChange?.(shift);
+    onVisibilityChange?.();
   }
 
   syncPill();

@@ -72,43 +72,6 @@ function visibleCardsOf(box: HTMLElement): HTMLDetailsElement[] {
   return cardsOf(box).filter(isVisible);
 }
 
-// --- pomiar dla centrowania mapy ----------------------------------------------
-
-/**
- * Szerokosc kolumny w pikselach; kolumna bez WIDOCZNYCH kart daje 0, bo nie zabiera mapie
- * miejsca (jej ramka ma w layoucie stala szerokosc, ale jest przezroczysta i nie lapie klikniec).
- */
-function columnWidth(box: HTMLElement | null): number {
-  if (!box || visibleCardsOf(box).length === 0) return 0;
-  return box.getBoundingClientRect().width;
-}
-
-/** Szerokosci obu kolumn - app.ts centruje papier w wolnym obszarze miedzy nimi. */
-export function sidebarWidths(): { left: number; right: number } {
-  return { left: columnWidth(leftBox()), right: columnWidth(rightBox()) };
-}
-
-/**
- * Przesuniecie srodka wolnego obszaru wzgledem srodka okna, w tej samej konwencji co offsetX
- * w centeredPan/centerOnPaper (app.ts, dodatni = mapa idzie w lewo). Roznica sprzed i po
- * zmianie ukladu wystarcza, by przesunac widok w poziomie bez ruszania przewiniecia w pionie.
- */
-function viewOffset(): number {
-  const { left, right } = sidebarWidths();
-  return (right - left) / 2;
-}
-
-/**
- * Wykonuje zmiane ukladu i zwraca o ile przesunal sie offset centrowania. Jedna sciezka dla
- * upuszczenia karty i przelaczenia trybu (ukrycie kart tez zmienia szerokosci kolumn), zeby
- * oba zachowywaly sie tak samo: mapa jedzie w poziomie, reczne przewiniecie w pionie zostaje.
- */
-export function withOffsetShift(change: () => void): number {
-  const before = viewOffset();
-  change();
-  return viewOffset() - before;
-}
-
 // --- persystencja --------------------------------------------------------------
 
 function idsOf(box: HTMLElement | null): string[] {
@@ -223,7 +186,6 @@ export function applySavedLayout(): void {
 
 let dragged: HTMLElement | null = null;
 let dropLine: HTMLElement | null = null;
-let onLayoutChange: ((offsetShift: number) => void) | null = null;
 
 /**
  * Pusta kolumna dostaje klase zamiast :empty - wskaznik wstawienia tez jest dzieckiem kolumny.
@@ -351,16 +313,12 @@ function bindBox(box: HTMLElement): void {
     if (!dragged) return;
     e.preventDefault();
     const card = dragged;
-    // przestawienie NAJPIERW, powiadomienie potem: `f?.(arg)` nie liczy argumentu, gdy f jest
-    // nullem, wiec zapakowanie mutacji w argument opcjonalnego wywolania cicho zjadaloby caly
-    // drop u kazdego, kto zawola initLayout bez onChange
-    const shift = withOffsetShift(() => {
-      box.insertBefore(card, dropBefore(box, e.clientY));
-      endDrag();
-      syncEmpty();
-      saveLayout();
-    });
-    onLayoutChange?.(shift);
+    // mapa centruje sie wzgledem okna (v2.9), wiec przestawienie karty miedzy kolumnami
+    // nie rusza juz widoku - sama zmiana ukladu wystarczy
+    box.insertBefore(card, dropBefore(box, e.clientY));
+    endDrag();
+    syncEmpty();
+    saveLayout();
   });
 }
 
@@ -368,11 +326,9 @@ function bindBox(box: HTMLElement): void {
  * Podpina przeciaganie kart. Wolane po zlozeniu paneli - karty maja juz tresc, a przeniesienie
  * <details> jej nie rusza. Sam uklad jest juz ustawiony (applySavedLayout przy starcie modulu
  * app.ts), ale powtarzamy go tanio, gdyby ktos wolal initLayout bez tamtego kroku.
- * onChange dostaje o ile zmienil sie offset centrowania - app przesuwa widok w poziomie.
  */
-export function initLayout(onChange?: (offsetShift: number) => void): void {
+export function initLayout(): void {
   if (boxes().length < 2) return;
-  onLayoutChange = onChange ?? null;
   applySavedLayout();
   // znaczniki z applySavedLayout sprzed podpiecia nasluchu (module-level w app.ts, ten wyzej
   // wlacznie) nikt jeszcze nie mogl skonsumowac - zostawic je znaczyloby, ze pierwszy PRAWDZIWY
