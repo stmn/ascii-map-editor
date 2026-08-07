@@ -150,7 +150,8 @@ It is pay what you want, and $2 is a fair nudge if the tool saved you an afterno
 **v2.9** - auto-hiding sidebars with pin toggles, window-centered view: the map now always
 centers on the middle of the window instead of the space left between the two sidebars, so
 moving cards between columns or switching modes never shifts it, and each sidebar column can be
-unpinned to slide out of the way until the cursor comes back near its edge.
+unpinned to slide out of the way until the cursor comes back near its edge. Info notes across
+panels and dialogs now share one gray help-box style.
 
 **v2.8** - redesigned export and import dialogs (This level/Whole project scope switch, eight
 format rows with honest kept/flattened layer badges, Copy/Save file), a single `addLevel`
