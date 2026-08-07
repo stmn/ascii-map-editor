@@ -1,9 +1,17 @@
 import { Grid } from './grid';
 import { Legend } from './legend';
 import type { LegendEntry } from './legend';
-import { Layer, Level, makeLayer } from './level';
+import { Layer, Level, levelUsedChars, makeLayer } from './level';
 
 export type { LegendEntry };
+
+/**
+ * Zwrot parseProject: level plus flaga, czy zrodlo NIOSLO wlasna legende (pole "legend" w v2/v3
+ * json). Wolajacy potrzebuje tej flagi, zeby wiedziec czy plikowa legenda ma wygrac w calosci, czy
+ * wolno scalic ja ze STARA legenda uzytkownika (patrz mergeLegendKeepingOld w legend.ts,
+ * uzywane przez Replace current level w importModal.ts).
+ */
+export interface ParsedLevel { level: Level; explicitLegend: boolean }
 
 export function serializeProject(level: Level): string {
   return JSON.stringify({
@@ -30,34 +38,49 @@ function single(grid: Grid, legend: LegendEntry[] = []): Level {
   return levelOf([makeLayer('main', grid)], legend);
 }
 
+/**
+ * Jedyna sciezka konczaca parseProject (kazdy return leci tedy): dopelnia legende o uzyte znaki
+ * (auto-paleta dla nowych) NIEZALEZNIE od explicitLegend - plik z wlasna legenda tez moze uzywac
+ * znaku, ktorego w niej nie ma. Bez tego dosyncowania kazde zrodlo bez jawnej legendy (plain text,
+ * v1 array-text/array-array, warianty map/rows/tiles/cells) wracalo z PUSTA legenda - to byl bug
+ * "po Load mapa traci kolory".
+ */
+function finish(level: Level, explicitLegend: boolean): ParsedLevel {
+  level.legend.syncWith(levelUsedChars(level));
+  return { level, explicitLegend };
+}
+
 // tolerancyjny odczyt: v3 + v2 + znane warianty v1/obce
-export function parseProject(json: string): Level {
+export function parseProject(json: string): ParsedLevel {
   let data: unknown;
 
   try {
     data = JSON.parse(json);
   } catch {
-    // format tekstowy v1: surowy tekst z liniami oddzielonymi newline
+    // format tekstowy v1: surowy tekst z liniami oddzielonymi newline - bez jawnej legendy
     if (json.trim().length === 0) {
       throw new Error('Unrecognized map format');
     }
     const lines = json.split('\n').map((line) => line.replace(/\r$/, ''));
-    return single(Grid.fromLines(lines, 0, 0));
+    return finish(single(Grid.fromLines(lines, 0, 0)), false);
   }
 
   if (Array.isArray(data) && data.every((l) => typeof l === 'string')) {
-    return single(Grid.fromLines(data as string[]));
+    return finish(single(Grid.fromLines(data as string[])), false);
   }
 
-  // format array-array v1: tablica tablic znakow
+  // format array-array v1: tablica tablic znakow - bez jawnej legendy
   if (Array.isArray(data) && data.every((row) => Array.isArray(row) && (row as unknown[]).every((cell) => typeof cell === 'string'))) {
     const lines = (data as string[][]).map((row) => row.map((cell) => (cell || ' ')[0]).join(''));
-    return single(Grid.fromLines(lines));
+    return finish(single(Grid.fromLines(lines)), false);
   }
 
   if (typeof data === 'object' && data !== null) {
     const o = data as Record<string, unknown>;
-    const legend = Array.isArray(o.legend) ? (o.legend as LegendEntry[]) : [];
+    // jawna legenda = pole "legend" faktycznie obecne w pliku (nawet puste []) - to ODROZNIA
+    // v2/v3 json od wariantow ponizej (map/data/rows/tiles/cells), ktore go nigdy nie znaja
+    const explicitLegend = Array.isArray(o.legend);
+    const legend = explicitLegend ? (o.legend as LegendEntry[]) : [];
 
     // v3: warstwy
     if (Array.isArray(o.layers)) {
@@ -71,20 +94,23 @@ export function parseProject(json: string): Level {
         layer.grid = Grid.fromLines(raw.lines as string[], Number(origin[0]) || 0, Number(origin[1]) || 0);
         layers.push(layer);
       }
-      if (layers.length) return levelOf(layers, legend);
+      if (layers.length) return finish(levelOf(layers, legend), explicitLegend);
     }
 
     // v2: pojedyncza mapa
     if (Array.isArray(o.lines) && (o.lines as unknown[]).every((l) => typeof l === 'string')) {
       const origin = Array.isArray(o.origin) ? (o.origin as number[]) : [0, 0];
-      return single(Grid.fromLines(o.lines as string[], Number(origin[0]) || 0, Number(origin[1]) || 0), legend);
+      return finish(
+        single(Grid.fromLines(o.lines as string[], Number(origin[0]) || 0, Number(origin[1]) || 0), legend),
+        explicitLegend,
+      );
     }
     for (const key of ['map', 'data', 'rows']) {
       if (Array.isArray(o[key]) && (o[key] as unknown[]).every((l) => typeof l === 'string')) {
-        return single(Grid.fromLines(o[key] as string[]));
+        return finish(single(Grid.fromLines(o[key] as string[])), false);
       }
     }
-    if (typeof o.tiles === 'string') return single(Grid.fromLines((o.tiles as string).split('\n')));
+    if (typeof o.tiles === 'string') return finish(single(Grid.fromLines((o.tiles as string).split('\n'))), false);
     if (Array.isArray(o.cells)) {
       const g = new Grid();
       for (const c of o.cells as Record<string, unknown>[]) {
@@ -93,7 +119,7 @@ export function parseProject(json: string): Level {
           g.set(c.x, c.y, ch);
         }
       }
-      if (!g.isEmpty()) return single(g);
+      if (!g.isEmpty()) return finish(single(g), false);
     }
   }
   throw new Error('Unrecognized map format');

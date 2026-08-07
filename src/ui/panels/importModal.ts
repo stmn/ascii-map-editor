@@ -4,6 +4,7 @@
 import { replaceCommand, snapshotLevel } from '../../core/commands';
 import { DetectedImport, detectImport } from '../../core/importDetect';
 import { Level, MAX_LAYERS } from '../../core/level';
+import { mergeLegendKeepingOld } from '../../core/legend';
 import { importProject, nextName, type WorkspaceStore } from '../../core/store';
 import { decompressXpBytes } from '../../export/rexpaint';
 import { button, el } from '../dom';
@@ -35,8 +36,10 @@ export interface ImportPanel {
    * Wspolna sciezka podmiany poziomu po udanym imporcie. Wystawiona na zewnatrz dla karty Map
    * (tryb Simplified), ktorej przycisk Load jest tym samym importem wklejonego tekstu - dzieki
    * temu obie drogi maja identyczne migawki historii, toasty i odswiezenia kart.
+   * explicitLegend: czy `level` przyniosl wlasna legende (v2/v3 json, .xp) - gdy nie, znaki
+   * obecne w DOTYCHCZASOWEJ legendzie zachowuja swoj name/color (patrz mergeLegendKeepingOld).
    */
-  applyImported(level: Level): void;
+  applyImported(level: Level, explicitLegend: boolean): void;
 }
 
 function countCells(level: Level): number {
@@ -62,7 +65,12 @@ export function initImportModal(ctx: PanelsCtx): ImportPanel {
   let importModal: ModalHandle | null = null;
 
   /** Podmiana poziomu po udanym imporcie - jedyna implementacja tej sciezki (Replace i karta Map). */
-  function applyImported(level: Level): void {
+  function applyImported(level: Level, explicitLegend: boolean): void {
+    // Zrodlo bez jawnej legendy (plain text, v1, warianty map/rows/tiles/cells) nie ma prawa
+    // zresetowac wlasnych ustawien uzytkownika - znaki obecne w DOTYCHCZASOWEJ legendzie trzymaja
+    // swoj name/color, nowe zostaja z auto-palety (level.legend juz jest po syncWith - parseProject).
+    // Plik z WLASNA legenda (v2/v3 json, .xp) wygrywa w calosci - bez zmian, jak dotad.
+    if (!explicitLegend) level.legend = mergeLegendKeepingOld(state.level.legend, level.legend);
     // import POZIOMU jest odwracalny (inaczej niz przelaczenie poziomu czy import projektu),
     // wiec zanim podmienimy stan, robimy migawke tego, co uzytkownik wlasnie traci
     const before = snapshotLevel(state.level);
@@ -135,9 +143,13 @@ export function initImportModal(ctx: PanelsCtx): ImportPanel {
     const row = el('div', 'btn-row');
     switch (detected.kind) {
       case 'level': {
-        const { level } = detected;
-        row.append(button('Replace current level', 'success', guarded(() => applyImported(level))));
+        const { level, explicitLegend } = detected;
+        row.append(button(
+          'Replace current level', 'success', guarded(() => applyImported(level, explicitLegend)),
+        ));
         const ready = !!(projectCtx.store && projectCtx.projectId);
+        // Add as new level: bez merge legendy - to nowy poziom, dostaje dokladnie to co przyszlo
+        // (auto-paleta gdy bez jawnej legendy, plik w calosci gdy z jawna) - patrz addAsNewLevel.
         const add = button('Add as new level', '', guarded(() => {
           const { store, projectId } = projectCtx;
           if (store && projectId) return addAsNewLevel(store, projectId, level);

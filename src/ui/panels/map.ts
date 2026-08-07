@@ -8,7 +8,7 @@
 // toasty, odswiezenia), a Clear przez wspolne applyReplace (jak Clear layer w karcie Draw).
 import type { Bounds } from '../../core/grid';
 import { unionBounds, type Level } from '../../core/level';
-import { parseProject } from '../../core/project';
+import { parseProject, type ParsedLevel } from '../../core/project';
 import { LegacyFormat, exportLegacyFlat } from '../../export/legacy';
 import { button, checkboxRow, el, labeledStack, numberInput, readNumber } from '../dom';
 import { isExtraVisible, isSimplified, setExtraVisible } from '../mode';
@@ -77,7 +77,7 @@ export interface MapPanel {
 }
 
 export function initMap(
-  ctx: PanelsCtx, mapBox: HTMLElement, applyImported: (level: Level) => void,
+  ctx: PanelsCtx, mapBox: HTMLElement, applyImported: (level: Level, explicitLegend: boolean) => void,
 ): MapPanel {
   const { state } = ctx;
 
@@ -273,9 +273,9 @@ export function initMap(
 
   /** Wczytanie tresci pola przez wspolny parser - .json, plain text i obie tablice z v1. */
   function load(): void {
-    let level: Level;
+    let parsed: ParsedLevel;
     try {
-      level = parseProject(text.value);
+      parsed = parseProject(text.value);
     } catch (e) {
       // blad zostawia tresc pola i fokus nietkniete, zeby dalo sie ja poprawic
       toast(errorMessage(e), 'error');
@@ -286,8 +286,9 @@ export function initMap(
     text.blur();
     userEdited = false;
     // applyImported() idzie przez applyLevelToPanels, ktory sam wola syncMapSize (patrz context.ts) -
-    // osobne wywolanie tutaj byloby duplikatem tej samej sciezki.
-    applyImported(level);
+    // osobne wywolanie tutaj byloby duplikatem tej samej sciezki. explicitLegend informuje ja, czy
+    // wolno scalic legende ze STARA (plain text z pola nigdy jej nie niesie - patrz importModal.ts).
+    applyImported(parsed.level, parsed.explicitLegend);
   }
 
   /** Czy na calym poziomie nie ma ANI JEDNEJ komorki - czyszczenie pustej mapy nie ma sensu. */

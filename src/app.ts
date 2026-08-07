@@ -219,7 +219,7 @@ async function restoreWorkspace(): Promise<void> {
   if (!record) return; // magazyn zgubil wlasnie zapisany rekord - startujemy od pustego poziomu
   setCurrentLevel(record);
   try {
-    applyLevelToState(state, parseProject(record.data));
+    applyLevelToState(state, parseProject(record.data).level);
   } catch (e) {
     toast(errorMessage(e), 'error');
     // uszkodzony rekord: pusty poziom, ale rekord zostaje biezacy - pierwszy zapis go naprawi

@@ -17,6 +17,8 @@ describe('detectImport', () => {
     if (detected.kind !== 'level') throw new Error('unreachable');
     expect(detected.level.layers).toHaveLength(2);
     expect(detected.summary).toBe('Level 2x2, 2 layers');
+    // .xp niesie wlasne kolory - to jawna legenda
+    expect(detected.explicitLegend).toBe(true);
   });
 
   it('project v1 (plik pojedynczego projektu) -> project', () => {
@@ -88,6 +90,8 @@ describe('detectImport', () => {
     if (detected.kind !== 'level') throw new Error('unreachable');
     expect(detected.level.layers).toHaveLength(3);
     expect(detected.summary).toBe('Level 24x12, 3 layers');
+    // serializeProject zawsze pisze pole "legend" - v3 json niesie jawna legende
+    expect(detected.explicitLegend).toBe(true);
   });
 
   it('v1 array-text (gola tablica stringow) -> level, liczba pojedyncza "1 layer"', () => {
@@ -98,6 +102,7 @@ describe('detectImport', () => {
     if (detected.kind !== 'level') throw new Error('unreachable');
     expect(detected.level.layers).toHaveLength(1);
     expect(detected.summary).toBe('Level 5x3, 1 layer');
+    expect(detected.explicitLegend).toBe(false);
   });
 
   it('surowy tekst (v1 plain text) -> level', () => {
@@ -105,6 +110,7 @@ describe('detectImport', () => {
     expect(detected.kind).toBe('level');
     if (detected.kind !== 'level') throw new Error('unreachable');
     expect(detected.summary).toBe('Level 2x2, 1 layer');
+    expect(detected.explicitLegend).toBe(false);
   });
 
   it('smieci -> throw Unrecognized import data', () => {

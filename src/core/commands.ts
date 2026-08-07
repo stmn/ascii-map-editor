@@ -52,7 +52,7 @@ export function replaceCommand(
   label: string, before: LevelSnapshot, after: LevelSnapshot, apply: (level: Level) => void,
 ): Command {
   function restore(snap: LevelSnapshot): void {
-    const level = parseProject(snap.json);
+    const { level } = parseProject(snap.json);
     level.layers.forEach((l, i) => {
       const id = snap.layerIds[i];
       if (id) l.id = id;

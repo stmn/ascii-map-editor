@@ -142,9 +142,9 @@ export function initProject(ctx: PanelsCtx, box: HTMLElement, modals: LevelIoMod
     const previous = getCurrentLevel();
     if (previous && previous.id === record.id) return true;
     const fresh = await freshRecord(store, record);
-    let level;
+    let level: Level;
     try {
-      level = parseProject(fresh.data);
+      level = parseProject(fresh.data).level;
     } catch (e) {
       toast(errorMessage(e), 'error');
       return false;

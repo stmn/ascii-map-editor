@@ -205,7 +205,7 @@ export async function ensureSeed(
   let migrated: boolean;
   if (legacyJson !== null) {
     try {
-      data = serializeProject(parseProject(legacyJson));
+      data = serializeProject(parseProject(legacyJson).level);
       migrated = true;
     } catch {
       data = serializeProject(createLevel());

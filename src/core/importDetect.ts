@@ -8,7 +8,10 @@ import { parseProjectFile } from './store';
 import { parseXpBytes } from '../export/rexpaint';
 
 export type DetectedImport =
-  | { kind: 'level'; level: Level; summary: string }
+  // explicitLegend: czy zrodlo nioslo WLASNA legende (v2/v3 json pole "legend", albo kolory
+  // wczytane z pliku .xp) - Replace current level (importModal.ts) uzywa tego, zeby wiedziec czy
+  // wolno scalic ja ze STARA legenda uzytkownika, czy plikowa legenda ma wygrac w calosci
+  | { kind: 'level'; level: Level; explicitLegend: boolean; summary: string }
   | { kind: 'project'; name: string; levels: number; json: string; summary: string }
   | { kind: 'projects'; projects: number; levels: number; json: string; summary: string };
 
@@ -34,7 +37,8 @@ export function detectImport(payload: string | Uint8Array): DetectedImport {
     const { layers, colors } = parseXpBytes(payload);
     const level: Level = { layers: layers.map((l) => makeLayer(l.name, l.grid)), legend: new Legend() };
     for (const [ch, hex] of colors) level.legend.upsert(ch, { color: hex });
-    return { kind: 'level', level, summary: levelSummary(level) };
+    // .xp niesie wlasne kolory komorek - to jawna legenda, tak samo jak pole "legend" w v2/v3 json
+    return { kind: 'level', level, explicitLegend: true, summary: levelSummary(level) };
   }
 
   // krok 1: naglowek project-v1 / legacy-workspace - ta sama sciezka rozpoznania co importProject
@@ -62,8 +66,8 @@ export function detectImport(payload: string | Uint8Array): DetectedImport {
 
   // krok 2: level.json (v3/v2/v1 - warianty tablicowe, plain text) przez tolerancyjny parseProject
   try {
-    const level = parseProject(payload);
-    return { kind: 'level', level, summary: levelSummary(level) };
+    const { level, explicitLegend } = parseProject(payload);
+    return { kind: 'level', level, explicitLegend, summary: levelSummary(level) };
   } catch {
     throw new Error('Unrecognized import data');
   }
