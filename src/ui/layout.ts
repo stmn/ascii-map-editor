@@ -20,6 +20,9 @@ const CARD_GAP = 12;
 export interface SidebarLayout {
   left: string[];
   right: string[];
+  /** Id sekcji aktualnie zwinietych (<details> bez open). Brak pola w starym zapisie czyta
+   * sie jak pusta lista - wszystko otwarte, wstecznie zgodne. */
+  closed: string[];
 }
 
 // --- dostep do kolumn i kart ---------------------------------------------------
@@ -37,13 +40,13 @@ function boxes(): HTMLElement[] {
 }
 
 /** Karty danej kolumny w kolejnosci od gory; wskaznik wstawienia nie jest karta, wiec odpada. */
-function cardsOf(box: HTMLElement): HTMLElement[] {
-  return [...box.querySelectorAll<HTMLElement>(':scope > details[data-section]')];
+function cardsOf(box: HTMLElement): HTMLDetailsElement[] {
+  return [...box.querySelectorAll<HTMLDetailsElement>(':scope > details[data-section]')];
 }
 
 /** Wszystkie karty obu kolumn w kolejnosci dokumentu (najpierw lewa, potem prawa). */
-function allCards(): HTMLElement[] {
-  return [...document.querySelectorAll<HTMLElement>('.sidebar > details[data-section]')];
+function allCards(): HTMLDetailsElement[] {
+  return [...document.querySelectorAll<HTMLDetailsElement>('.sidebar > details[data-section]')];
 }
 
 function sectionId(card: HTMLElement): string {
@@ -51,7 +54,7 @@ function sectionId(card: HTMLElement): string {
 }
 
 /** Szukamy po dataset, a nie selektorem - id z localStorage moze zawierac cokolwiek. */
-function findCard(id: string): HTMLElement | null {
+function findCard(id: string): HTMLDetailsElement | null {
   return allCards().find((card) => sectionId(card) === id) ?? null;
 }
 
@@ -65,7 +68,7 @@ function isVisible(card: HTMLElement): boolean {
 }
 
 /** Karty kolumny, ktore realnie widac - reszta modulu operuje na pelnej liscie (cardsOf). */
-function visibleCardsOf(box: HTMLElement): HTMLElement[] {
+function visibleCardsOf(box: HTMLElement): HTMLDetailsElement[] {
   return cardsOf(box).filter(isVisible);
 }
 
@@ -112,9 +115,17 @@ function idsOf(box: HTMLElement | null): string[] {
   return box ? cardsOf(box).map(sectionId) : [];
 }
 
+/**
+ * Sekcje aktualnie zwiniete - liczone po WSZYSTKICH kartach, nie tylko widocznych: karta
+ * ukryta przez tryb (map/extra w Advanced) ma zachowac swoj zapisany stan mimo display:none.
+ */
+function closedIds(): string[] {
+  return allCards().filter((card) => !card.open).map(sectionId);
+}
+
 /** Uklad odczytany z DOM - jedyne zrodlo prawdy przy zapisie. */
 export function currentLayout(): SidebarLayout {
-  return { left: idsOf(leftBox()), right: idsOf(rightBox()) };
+  return { left: idsOf(leftBox()), right: idsOf(rightBox()), closed: closedIds() };
 }
 
 function idList(value: unknown): string[] {
@@ -132,7 +143,7 @@ function readLayout(): SidebarLayout | null {
     const parsed: unknown = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object') return null;
     const rec = parsed as Record<string, unknown>;
-    return { left: idList(rec.left), right: idList(rec.right) };
+    return { left: idList(rec.left), right: idList(rec.right), closed: idList(rec.closed) };
   } catch {
     return null;
   }
@@ -147,9 +158,32 @@ function saveLayout(): void {
 }
 
 /**
+ * Karty, ktorych najblizsze zdarzenie toggle jest echem programowej zmiany z setOpenSilently,
+ * nie realnym dzialaniem uzytkownika. Zdarzenie toggle na <details> jest kolejkowane
+ * asynchronicznie (task w petli zdarzen, nie mikrotask) - zwykla flaga zerowana zaraz po
+ * applyLayout zdazylaby wrocic na false, zanim zdarzenie w ogole doleci, wiec zamiast niej
+ * kazda programowa zmiana zostawia tu swoj wlasny znacznik, a nasluch (bindToggle) go konsumuje.
+ */
+const suppressedToggle = new Set<HTMLDetailsElement>();
+
+/**
+ * Otwiera/zwija karte bez odpalenia zapisu przez nasluch toggle. Przegladarka i tak nie odpala
+ * toggle przy ustawieniu tej samej wartosci (zmienia sie tylko obecnosc atrybutu open), wiec
+ * znacznik dokladamy tylko przy realnej zmianie - kolejne wywolanie z tym samym stanem jest
+ * tanim no-op i niczego nie zostawia w suppressedToggle.
+ */
+function setOpenSilently(card: HTMLDetailsElement, open: boolean): void {
+  if (card.open === open) return;
+  suppressedToggle.add(card);
+  card.open = open;
+}
+
+/**
  * Ustawienie kart wedlug zapisu. Nieznane id sa pomijane, a sekcje spoza zapisu
  * (starszy wpis, nowsza wersja edytora) laduja na koncu prawej kolumny - dzieki temu
- * nowa karta zawsze gdzies jest, zamiast zniknac z widoku.
+ * nowa karta zawsze gdzies jest, zamiast zniknac z widoku. Otwarcie/zwiniecie idzie osobnym
+ * przebiegiem po WSZYSTKICH kartach (nie tylko przed chwila przestawionych), zeby dzialalo
+ * tak samo przy pierwszym ukladzie i przy powtornym wywolaniu z initLayout.
  */
 function applyLayout(saved: SidebarLayout): void {
   const left = leftBox(), right = rightBox();
@@ -169,6 +203,8 @@ function applyLayout(saved: SidebarLayout): void {
   for (const card of allCards()) {
     if (!placed.has(sectionId(card))) right.appendChild(card);
   }
+  const closed = new Set(saved.closed);
+  for (const card of allCards()) setOpenSilently(card, !closed.has(sectionId(card)));
 }
 
 /**
@@ -285,6 +321,18 @@ function bindCard(card: HTMLElement): void {
   summary.addEventListener('dragend', endDrag);
 }
 
+/**
+ * Zapis przy kazdej realnej zmianie zwiniecia karty. Programowe zmiany z applyLayout
+ * (setOpenSilently) konsumuja swoj znacznik z suppressedToggle i nie licza sie jako dzialanie
+ * uzytkownika - tu leci tylko to, co user faktycznie kliknal.
+ */
+function bindToggle(card: HTMLDetailsElement): void {
+  card.addEventListener('toggle', () => {
+    if (suppressedToggle.delete(card)) return;
+    saveLayout();
+  });
+}
+
 function bindBox(box: HTMLElement): void {
   box.addEventListener('dragover', (e) => {
     if (!dragged) return;
@@ -326,6 +374,10 @@ export function initLayout(onChange?: (offsetShift: number) => void): void {
   if (boxes().length < 2) return;
   onLayoutChange = onChange ?? null;
   applySavedLayout();
-  for (const card of allCards()) bindCard(card);
+  // znaczniki z applySavedLayout sprzed podpiecia nasluchu (module-level w app.ts, ten wyzej
+  // wlacznie) nikt jeszcze nie mogl skonsumowac - zostawic je znaczyloby, ze pierwszy PRAWDZIWY
+  // klik uzytkownika w te karte trafi na cudzy znacznik i cicho przepadnie bez zapisu
+  suppressedToggle.clear();
+  for (const card of allCards()) { bindCard(card); bindToggle(card); }
   for (const box of boxes()) bindBox(box);
 }
