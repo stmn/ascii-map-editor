@@ -675,11 +675,6 @@ button:disabled:active {
   background: #e5e7eb;
 }
 
-.scope-select {
-  flex: 1;
-  min-width: 0;
-}
-
 /* Project: wybor projektu, lista poziomow z miniaturami i eksport/import calego projektu. */
 .project-select {
   display: block;

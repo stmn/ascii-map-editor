@@ -52,10 +52,11 @@ locally as you draw.
   want, with a thumbnail per level so you can find the one you need at a glance.
 - Autosave. Close the tab, come back, your level is still there.
 - An Export dialog with a This level / Whole project switch: export the current level to any
-  of eight formats - TXT, CSV, KaPlay, Godot, Tiled `.tmx`, REXPaint `.xp`, a level `.json`
-  that keeps every layer and the legend, or Legacy v1 - each one labeled up front with whether
-  it keeps your layers or flattens them, with a live preview and Copy/Save file buttons; or
-  export the whole current project (every level it holds) as one `project.json`.
+  of nine formats - TXT, Array of strings, Array of arrays, CSV, KaPlay, Godot, Tiled `.tmx`,
+  REXPaint `.xp`, or a level `.json` that keeps every layer and the legend - each one labeled
+  up front with whether it keeps your layers or flattens them, with a live preview and
+  Copy/Save file buttons; or export the whole current project (every level it holds) as one
+  `project.json`.
 - An Import dialog that just wants a file or pasted text: it figures out on its own whether
   you gave it a level, a whole project, or an old `workspace.json` backup, shows a one-line
   summary of what it found, and offers Replace current level, Add as new level, or Add
@@ -150,7 +151,8 @@ It is pay what you want, and $2 is a fair nudge if the tool saved you an afterno
 **v2.10** - the original v1 maze and dungeon generators are back (BSP rooms, doors): the
 dungeon generator is now a BSP room splitter ported from v1 for more varied room shapes, and
 the maze generator is a recursive-division maze with a `D` door cell top and bottom, also
-ported from v1.
+ported from v1. In the Export dialog, the Legacy v1 export row is now two explicit rows: Array
+of strings and Array of arrays.
 
 **v2.9** - auto-hiding sidebars with pin toggles, window-centered view: the map now always
 centers on the middle of the window instead of the space left between the two sidebars, so

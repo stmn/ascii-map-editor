@@ -6,11 +6,11 @@
 // na aktualnie wybrany format/zakres - nie ma osobnej pary przyciskow na kazdy wiersz.
 //
 // Fokus klawiatury (fix round 1, finding 1): kontrolki, ktore MOGA miec fokus (przyciski pigulek,
-// radia formatow, select wariantu Legacy, textarea podgladu, Copy/Save) sa budowane RAZ i zyja
-// przez caly czas zycia modalu - zmiana wyboru przelacza tylko klasy/checked/aria na istniejacych
-// wezlach (jak setActiveLayer w layers.ts), nigdy ich nie zastepuje. Przebudowie (replaceChildren)
-// podlega WYLACZNIE sekcja opcji formatu (optionsSlot) i to tylko przy zmianie samego formatu -
-// wtedy fokus i tak stoi na klikanym radiu, ktorego przebudowa nie dotyka.
+// radia formatow, textarea podgladu, Copy/Save) sa budowane RAZ i zyja przez caly czas zycia
+// modalu - zmiana wyboru przelacza tylko klasy/checked/aria na istniejacych wezlach (jak
+// setActiveLayer w layers.ts), nigdy ich nie zastepuje. Przebudowie (replaceChildren) podlega
+// WYLACZNIE sekcja opcji formatu (optionsSlot) i to tylko przy zmianie samego formatu - wtedy
+// fokus i tak stoi na klikanym radiu, ktorego przebudowa nie dotyka.
 import { Bounds, Grid } from '../../core/grid';
 import { activeGrid } from '../../core/editorState';
 import { flattenLayers, unionBounds } from '../../core/level';
@@ -20,7 +20,7 @@ import { exportKaplay } from '../../export/kaplay';
 import { exportGodot } from '../../export/godot';
 import { exportTmx } from '../../export/tiled';
 import { exportXp } from '../../export/rexpaint';
-import { LegacyFormat, exportLegacy } from '../../export/legacy';
+import { exportLegacy } from '../../export/legacy';
 import { exportProject, type WorkspaceStore } from '../../core/store';
 import { button, el, labeled } from '../dom';
 import { openModal } from '../modal';
@@ -40,7 +40,7 @@ export interface ExportPanel {
 
 type Scope = 'level' | 'project';
 type LayersMode = 'merged' | 'active' | 'each';
-type FormatKey = 'txt' | 'csv' | 'kaplay' | 'godot' | 'tmx' | 'xp' | 'json' | 'legacy';
+type FormatKey = 'txt' | 'array-strings' | 'array-arrays' | 'csv' | 'kaplay' | 'godot' | 'tmx' | 'xp' | 'json';
 
 interface FormatSpec {
   key: FormatKey;
@@ -51,8 +51,6 @@ interface FormatSpec {
   mime: string;
   /** null = format nie ma opcji Layers (bierze zawsze cale warstwy - Godot/tmx/xp/json). */
   layerChoices: LayersMode[] | null;
-  /** Tylko Legacy: druga linia opcji z wyborem wariantu array-text/array-array. */
-  legacyVariant: boolean;
 }
 
 const LAYERS_ALL: LayersMode[] = ['merged', 'active', 'each'];
@@ -67,35 +65,39 @@ const LAYERS_LABELS: Record<LayersMode, string> = {
 const FORMATS: FormatSpec[] = [
   {
     key: 'txt', label: 'TXT', desc: 'Plain text grid, one char per cell', badge: 'flattened',
-    filename: 'map.txt', mime: 'text/plain', layerChoices: LAYERS_ALL, legacyVariant: false,
+    filename: 'map.txt', mime: 'text/plain', layerChoices: LAYERS_ALL,
+  },
+  {
+    key: 'array-strings', label: 'Array of strings', desc: 'JS array, one quoted string per row', badge: 'flattened',
+    filename: 'array-strings.txt', mime: 'text/plain', layerChoices: LAYERS_NO_EACH,
+  },
+  {
+    key: 'array-arrays', label: 'Array of arrays', desc: 'JS array of arrays, one char per cell', badge: 'flattened',
+    filename: 'array-arrays.txt', mime: 'text/plain', layerChoices: LAYERS_NO_EACH,
   },
   {
     key: 'csv', label: 'CSV', desc: 'Comma separated grid', badge: 'flattened',
-    filename: 'map.csv', mime: 'text/csv', layerChoices: LAYERS_ALL, legacyVariant: false,
+    filename: 'map.csv', mime: 'text/csv', layerChoices: LAYERS_ALL,
   },
   {
     key: 'kaplay', label: 'KaPlay', desc: 'addLevel snippet for kaplayjs.com', badge: 'flattened',
-    filename: 'kaplay.js', mime: 'text/javascript', layerChoices: LAYERS_NO_EACH, legacyVariant: false,
+    filename: 'kaplay.js', mime: 'text/javascript', layerChoices: LAYERS_NO_EACH,
   },
   {
     key: 'godot', label: 'Godot', desc: 'GDScript dictionaries, one per layer', badge: 'kept',
-    filename: 'godot.gd', mime: 'text/plain', layerChoices: null, legacyVariant: false,
+    filename: 'godot.gd', mime: 'text/plain', layerChoices: null,
   },
   {
     key: 'tmx', label: 'Tiled .tmx', desc: 'One tile layer per editor layer', badge: 'kept',
-    filename: 'map.tmx', mime: 'application/xml', layerChoices: null, legacyVariant: false,
+    filename: 'map.tmx', mime: 'application/xml', layerChoices: null,
   },
   {
     key: 'xp', label: 'REXPaint .xp', desc: 'Native multi-layer format', badge: 'kept',
-    filename: 'map.xp', mime: 'application/octet-stream', layerChoices: null, legacyVariant: false,
+    filename: 'map.xp', mime: 'application/octet-stream', layerChoices: null,
   },
   {
     key: 'json', label: 'Level .json', desc: 'Full level for re-import: layers and legend', badge: 'kept',
-    filename: 'level.json', mime: 'application/json', layerChoices: null, legacyVariant: false,
-  },
-  {
-    key: 'legacy', label: 'Legacy v1', desc: 'Array formats of the original editor', badge: 'flattened',
-    filename: 'legacy.txt', mime: 'text/plain', layerChoices: LAYERS_NO_EACH, legacyVariant: true,
+    filename: 'level.json', mime: 'application/json', layerChoices: null,
   },
 ];
 
@@ -107,7 +109,6 @@ export function initExportModal(ctx: PanelsCtx): ExportPanel {
   let scope: Scope = 'level';
   let format: FormatKey = 'txt';
   let layersMode: LayersMode = 'merged';
-  let legacyVariant: LegacyFormat = 'array-text';
   let projectCtx: ExportProjectContext = {};
   let projectName: string | null = null;
   let fetchToken = 0;
@@ -174,8 +175,10 @@ export function initExportModal(ctx: PanelsCtx): ExportPanel {
         return exportTmx(state.level);
       case 'json':
         return serializeProject(state.level);
-      case 'legacy':
-        return exportLegacy(modeGrid(merged), legacyVariant, bounds);
+      case 'array-strings':
+        return exportLegacy(modeGrid(merged), 'array-text', bounds);
+      case 'array-arrays':
+        return exportLegacy(modeGrid(merged), 'array-array', bounds);
       case 'xp':
         return xpPreview();
     }
@@ -227,22 +230,6 @@ export function initExportModal(ctx: PanelsCtx): ExportPanel {
   const actionsRow = el('div', 'btn-row');
   actionsRow.append(copyBtn, saveBtn);
 
-  // --- Legacy: select wariantu (array-text/array-array), budowany raz - wartosc przezywa otwarcia. ---
-  const legacySelect = el('select', 'scope-select');
-  for (const [value, label] of [
-    ['array-text', 'Array of strings'], ['array-array', 'Array of arrays'],
-  ] as const) {
-    const option = el('option', undefined, label);
-    option.value = value;
-    legacySelect.append(option);
-  }
-  legacySelect.setAttribute('aria-label', 'Legacy format');
-  legacySelect.addEventListener('change', () => {
-    legacyVariant = legacySelect.value as LegacyFormat;
-    // sama zmiana wariantu nie rusza struktury opcji - odswiezamy tylko podglad/akcje
-    refreshLevelActions(currentSpec());
-  });
-
   /** Podglad, wspolny dla kazdego formatu This level - budowany raz, przenoszony miedzy renderami. */
   const previewText = el('textarea', 'modal-text');
   previewText.readOnly = true;
@@ -273,17 +260,16 @@ export function initExportModal(ctx: PanelsCtx): ExportPanel {
     }
   }
 
-  /** Sekcja opcji formatu (Layers + ew. wariant Legacy) - JEDYNA czesc This level, ktora
-   *  przebudowujemy w calosci, bo jej sklad realnie zalezy od formatu. Fokus w tym momencie
-   *  stoi na klikanym radiu wyzej, wiec przebudowa niczego mu nie zabiera. */
+  /** Sekcja opcji formatu (na razie tylko Layers) - JEDYNA czesc This level, ktora przebudowujemy
+   *  w calosci, bo jej sklad realnie zalezy od formatu. Fokus w tym momencie stoi na klikanym
+   *  radiu wyzej, wiec przebudowa niczego mu nie zabiera. */
   function rebuildOptions(spec: FormatSpec): void {
     optionsSlot.replaceChildren();
     layersBtns = [];
     if (spec.layerChoices) optionsSlot.append(labeled('Layers', buildLayersPill(spec.layerChoices)));
-    if (spec.legacyVariant) optionsSlot.append(labeled('Format', legacySelect));
   }
 
-  /** Podglad + Copy/Save dla This level - wolane po kazdej zmianie (format/warstwy/wariant). */
+  /** Podglad + Copy/Save dla This level - wolane po kazdej zmianie (format/warstwy). */
   function refreshLevelActions(spec: FormatSpec): void {
     previewText.value = safePreview(spec);
     copyBtn.disabled = spec.key === 'xp';
@@ -324,7 +310,7 @@ export function initExportModal(ctx: PanelsCtx): ExportPanel {
     format = key;
     const spec = currentSpec();
     // klamruje layersMode do tego, co dany format wspiera (np. "each" zostawione po TXT nie
-    // moze zostac wybrane niewidocznie pod KaPlay/Legacy, ktore go nie oferuja)
+    // moze zostac wybrane niewidocznie pod KaPlay/Array of strings/Array of arrays, ktore go nie oferuja)
     if (spec.layerChoices && !spec.layerChoices.includes(layersMode)) layersMode = 'merged';
     syncFormatRows();
     rebuildOptions(spec);

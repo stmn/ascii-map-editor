@@ -53,9 +53,10 @@ itch.io-ready HTML project (`index.html` as the entry point) and it also contain
   dungeon - it sets its target room count and the generator splits rooms until it reaches that
   target or the split stops being geometrically possible, so a small map or a large min room
   size may end up with fewer rooms than requested.
-- Export opens a dialog with a This level / Whole project switch and eight format rows (TXT,
-  CSV, KaPlay, Godot, Tiled, REXPaint, Level JSON, Legacy v1), each one saying up front whether
-  it keeps your layers or flattens them, plus a live preview and Copy/Save file buttons.
+- Export opens a dialog with a This level / Whole project switch and nine format rows (TXT,
+  Array of strings, Array of arrays, CSV, KaPlay, Godot, Tiled, REXPaint, Level JSON), each one
+  saying up front whether it keeps your layers or flattens them, plus a live preview and
+  Copy/Save file buttons.
 - Import opens a dialog: load a file or paste text, and it auto-detects what it is (a level, a
   project, an old workspace backup, or a REXPaint `.xp`), then offers the actions that make
   sense for it - Replace current level, Add as new level, or Add project(s).
@@ -448,8 +449,9 @@ Each layer keeps its own grid and its own bounding box, so one layer can be smal
 offset from another. Every export that lays multiple layers into the same file - Tiled TMX, the
 Godot `LEVELS` dict, and the `.xp` binary - uses the union of ALL layers' bounding boxes
 (visible and hidden alike) as a common frame, so every layer's lines come out the same width and
-height and line up cell for cell. TXT, CSV and Legacy (v1) in the Export dialog use that same
-union bounds for every Layers option (All merged, Active layer, or Each layer separately), so a
+height and line up cell for cell. TXT, CSV, Array of strings and Array of arrays in the Export
+dialog use that same union bounds for every Layers option (All merged, Active layer, or Each
+layer separately), so a
 file exported as Active layer lines up with one exported as All merged; the Layers option only
 changes which cells get exported, never the frame around them.
 
@@ -463,7 +465,7 @@ else that flattens), and the Active layer case is not padded to match any other 
 
 | Export | Layers become |
 | --- | --- |
-| TXT / CSV / Legacy (v1) | one grid, chosen by the Layers option in the Export dialog: All merged (visible layers merged bottom to top, hidden layers skipped, on the shared union bounds), Active layer (also padded to the union bounds), or Each layer separately - TXT/CSV only, one block per visible layer on the union bounds, headed `:: name` (TXT) or `# name` (CSV) |
+| TXT / CSV / Array of strings / Array of arrays | one grid, chosen by the Layers option in the Export dialog: All merged (visible layers merged bottom to top, hidden layers skipped, on the shared union bounds), Active layer (also padded to the union bounds), or Each layer separately - TXT/CSV only, one block per visible layer on the union bounds, headed `:: name` (TXT) or `# name` (CSV) |
 | KaPlay | a single `addLevel([...], { tiles })` call from one source grid - the flattened visible layers (top-wins), or the active layer - not padded to any shared frame |
 | Godot | one entry per layer in the `LEVELS` dictionary, keyed by layer name, plus a shared `TILES` dict and a `load_layer(tile_map, layer_name)` helper |
 | Tiled `.tmx` | one `<layer>` element per layer, in the same order as the level; hidden layers are exported too, marked `visible="0"` |
@@ -481,25 +483,27 @@ own To clipboard/Load/SWITCH FORMAT trio in Simplified mode is a separate, older
 same underlying data and still works exactly as before, see The Map card above.
 
 **Export** starts on a **This level / Whole project** switch, defaulting to This level. This
-level lists all eight formats as clickable rows - TXT, CSV, KaPlay, Godot, Tiled `.tmx`,
-REXPaint `.xp`, Level `.json`, Legacy v1 - each with a one-line description and a badge honestly
-stating whether it keeps your layers or flattens them (`layers: kept` for Godot/Tiled/`.xp`/
-Level `.json`, `layers: flattened` for TXT/CSV/KaPlay/Legacy v1). Picking a row that supports
-layer choices reveals a Layers pill (All merged / Active layer, plus Each layer separately for
-TXT and CSV only) right below it; picking Legacy v1 also reveals its own Array of strings/Array
-of arrays picker - the third v1 shape, plain Text, is left out here because it duplicates the
-TXT row already in the same dialog, and all three legacy shapes together are still available
-behind the SWITCH FORMAT link in Simplified mode's Map card, see Modes above. A live preview
-textarea below the options updates on every change; `.xp` being binary, its "preview" is just
-the first layer's own text and its Copy button is disabled with a tooltip, since there is
-nothing sensible to put on the clipboard - Save file still writes the real gzipped binary.
-Whole project shows a one-line description naming the current project and enables the same
-Copy/Save file pair for its `project.json`, or disables both with a hint if no project is open,
-see Project backup above. Copy and Save file are one fixed pair of buttons at the bottom of the
-dialog, retargeted to whatever is currently selected rather than duplicated per row, and
-keyboard navigation between format rows, the Layers pill and the Legacy picker never loses
-focus: only the small options area under the format list is rebuilt on a format change, while
-every interactive control is built once and lives for as long as the dialog does.
+level lists all nine formats as clickable rows - TXT, Array of strings, Array of arrays, CSV,
+KaPlay, Godot, Tiled `.tmx`, REXPaint `.xp`, Level `.json` - each with a one-line description
+and a badge honestly stating whether it keeps your layers or flattens them (`layers: kept` for
+Godot/Tiled/`.xp`/Level `.json`, `layers: flattened` for TXT/Array of strings/Array of
+arrays/CSV/KaPlay). Picking a row that supports layer choices reveals a Layers pill (All merged
+/ Active layer, plus Each layer separately for TXT and CSV only) right below it. Array of
+strings and Array of arrays are the two array shapes from the original v1 editor's Legacy
+export, each its own row here instead of a sub-picker under one shared Legacy row - the third
+v1 shape, plain Text, is left out here because it duplicates the TXT row already in the same
+dialog, and all three legacy shapes together are still available behind the SWITCH FORMAT link
+in Simplified mode's Map card, see Modes above. A live preview textarea below the options
+updates on every change; `.xp` being binary, its "preview" is just the first layer's own text
+and its Copy button is disabled with a tooltip, since there is nothing sensible to put on the
+clipboard - Save file still writes the real gzipped binary. Whole project shows a one-line
+description naming the current project and enables the same Copy/Save file pair for its
+`project.json`, or disables both with a hint if no project is open, see Project backup above.
+Copy and Save file are one fixed pair of buttons at the bottom of the dialog, retargeted to
+whatever is currently selected rather than duplicated per row, and keyboard navigation between
+format rows and the Layers pill never loses focus: only the small options area under the format
+list is rebuilt on a format change, while every interactive control is built once and lives for
+as long as the dialog does.
 
 **Import** starts with a **Load file...** button (any file, no extension filter) and a paste
 textarea, either of which runs the same auto-detection (`detectImport` in
@@ -574,7 +578,7 @@ src/
       generate.ts   maze/dungeon generator card, plus the generator path both cards share
       map.ts        Map card: the whole v1 main panel, Simplified mode only
       extra.ts      Extra features card: the two generators, Simplified mode only
-      exportModal.ts   Export dialog: This level/Whole project switch, 8 format rows with
+      exportModal.ts   Export dialog: This level/Whole project switch, 9 format rows with
                         layer badges, Copy/Save file
       importModal.ts   Import dialog: file/paste input, detectImport summary, contextual actions
 tests/              Vitest specs for core/ and export/ only
