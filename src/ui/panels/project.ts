@@ -311,8 +311,8 @@ export function initProject(ctx: PanelsCtx, box: HTMLElement, modals: LevelIoMod
     const ctx = { store: store ?? undefined, projectId: projectId ?? undefined };
     const row = el('div', 'btn-row');
     row.append(
-      button('Export...', '', () => modals.openExport(ctx)),
-      button('Import...', 'success', () => {
+      button('Export', '', () => modals.openExport(ctx)),
+      button('Import', 'success', () => {
         modals.openImport({ ...ctx, onChanged: () => { runOp(render()); } });
       }),
     );
