@@ -74,7 +74,7 @@ export function initPanels(ctx: PanelsContext): Panels {
   // wiec prawdziwe funkcje podpinamy dopiero gdy wszystkie moduly powstana
   const hooks: PanelHooks = {
     renderLegend: () => {}, renderLayers: () => {}, renderMap: () => {},
-    setBrush: () => {}, syncBrush: () => {},
+    setBrush: () => {}, syncBrush: () => {}, syncMapSize: () => {},
   };
   const panelsCtx: PanelsCtx = { ...ctx, onMutate, hooks };
 
@@ -98,6 +98,9 @@ export function initPanels(ctx: PanelsContext): Panels {
   hooks.renderMap = map.refresh;
   // pole Character z karty glownej ma nadazac za pedzlem ustawionym gdzie indziej (klawisz, chip)
   hooks.syncBrush = map.syncBrush;
+  // ramka podgladu (pola Width/Height) ma nadazac za KAZDA calkowita podmiana poziomu -
+  // patrz applyLevelToPanels w context.ts (import, przelaczenie poziomu, undo/redo)
+  hooks.syncMapSize = map.syncSize;
   // karta Extra features czyta z karty glownej rozmiar mapy i chowa sie przez jej checkbox
   initExtra(panelsCtx, extraBox, map);
   // karta projektow czyta magazyn asynchronicznie i sama rejestruje sie na zdarzenie zapisu

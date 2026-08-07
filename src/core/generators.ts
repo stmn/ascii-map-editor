@@ -98,16 +98,10 @@ export function generateDungeonDetailed(
     for (let x = Math.min(ax, bx); x <= Math.max(ax, bx); x++) floor(x, ay);
     for (let y = Math.min(ay, by); y <= Math.max(ay, by); y++) floor(bx, y);
   }
-  // obrys: kazda pusta komorka stykajaca sie z podloga -> '#'
-  const bounds = g.bounds();
-  if (bounds) {
-    for (let y = bounds.minY - 1; y <= bounds.maxY + 1; y++) {
-      for (let x = bounds.minX - 1; x <= bounds.maxX + 1; x++) {
-        if (g.get(x, y)) continue;
-        const touches = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]
-          .some(([dx, dy]) => g.get(x + dx!, y + dy!) === '.');
-        if (touches) g.set(x, y, '#');
-      }
+  // lita skala: kazda komorka ramki [0,w) x [0,h) ktora nie jest podloga -> '#'
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (g.get(x, y) !== '.') g.set(x, y, '#');
     }
   }
   return { grid: g, roomsPlaced: rooms.length };

@@ -6,6 +6,7 @@
 // Zero wlasnej logiki formatow ani podmiany poziomu: podglad idzie przez exportLegacyFlat,
 // Load przez dokladnie ta sama sciezke co wklejony tekst w modalu Import (migawka historii,
 // toasty, odswiezenia), a Clear przez wspolne applyReplace (jak Clear layer w karcie Draw).
+import type { Bounds } from '../../core/grid';
 import { unionBounds, type Level } from '../../core/level';
 import { parseProject } from '../../core/project';
 import { LegacyFormat, exportLegacyFlat } from '../../export/legacy';
@@ -38,6 +39,11 @@ export interface MapPanel {
   syncBrush(ch: string): void;
   /** Rozmiar z pol Width/Height, przyciety do zakresu - czyta go karta Extra features. */
   size(): { w: number; h: number };
+  /**
+   * Rozmiar pol (i ramki podgladu) z obrysu tresci - hook syncMapSize, wolany przez
+   * applyLevelToPanels przy KAZDEJ calkowitej podmianie poziomu (patrz context.ts).
+   */
+  syncSize(): void;
   /** Odznacza checkbox Extra features i chowa tamta karte - wola to X w jej naglowku. */
   hideExtra(): void;
   /**
@@ -63,20 +69,78 @@ export function initMap(
   }
 
   /**
-   * Rozmiar pol z obrysu mapy - wolane WYLACZNIE po udanym Load (v1 robil tam detectMapSize).
+   * Ramka podgladu W x H - POTWIERDZONY rozmiar pol, nie ich zywa (mozliwe niedokonczona)
+   * wartosc w trakcie pisania. Startuje na domyslnym rozmiarze pol; syncSize() (Load i jednorazowo
+   * przy starcie panelu) i onSizeChange (zdarzenie 'change' pol) sa jedynymi miejscami, ktore ja
+   * przestawiaja - dzieki temu odczyt pol gdziekolwiek indziej (np. kazdy refresh() przy malowaniu)
+   * nigdy nie przytnie/nadpisze pola w trakcie pisania w nim (patrz onSizeChange).
+   */
+  let frame = { w: DEFAULT_W, h: DEFAULT_H };
+
+  /**
+   * Rozmiar pol z obrysu mapy - wolane po udanym Load (v1 robil tam detectMapSize) i raz przy
+   * starcie panelu, zeby ramka podgladu od razu pasowala do tego, co przyszlo z magazynu.
    * Generatory swiadomie tedy nie ida: dla nich pola sa zamowieniem, a nie odbiciem wyniku
-   * (patrz panels/extra.ts). Malowanie tez nie - inaczej pola gonilyby kazde pociagniecie pedzla.
+   * (patrz panels/extra.ts) - i tak po FIX-ie generatory wypelniaja dokladnie zamowione W x H.
+   * Malowanie tez nie - inaczej pola gonilyby kazde pociagniecie pedzla.
    *
-   * Przypisanie do value i zaraz odczyt przez readNumber wyglada okreznie, ale to ten sam
-   * (jedyny) kod przycinajacy do zakresu pola - wczytana mapa moze byc wieksza niz MAX_SIZE.
+   * Przypisanie do value i zaraz odczyt przez size() wyglada okreznie, ale to ten sam (jedyny)
+   * kod przycinajacy do zakresu pola - wczytana mapa moze byc wieksza niz MAX_SIZE.
    */
   function syncSize(): void {
     const b = unionBounds(state.level.layers);
     if (!b) return;
     widthInput.value = String(b.maxX - b.minX + 1);
     heightInput.value = String(b.maxY - b.minY + 1);
-    size();
+    frame = size();
   }
+
+  /**
+   * Ramka podgladu mapy: W x H z pol (frame), zakotwiczona w lewym-gornym rogu biezacej tresci
+   * (albo (0,0), gdy mapa jest pusta). JEDYNE miejsce liczace ta ramke - korzysta z niej zarowno
+   * serializacja podgladu (currentExport), jak i przyciecie komorek przy pomniejszeniu (onSizeChange).
+   */
+  function frameBounds(): Bounds {
+    const b = unionBounds(state.level.layers);
+    const originX = b ? b.minX : 0, originY = b ? b.minY : 0;
+    return { minX: originX, minY: originY, maxX: originX + frame.w - 1, maxY: originY + frame.h - 1 };
+  }
+
+  /**
+   * Zdarzenie 'change' (NIE 'input' - nie przycinamy w trakcie pisania) obu pol rozmiaru:
+   * przeskalowanie ramki podgladu do W x H. Powiekszenie to tylko odswiezenie podgladu (nic nie
+   * znika, wiec bez wpisu w historii i bez autozapisu). Pomniejszenie wycina komorki poza nowa
+   * ramka przez applyReplace (Ctrl+Z przywraca) - bez potwierdzenia, tak jak w v1.
+   */
+  function onSizeChange(): void {
+    const before = frame;
+    frame = size();
+    if (frame.w === before.w && frame.h === before.h) return;
+    if (frame.w < before.w || frame.h < before.h) {
+      const f = frameBounds();
+      const outside = (x: number, y: number): boolean => (
+        x < f.minX || x > f.maxX || y < f.minY || y > f.maxY
+      );
+      // Prawdziwe pomniejszenie moze nie wyciac ani jednej komorki (tresc juz miesci sie w nowej
+      // ramce) - bez tej kontroli applyReplace i tak zostawilby PUSTY wpis w historii/autozapisie.
+      const hasOutside = state.level.layers.some((l) => [...l.grid.cells()].some((c) => outside(c.x, c.y)));
+      if (hasOutside) {
+        applyReplace(ctx, 'Resize map', () => {
+          for (const layer of state.level.layers) {
+            for (const { x, y } of [...layer.grid.cells()]) {
+              if (outside(x, y)) layer.grid.set(x, y, '');
+            }
+          }
+        });
+      }
+    }
+    // jawna akcja uzytkownika - przepisujemy podglad nawet gdy pole ma fokus albo wlasna
+    // wklejke (jak SWITCH FORMAT/Load), zeby zmiana W/H bylo widac "na zywo"
+    write();
+  }
+
+  widthInput.addEventListener('change', onSizeChange);
+  heightInput.addEventListener('change', onSizeChange);
 
   // --- znak pedzla ---
   // Pedzel jest wspolny z karta Draw (state.brush): pole ustawia go przez hook setBrush,
@@ -120,23 +184,30 @@ export function initMap(
   });
 
   /**
-   * Mapa w biezacym formacie. Blad (zbyt duze bounds) wraca jako tekst i laduje w samym polu,
-   * tak jak w podgladzie legacy - odswiezenie leci przy kazdej zmianie mapy, wiec toasty by
-   * zalaly ekran. Wynik trzymamy w cache po liczniku tresci i formacie: pyta o niego kazde
+   * Mapa w biezacym formacie, serializowana w ramce W x H z pol (frame/frameBounds), nie w ciasnym
+   * obrysie tresci - dzieki temu pola Width/Height dzialaja "na zywo": powiekszenie od razu pokazuje
+   * dodatkowe (puste = spacja) komorki w podgladzie. Blad (zbyt duze bounds) wraca jako tekst i laduje
+   * w samym polu, tak jak w podgladzie legacy - odswiezenie leci przy kazdej zmianie mapy, wiec toasty
+   * by zalaly ekran. Wynik trzymamy w cache po liczniku tresci, formacie i ramce: pyta o niego kazde
    * nacisniecie klawisza w polu (straznik wyzej) i kazdy hook renderMap, a mapa miedzy nimi
    * najczesciej sie nie zmienia.
    */
-  let exportCache: { rev: number; format: LegacyFormat; text: string } | null = null;
+  let exportCache: { rev: number; format: LegacyFormat; w: number; h: number; text: string } | null = null;
 
   function currentExport(): string {
-    if (exportCache?.rev !== state.contentRev || exportCache.format !== format) {
+    if (exportCache?.rev !== state.contentRev || exportCache.format !== format
+      || exportCache.w !== frame.w || exportCache.h !== frame.h) {
       let next: string;
       try {
-        next = exportLegacyFlat(state.level, format);
+        // trim=false: ramka pokazuje puste komorki jako spacje AZ DO W/H, nie obcina koncowek
+        // linii/wierszy - inaczej powiekszenie pola dopisywaloby puste komorki na koncu kazdej
+        // linii, ktore export text/array-text i tak zaraz by przycial (pole wygladaloby "na zywo"
+        // jak martwe, patrz tests rowniez export/legacy.ts).
+        next = exportLegacyFlat(state.level, format, frameBounds(), false);
       } catch (e) {
         next = errorMessage(e);
       }
-      exportCache = { rev: state.contentRev, format, text: next };
+      exportCache = { rev: state.contentRev, format, w: frame.w, h: frame.h, text: next };
     }
     return exportCache.text;
   }
@@ -192,8 +263,9 @@ export function initMap(
     // podglad wrocil do pokazywania stanu mapy - takze po pozniejszym undo.
     text.blur();
     userEdited = false;
+    // applyImported() idzie przez applyLevelToPanels, ktory sam wola syncMapSize (patrz context.ts) -
+    // osobne wywolanie tutaj byloby duplikatem tej samej sciezki.
     applyImported(level);
-    syncSize();
   }
 
   /** Czy na calym poziomie nie ma ANI JEDNEJ komorki - czyszczenie pustej mapy nie ma sensu. */
@@ -263,5 +335,11 @@ export function initMap(
     toggles,
   );
 
-  return { refresh, syncBrush, size, hideExtra, syncToggles };
+  // Jednorazowe wyrownanie ramki podgladu do tego, co juz jest w state.level przy starcie panelu
+  // (restore z magazynu ladowany jest PRZED initMap - patrz boot() w app.ts) - bez tego ramka
+  // zostalaby na domyslnym 14x12, a podglad przycinalby wiekszy przywrocony poziom od pierwszej klatki.
+  // Na calkiem pustym poziomie (nowy projekt) syncSize() jest no-opem i ramka zostaje na domyslnej.
+  syncSize();
+
+  return { refresh, syncBrush, size, syncSize, hideExtra, syncToggles };
 }

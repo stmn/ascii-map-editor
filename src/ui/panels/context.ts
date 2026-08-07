@@ -40,6 +40,14 @@ export interface PanelHooks {
    * konczy sie tak samo - to druga polowa dwustronnej synchronizacji.
    */
   syncBrush(ch: string): void;
+  /**
+   * Rozmiar pol Width/Height karty Map (Simplified) z obrysu tresci - patrz map.ts/syncSize.
+   * Wolane przez applyLevelToPanels PRZY KAZDEJ calkowitej podmianie poziomu (import, przelaczenie
+   * poziomu, undo/redo generatora/Clear/resize), zeby ramka podgladu zawsze pasowala do tego, co
+   * faktycznie jest na mapie - bez tego np. Ctrl+Z po pomniejszeniu przywracalby tresc pod spodem,
+   * ale podglad zostalby przyciety do starej (juz nieaktualnej) ramki.
+   */
+  syncMapSize(): void;
   /** Podpina panels/history.ts; do jego zlozenia (i w testach bez paneli) wywolania sa cichym no-op. */
   pushHistory?(cmd: Command): void;
 }
@@ -70,6 +78,7 @@ export function applyLevelToPanels(ctx: PanelsCtx, level: Level): boolean {
   ctx.markDirty();
   ctx.hooks.renderLayers();
   ctx.hooks.renderLegend();
+  ctx.hooks.syncMapSize();
   ctx.hooks.renderMap();
   return trimmed;
 }

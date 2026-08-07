@@ -89,6 +89,25 @@ describe('generators', () => {
   });
 });
 
+describe('generateDungeonDetailed: wypelnienie calej ramki', () => {
+  it('kazda komorka [0,w)x[0,h) jest ustawiona (# lub .), bounds == w x h', () => {
+    const w = 40, h = 24;
+    const { grid } = generateDungeonDetailed(w, h, { roomTries: 30, rng: mulberry32(7) });
+    expect(grid.bounds()).toEqual({ minX: 0, minY: 0, maxX: w - 1, maxY: h - 1 });
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        expect(grid.get(x, y)).not.toBeNull();
+      }
+    }
+  });
+
+  // Petla stawiania pokoi jest nietknieta - ta sama liczba pokoi dla tego samego seeda co przed fixem.
+  it('roomsPlaced dla seeda 7 (roomTries=30) jest bez zmian', () => {
+    const { roomsPlaced } = generateDungeonDetailed(40, 24, { roomTries: 30, rng: mulberry32(7) });
+    expect(roomsPlaced).toBe(7);
+  });
+});
+
 describe('generateDungeonDetailed: roomTarget', () => {
   // Duza plansza (60x40) z domyslnym zakresem boku pokoju (4-10) miesci cel bez trudu -
   // wewnetrzny limit prob (roomTarget * 25) nie powinien byc w ogole potrzebny.
@@ -118,30 +137,39 @@ describe('generateDungeonDetailed: roomTarget', () => {
   // dla ustalonego seeda jako zloty wzorzec (golden): wartosc ponizej zostala recznie zweryfikowana
   // jako identyczna z wynikiem sprzed refaktoru (ta sama liczba iteracji petli i ta sama kolejnosc
   // wywolan ri() dla trybu bez roomTarget) - jesli kiedys rozjedzie sie z Detailed, ten test to wylapie.
+  //
+  // UWAGA: golden ponizej zostal SWIADOMIE zaktualizowany dla FIX "wypelnij cala ramke" (2026-08-07,
+  // zgloszenie usera) - wczesniej obrys byl cienki (tylko '#' stykajace sie z podloga), reszta planszy
+  // pusta. Zweryfikowano probka porownawcza: pozycje podlogi ('.') sa identyczne co do komorki
+  // (272 komorki, ten sam zestaw x,y) wzgledem golden sprzed fixu - roznica jest WYLACZNIE w tym,
+  // ze puste komorki w ramce 40x24 sa teraz '#' zamiast spacji/nieobecne, a bounds() to teraz caly
+  // zamowiony prostokat (0,0)-(39,23) zamiast ciasnego obrysu wokol podlogi.
   it('dungeon: legacy roomTries (bez roomTarget) daje zamrozony wynik dla seeda 7 (golden)', () => {
     const golden = [
-      '    #######',
-      '    #.....#',
-      '    #.....# #########',
-      '    #.....# #.......#',
-      '    #.....# #.......#        ######',
-      '    #.....###.......#        #....#',
-      '    #...............#        #....#',
-      '    #.....#.#.......#        #....#',
-      '    #.....#.#.......#        #....#',
-      '    #.....#.####.##.#        ###.##',
-      '    #.....#.#  #.##.#          #.#',
-      '    ###.###.#  #.##.###        #.####',
-      '#######.# #.#  #......#        #....#',
-      '#.......###.####......##########....#',
-      '#.............##....................#',
-      '#...................................#',
-      '#.............###.....###############',
-      '#######.......# #.....#',
-      '      ##......# #######',
-      '       #......#',
-      '       #......#',
-      '       ########',
+      '########################################',
+      '########################################',
+      '#######.....############################',
+      '#######.....############################',
+      '#######.....###.......##################',
+      '#######.....###.......##################',
+      '#######.....###.......##########....####',
+      '#######...............##########....####',
+      '#######.....#.#.......##########....####',
+      '#######.....#.#.......##########....####',
+      '#######.....#.####.##.############.#####',
+      '#######.....#.####.##.############.#####',
+      '#########.###.####.##.############.#####',
+      '#########.###.####......##########....##',
+      '###.......###.####......##########....##',
+      '###.............##....................##',
+      '###...................................##',
+      '###.............###.....################',
+      '#########.......###.....################',
+      '##########......########################',
+      '##########......########################',
+      '##########......########################',
+      '########################################',
+      '########################################',
     ];
     const lines = generateDungeon(40, 24, 30, mulberry32(7)).toLines();
     expect(lines).toEqual(golden);
