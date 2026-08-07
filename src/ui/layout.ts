@@ -309,14 +309,19 @@ function startDrag(card: HTMLElement, e: DragEvent): void {
   card.classList.add('dragging');
   // podczas przeciagania obie kolumny musza lapac zdarzenia (na co dzien ich nie lapia,
   // zeby przerwy miedzy kartami nie zjadaly klikniec w mape)
-  for (const box of boxes()) box.classList.add('drag-active');
+  // toggle(x, true) zamiast add(): autohide.ts obserwuje ta klase przez MutationObserver,
+  // wiec ustawienie jej na juz obecny stan ma NIE odpalac zbednej mutacji/evaluate()
+  for (const box of boxes()) box.classList.toggle('drag-active', true);
 }
 
 function endDrag(): void {
   dragged?.classList.remove('dragging');
   dragged = null;
   hideLine();
-  for (const box of boxes()) box.classList.remove('drag-active');
+  // endDrag() leci DWA razy na drag (drop wola je wprost, a dragend i tak nastepuje zaraz
+  // potem) - toggle(x, false) zamiast remove() gwarantuje, ze druga, zbedna zmiana nie
+  // odpali ponownie MutationObservera w autohide.ts (patrz komentarz przy startDrag)
+  for (const box of boxes()) box.classList.toggle('drag-active', false);
 }
 
 function bindCard(card: HTMLElement): void {

@@ -132,10 +132,9 @@ function mountPinButton(box: HTMLElement, side: Side): void {
   const btn = iconButton(pinIcon(unpinned), 'pin-btn', pinTitle(unpinned), () => {
     setUnpinned(side, !isUnpinned(side));
     syncPinButton(btn, side);
-    // klikniety przycisk zostaje przez przegladarke sfokusowany - bez blur() ta pinezka
-    // (jako dziecko kolumny) trwale liczylaby sie jako "fokus wewnatrz sidebara" i po
-    // odpieciu auto-hide nigdy by sie nie uruchomilo, dopoki user nie kliknie/tabnie gdzie indziej
-    btn.blur();
+    // fokus po kliku (przegladarka zostawia go na klikanym przycisku) NIE ma sam z siebie
+    // wymuszac widocznosci - patrz wykluczenie pinezki w bindFocus. Zadnego blur() tutaj:
+    // kasowalby fokus tez userowi klawiatury (Tab+Enter), ktory ma go zachowac na przycisku
     evaluate(side);
   });
   box.prepend(btn);
@@ -147,12 +146,24 @@ function watchClassChanges(target: Element, onChange: () => void): void {
   new MutationObserver(onChange).observe(target, { attributes: true, attributeFilter: ['class'] });
 }
 
+/** Fokus NA SAMEJ pinezce nie liczy sie jako "fokus wewnatrz sidebara" (wykluczenie, nie blur):
+ * mysz zostawia tam fokus po kazdym kliku, a to nie jest sygnal "user nawiguje po karcie".
+ * Fokus klawiaturowy (Tab dalej, w realna kontrolke karty) nadal normalnie wymusza widocznosc -
+ * wykluczony jest tylko ten jeden przycisk, nie cala kolumna. */
+function isPinButton(target: EventTarget | null): boolean {
+  return target instanceof HTMLElement && target.classList.contains('pin-btn');
+}
+
 function bindFocus(box: HTMLElement, side: Side): void {
-  box.addEventListener('focusin', () => {
+  box.addEventListener('focusin', (e) => {
+    if (isPinButton(e.target)) return;
     focusWithin.set(side, true);
     evaluate(side);
   });
   box.addEventListener('focusout', (e) => {
+    // BEZ wykluczenia pinezki tutaj (w odroznieniu od focusin): jesli to ona jest ostatnim
+    // przystankiem przed opuszczeniem kolumny, to nadal realne wyjscie i focusWithin ma
+    // wrocic na false - wykluczenie dotyczy tylko WCHODZENIA fokusu NA sam przycisk.
     // focusout leci tez przy przejsciu miedzy kontrolkami wewnatrz kolumny - liczy sie
     // dopiero wyjscie POZA nia (ten sam wzorzec co dragleave w layout.ts)
     const to = e.relatedTarget;
