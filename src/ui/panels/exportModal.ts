@@ -394,7 +394,7 @@ export function initExportModal(ctx: PanelsCtx): ExportPanel {
   const levelPanelEl = el('div', 'field-col');
   levelPanelEl.append(formatListEl, optionsSlot, previewText);
 
-  const projectDescEl = el('p', 'hint');
+  const projectDescEl = el('p', 'hint help-box hint-small');
   const projectPanelEl = el('div');
   projectPanelEl.append(projectDescEl);
 

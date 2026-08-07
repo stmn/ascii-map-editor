@@ -394,7 +394,7 @@ export function initProject(ctx: PanelsCtx, box: HTMLElement, modals: LevelIoMod
     box.append(select, actions);
 
     if (!projectId) {
-      box.append(el('p', 'hint', 'No projects yet - create one to start.'), ioRow(store, projectId));
+      box.append(el('p', 'hint help-box hint-small', 'No projects yet - create one to start.'), ioRow(store, projectId));
       return;
     }
 
@@ -429,7 +429,7 @@ export function initProject(ctx: PanelsCtx, box: HTMLElement, modals: LevelIoMod
       // na projekcie jako disabled (T3/T4).
       rows.clear(); // wiersze znikaja z DOM, wiec mapa nie moze zostac z odpietymi wezlami
       box.replaceChildren(
-        el('p', 'hint', 'Storage unavailable - projects cannot be saved.'), ioRow(null, null),
+        el('p', 'hint help-box hint-small', 'Storage unavailable - projects cannot be saved.'), ioRow(null, null),
       );
       return;
     }

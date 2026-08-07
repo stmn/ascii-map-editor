@@ -65,7 +65,7 @@ export function initLegend(ctx: PanelsCtx, legendBox: HTMLElement): LegendPanel 
     const entries = state.level.legend.entries();
     legendBox.replaceChildren();
     if (entries.length === 0) {
-      legendBox.append(el('p', 'hint', 'Paint something to fill the legend.'));
+      legendBox.append(el('p', 'hint help-box hint-small', 'Paint something to fill the legend.'));
       return;
     }
     for (const entry of entries) {

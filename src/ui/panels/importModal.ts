@@ -212,7 +212,7 @@ export function initImportModal(ctx: PanelsCtx): ImportPanel {
   const importBody = el('div');
   importBody.append(
     fileLabel,
-    el('p', 'hint', 'Accepts a level, project or legacy workspace - JSON, plain text or REXPaint .xp.'),
+    el('p', 'hint help-box hint-small', 'Accepts a level, project or legacy workspace - JSON, plain text or REXPaint .xp.'),
     el('hr', 'modal-sep'),
     pasteArea,
     resultBox,

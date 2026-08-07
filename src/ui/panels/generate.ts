@@ -77,6 +77,6 @@ export function initGenerate(ctx: PanelsCtx, generateBox: HTMLElement): void {
   dungeonButton.append(button('Dungeon', '', () => generate('dungeon')));
   generateBox.append(
     sizes, mazeButton, roomsField, dungeonButton,
-    el('p', 'hint hint-small hint-gap', 'Generating replaces the active layer.'),
+    el('p', 'hint help-box hint-small hint-gap', 'Generating replaces the active layer.'),
   );
 }

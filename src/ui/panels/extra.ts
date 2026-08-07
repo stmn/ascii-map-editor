@@ -48,7 +48,7 @@ export function initExtra(ctx: PanelsCtx, extraBox: HTMLElement, map: MapPanel):
       minRoom: readNumber(minRoom, DEFAULT_MIN_ROOM),
       maxRoom: readNumber(maxRoom, DEFAULT_MAX_ROOM),
     })),
-    el('p', 'hint hint-small hint-gap', 'Generating replaces the whole map.'),
+    el('p', 'hint help-box hint-small hint-gap', 'Generating replaces the whole map.'),
   );
 
   // X w naglowku karty - odznacza checkbox "Extra features" w karcie glownej (jedyna droga
