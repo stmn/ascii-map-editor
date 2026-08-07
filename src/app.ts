@@ -54,9 +54,15 @@ export function markDirty(): void { dirty = true; }
  * mapa zawsze centruje sie na pelnym oknie (v2.9, patrz spec pkt 1). Czysta funkcja
  * (centeredPan w renderer.ts) - JEDYNA implementacja tej matematyki: centerOnPaper stosuje
  * wynik do widoku, isViewCentered porownuje go z biezacym panem (fab centrowania).
+ *
+ * w/h opcjonalne (domyslnie biezacy rozmiar canvasa) - resize handler potrzebuje policzyc
+ * "czy BYL wycentrowany" dla rozmiaru SPRZED zmiany, a canvas.clientWidth/Height to CSS
+ * (100vw/100vh) - przegladarka przelicza layout PRZED wyemitowaniem zdarzenia 'resize', wiec
+ * w momencie handlera clientWidth juz pokazuje NOWY rozmiar. Jedyny sposob na stary rozmiar
+ * to zapamietany zrzut sprzed zmiany (patrz lastViewportW/H nizej).
  */
-function targetPan(): { panX: number; panY: number } {
-  return centeredPan(paperRect(state.level), state.view.scale, canvas.clientWidth, canvas.clientHeight);
+function targetPan(w = canvas.clientWidth, h = canvas.clientHeight): { panX: number; panY: number } {
+  return centeredPan(paperRect(state.level), state.view.scale, w, h);
 }
 
 function centerOnPaper(): void {
@@ -69,12 +75,21 @@ function centerOnPaper(): void {
  * chowa sie wtedy. Male zaokraglenia zoomu/panu nie moga migotac przyciskiem. */
 const CENTER_THRESHOLD_PX = 2;
 
-/** Czy biezacy widok jest (w granicach progu) wycentrowany - steruje widocznoscia faba. */
-function isViewCentered(): boolean {
-  const t = targetPan();
+/** Czy biezacy widok jest (w granicach progu) wycentrowany dla podanego rozmiaru (domyslnie
+ * biezacy) - steruje widocznoscia faba, a z jawnym rozmiarem takze ocena "przed resize". */
+function isViewCentered(w = canvas.clientWidth, h = canvas.clientHeight): boolean {
+  const t = targetPan(w, h);
   return Math.abs(state.view.panX - t.panX) <= CENTER_THRESHOLD_PX
     && Math.abs(state.view.panY - t.panY) <= CENTER_THRESHOLD_PX;
 }
+
+/**
+ * Rozmiar canvasa z OSTATNIEGO przetworzonego resize (albo z bootu, zanim pierwszy resize
+ * nadejdzie) - jedyne miejsce, z ktorego resize handler moze odczytac rozmiar SPRZED biezacej
+ * zmiany (zobacz komentarz przy targetPan). Aktualizowane wylacznie w handlerze nizej.
+ */
+let lastViewportW = canvas.clientWidth;
+let lastViewportH = canvas.clientHeight;
 
 // --- pociagniecie pedzla jako jedna komenda historii ---------------------------
 
@@ -296,7 +311,19 @@ canvas.addEventListener('pointerleave', () => {
 });
 
 window.addEventListener('resize', () => {
+  // wasCentered liczony z lastViewportW/H (rozmiar SPRZED tej zmiany) - NIE z canvas.clientWidth,
+  // bo to CSS (100vw/100vh) i przegladarka przelicza layout zanim w ogole wyemituje 'resize',
+  // wiec w tym miejscu clientWidth juz pokazuje NOWY rozmiar (patrz komentarz przy targetPan).
+  // Boot przy schowanym embedzie (itch) potrafi zlapac canvas 0x0 lub bardzo maly - wtedy pan wychodzi
+  // rowny centeredPan(0) i widok liczy sie jako wycentrowany, wiec pierwszy realny resize po ujawnieniu
+  // embedu poprawnie wysrodkuje mape zamiast zostawic ja w rogu (zob. zgloszenie usera).
+  const wasCentered = isViewCentered(lastViewportW, lastViewportH);
   renderer.resize();
+  lastViewportW = canvas.clientWidth;
+  lastViewportH = canvas.clientHeight;
+  // Widok przesuniety recznie przez usera zostaje NIETKNIETY - poprawiamy pan absolutny tylko wtedy,
+  // gdy przed resize mapa byla (w granicach progu) wycentrowana.
+  if (wasCentered) centerOnPaper();
   markDirty();
 });
 
