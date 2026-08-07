@@ -20,8 +20,11 @@ const HIDDEN_CLASS = 'hidden';
 
 /** Strefa krawedzi okna: kursor blizej niz tyle px wysuwa schowana kolumne (brief pkt 2). */
 const EDGE_ZONE_PX = 48;
-/** Opoznienie miedzy opuszczeniem kolumny/strefy a faktycznym schowaniem (brief pkt 2). */
-const HIDE_DELAY_MS = 400;
+/** Opoznienie miedzy opuszczeniem kolumny/strefy a faktycznym schowaniem - 0, chowanie ma byc
+ * natychmiastowe (v2.9.2). setTimeout(0) zostaje mimo braku zwloki: kolejka makrotaskow daje
+ * rewalidacji w scheduleHide szanse zobaczyc stan (modal/drag/fokus) sprzed samego schowania,
+ * a nie tylko sprzed jego zaplanowania - ten sam powod co wczesniej, tylko krotszy odstep. */
+const HIDE_DELAY_MS = 0;
 
 /** Ostatnia znana pozycja kursora - pointermove ja aktualizuje, evaluate() czyta ja tez poza
  * tym zdarzeniem (np. po zmianie klasy). Y ujemne = mysz jeszcze sie nie ruszyla - wtedy nic

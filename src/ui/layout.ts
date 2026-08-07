@@ -286,8 +286,9 @@ function showLine(box: HTMLElement, before: HTMLElement | null): void {
     ? ref.offsetTop - CARD_GAP / 2 - 1
     : ref.offsetTop + ref.offsetHeight + CARD_GAP / 2 - 1;
   line.style.top = `${Math.max(0, top)}px`;
-  // szerokosc i lewa krawedz z karty, nie z CSS: klasyczny scrollbar zweza karty,
-  // a lewa kolumna ma wlasny padding
+  // szerokosc i lewa krawedz z karty, nie z CSS: scrollbar jest od v2.9.2 zawsze niewidoczny
+  // i obie kolumny maja identyczny padding, ale odczyt z DOM (zamiast twardych stalych)
+  // zostaje odporny na kazda przyszla zmiane geometrii .sidebar
   line.style.left = `${ref.offsetLeft}px`;
   line.style.width = `${ref.offsetWidth}px`;
   // dragover leci przy kazdym drgnieciu myszy - przepinamy wezel tylko przy zmianie kolumny

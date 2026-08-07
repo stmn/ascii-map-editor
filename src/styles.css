@@ -71,55 +71,55 @@ textarea {
   position: fixed;
   top: 12px;
   bottom: 12px;
-  /* content-box: 8px odstepu od scrollbara doklada sie obok kart, a nie ich kosztem
-     (przy overlay scrollbarze karty maja pelne 300px, przy klasycznym pasek zabiera swoje
-     - tak jak przed dodaniem odstepu - ale juz nie dotyka ramek) */
-  box-sizing: content-box;
   display: flex;
   flex-direction: column;
   gap: 12px;
   width: 300px;
   overflow-y: auto;
-  /* stale miejsce na scrollbar + 8px odstepu, zeby nigdy nie dotykal ramek kart.
-     Padding gora/dol to zapas na wskaznik wstawienia przy skrajnych pozycjach. */
-  scrollbar-gutter: stable;
-  padding: 6px 8px 6px 0;
+  /* Scrollbar zawsze niewidoczny - kolko/trackpad dalej scrolluja (overflow-y: auto zostaje),
+     tylko sam pasek znika. scrollbar-width dziala w Firefoksie; Chrome/Safari go ignoruja,
+     stad osobna regula .sidebar::-webkit-scrollbar nizej. Bez widocznego paska nie trzeba juz
+     rezerwowac dla niego miejsca ani dokladac poziomego paddingu - obie kolumny maja teraz
+     identyczna szerokosc i geometrie kart. */
+  scrollbar-width: none;
+  /* Padding gora/dol: zapas na wskaznik wstawienia przy skrajnych pozycjach (patrz .drop-line). */
+  padding: 6px 0;
   pointer-events: none;
   /* Auto-hide (ui/autohide.ts): jedyna zmienna wlasciwosc to transform (patrz .hidden nizej),
      wiec transition ogranicza sie do niej - 150ms w obie strony (wysuwanie i chowanie). */
   transition: transform 150ms ease;
 }
 
+/* Chrome/Safari ignoruja scrollbar-width (wyzej) - trzeba je osobno wygasic pseudo-elementem. */
+.sidebar::-webkit-scrollbar {
+  display: none;
+}
+
 #sidebar {
   right: 12px;
 }
 
-/* padding-left lustrzany do prawej kolumny - karty obu kolumn stoja tak samo daleko
-   od krawedzi okna (scrollbar i tak renderuje sie po prawej, w LTR) */
 #sidebar-left {
   left: 12px;
-  padding-left: 8px;
 }
 
 /* Odpieta kolumna schowana przez autohide.ts: przesuniecie tak, zeby zostal widoczny pasek
    32px karty, przylegly do krawedzi okna (reszta karty wyjezdza poza okno - obcina ja sam
    viewport, nie wlasny kontener). To "ucho" jest fragmentem samego sidebara (kart), nie
-   osobnym elementem. 100% w translateX to szerokosc border-box KONTENERA .sidebar, a nie
-   samej karty - kontenery obu stron maja rozna szerokosc (prawa: 300px contentu + padding
-   0/8 = 308px; lewa: 300px + padding 8/8 = 316px), stad rozne stale w calc() (20 vs 43),
-   mimo ze efekt koncowy (32px po obu stronach) jest identyczny. Roznica jest wieksza niz
-   same 8px paddingu by sugerowaly, bo lewa karta jest dodatkowo wezsza od prawej -
-   scrollbar-gutter: stable (patrz .sidebar wyzej) zabiera miejsce z contentu kontenera,
-   wiec obie stale zostaly dobrane empirycznie (CDP, getBoundingClientRect pierwszej
-   widocznej karty), nie samym wyliczeniem z box modelu. Kierunek jest przeciwny dla kazdej
-   strony (prawa ucieka w prawo ku krawedzi okna, lewa w lewo), stad dwie reguly zamiast
-   jednej wspolnej z .sidebar.hidden. */
+   osobnym elementem. 100% w translateX to szerokosc border-box KONTENERA .sidebar (300px),
+   a widoczny pasek to 12px (odstep .sidebar od krawedzi okna, patrz right/left nizej) + stala
+   z calc() - stad 20, nie 32, w obu regulach. Od v2.9.2 kontenery obu stron maja identyczna
+   szerokosc i zerowy poziomy padding (bez zarezerwowanego miejsca na scrollbar), wiec stala
+   jest teraz ta sama po obu stronach - dawniej lewa kolumna (szersza o padding i o
+   scrollbar-gutter) potrzebowala az 43, zeby wyjsc na te same 32px. Kierunek jest przeciwny
+   dla kazdej strony (prawa ucieka w prawo ku krawedzi okna, lewa w lewo), stad dwie reguly
+   zamiast jednej wspolnej z .sidebar.hidden. */
 #sidebar.hidden {
   transform: translateX(calc(100% - 20px));
 }
 
 #sidebar-left.hidden {
-  transform: translateX(calc(-100% + 43px));
+  transform: translateX(calc(-100% + 20px));
 }
 
 /* Karta sekcji: biale tlo, gruba czarna ramka 4px jak panele w v1. */

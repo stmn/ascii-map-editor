@@ -163,8 +163,9 @@ fixed overlays that float on top of the map rather than sharing the window with 
 card between columns, dragging a card within a column, and switching between Advanced and
 Simplified all leave the view exactly where it was: pan, zoom and vertical scroll survive every
 one of them untouched, and re-centering only ever happens through the Center button or the
-floating center button below. Both columns keep a fixed 8px gap between their cards and the
-scrollbar, so a classic (non-overlay) scrollbar never touches a card's border.
+floating center button below. Both columns hide their scrollbar entirely (the wheel and
+trackpad still scroll a column that overflows), so the two columns stay geometrically
+identical - no gap or padding set aside for a visible scrollbar.
 
 ### Sidebar auto-hide
 
@@ -174,13 +175,12 @@ pinned column behaves exactly as it always has: always fully on screen, nothing 
 Clicking the pin (tooltip "Unpin sidebar", flipping to "Pin sidebar" once clicked) unpins that
 column only; the two sides are independent.
 
-An unpinned column auto-hides once the cursor moves away and stays away: it slides sideways
-behind the window's edge, leaving a 32px sliver of itself (still the same sidebar, not a
-separate element) poking in flush against that edge, evenly on both sides. Hiding waits about
-400ms after the cursor leaves, so a quick pass over the desk does not trigger it, and the slide
-itself is a smooth ~150ms transform. Moving the cursor back within about 48px of the window's
-edge, or anywhere over the column itself (the sliver when hidden, the full column once open),
-brings it back the same way.
+An unpinned column auto-hides as soon as the cursor moves away and stays away: it slides
+sideways behind the window's edge, leaving a 32px sliver of itself (still the same sidebar, not
+a separate element) poking in flush against that edge, evenly on both sides. Hiding starts
+immediately once the cursor leaves, and the slide itself is a smooth ~150ms transform. Moving
+the cursor back within about 48px of the window's edge, or anywhere over the column itself (the
+sliver when hidden, the full column once open), brings it back the same way.
 
 Auto-hide never fires while it would get in the way: dragging a card, keyboard focus on one of
 the column's own controls, or a modal dialog being open (Export, Import, a confirmation, the
