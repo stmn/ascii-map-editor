@@ -86,11 +86,11 @@ export function initGenerate(ctx: PanelsCtx, generateBox: HTMLElement): void {
   // wzorzec co w karcie Map (Simplified), patrz .field-row w styles.css. Rozmiar dotyczy OBU
   // generatorow nizej, wiec stoi nad nimi, poza ktorakolwiek sekcja.
   const sizes = el('div', 'field-row');
-  sizes.append(labeledStack('Width', widthInput), labeledStack('Height', heightInput));
+  sizes.append(labeledStack('Width:', widthInput), labeledStack('Height:', heightInput));
 
   const rooms = el('div', 'field-col');
   rooms.append(
-    labeledStack('Rooms', roomsInput),
+    labeledStack('Rooms:', roomsInput),
     labeledStack('Min. room size:', minRoomInput), labeledStack('Max. room size:', maxRoomInput),
   );
 
